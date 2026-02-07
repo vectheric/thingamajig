@@ -1,0 +1,1352 @@
+/* ========== DARK THEME - Things Roller ========== */
+:root {
+    --bg-page: #0d0d10;
+    --bg-panel: #16161c;
+    --bg-section: #1c1c24;
+    --bg-card: #22222c;
+    --border: #2a2a36;
+    --border-muted: #252530;
+    --text: #e8e8ed;
+    --text-muted: #9898a8;
+    --accent: #7c6cf4;
+    --accent-dim: #5b4fd4;
+    --success: #34d399;
+    --danger: #f87171;
+    --warning: #fbbf24;
+    --common: #71717a;
+    --uncommon: #22c55e;
+    --rare: #3b82f6;
+    --epic: #a78bfa;
+    --legendary: #f59e0b;
+    --panel-width: 1200px;
+    --panel-height: 880px;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: var(--bg-page);
+    color: var(--text);
+    min-height: 100vh;
+    overflow: hidden;
+}
+
+/* Full screen: site covers entire viewport */
+#game-container {
+    position: fixed;
+    inset: 0;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+}
+
+#game-ui {
+    background: var(--bg-panel);
+    width: 100%;
+    height: 100%;
+    min-width: 100vw;
+    min-height: 100vh;
+    box-shadow: none;
+    overflow-y: auto;
+    overflow-x: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+/* ========== Notifications: fixed overlay, never affect layout ========== */
+#notification-container {
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    width: 320px;
+    max-width: calc(100vw - 32px);
+    z-index: 10000;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    pointer-events: none;
+}
+
+.notification {
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 0.8rem;
+    animation: notificationIn 0.35s ease-out;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+    border-left: 3px solid;
+    pointer-events: auto;
+    line-height: 1.3;
+}
+.notification-count {
+    opacity: 0.9;
+    font-size: 0.85em;
+    margin-left: 4px;
+}
+
+.notification-error {
+    background: #3d2020;
+    color: #fca5a5;
+    border-left-color: var(--danger);
+}
+
+.notification-success {
+    background: #163d2a;
+    color: #86efac;
+    border-left-color: var(--success);
+}
+
+.notification-info {
+    background: #1e293b;
+    color: #93c5fd;
+    border-left-color: #3b82f6;
+}
+
+.notification-epic {
+    background: #422006;
+    color: #fde047;
+    border-left-color: var(--legendary);
+    animation: notificationIn 0.35s ease-out, pulse-notification 0.8s ease-in-out infinite;
+}
+
+@keyframes notificationIn {
+    from {
+        opacity: 0;
+        transform: translateX(24px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes pulse-notification {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.9; }
+}
+
+/* ========== Perk Topbar ========== */
+.perk-topbar {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    padding: 12px 20px;
+    background: var(--bg-section);
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+}
+
+.topbar-title {
+    font-weight: 600;
+    color: var(--text-muted);
+    font-size: 0.95rem;
+}
+
+.topbar-perks {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    flex: 1;
+}
+
+.topbar-perk-badge {
+    background: var(--bg-card);
+    color: var(--accent);
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    border: 1px solid var(--border);
+}
+
+.no-perks {
+    color: var(--text-muted);
+    font-style: italic;
+    font-size: 0.9rem;
+}
+
+.stats-button {
+    background: var(--bg-card);
+    color: var(--text);
+    border: 1px solid var(--border);
+    padding: 8px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.9rem;
+    transition: background 0.2s, border-color 0.2s;
+}
+
+.stats-button:hover {
+    background: var(--border);
+    border-color: var(--accent);
+}
+
+.index-button {
+    background: var(--bg-card);
+    color: var(--text);
+    border: 1px solid var(--border);
+    padding: 8px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.9rem;
+    transition: background 0.2s, border-color 0.2s;
+}
+.index-button:hover {
+    background: var(--border);
+    border-color: var(--accent);
+}
+
+/* ========== Stats Modal ========== */
+.stats-modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    animation: fadeIn 0.2s ease-out;
+}
+
+.stats-content {
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 32px;
+    max-width: 520px;
+    max-height: 85vh;
+    overflow-y: auto;
+    position: relative;
+    animation: slideUp 0.25s ease-out;
+}
+
+.stats-close {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-size: 1.2rem;
+    cursor: pointer;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s;
+}
+
+.stats-close:hover {
+    background: var(--border);
+}
+
+.stats-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--accent);
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+/* ========== Index / Knowledge Modal ========== */
+.index-modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    animation: fadeIn 0.2s ease-out;
+}
+.index-content {
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    max-width: 560px;
+    max-height: 85vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+}
+.index-close {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-size: 1.2rem;
+    cursor: pointer;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.index-title {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: var(--accent);
+    margin-bottom: 16px;
+    text-align: center;
+}
+.index-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+.index-tab {
+    padding: 8px 16px;
+    border: 1px solid var(--border);
+    background: var(--bg-card);
+    color: var(--text);
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+}
+.index-tab:hover, .index-tab.active {
+    border-color: var(--accent);
+    background: var(--border);
+}
+.index-panel {
+    overflow-y: auto;
+    flex: 1;
+    min-height: 200px;
+}
+.index-entry {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.index-entry-name {
+    font-weight: 700;
+    color: var(--text);
+}
+.index-entry-meta {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+.index-empty {
+    color: var(--text-muted);
+    padding: 20px;
+    text-align: center;
+}
+
+.attribute-item {
+    background: var(--bg-section);
+    padding: 12px 16px;
+    border-radius: 8px;
+    margin-bottom: 10px;
+    border-left: 3px solid var(--accent);
+}
+
+.attribute-name {
+    font-weight: 600;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+}
+
+.attribute-value {
+    color: var(--text);
+    font-size: 1.15rem;
+    font-weight: 700;
+    margin-top: 4px;
+}
+
+/* ========== Game Header ========== */
+.game-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+    gap: 16px;
+}
+
+.game-title {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: var(--text);
+}
+.route-badge {
+    font-size: 0.6em;
+    font-weight: 600;
+    color: var(--text-muted);
+    background: var(--bg-card);
+    padding: 4px 10px;
+    border-radius: 20px;
+    margin-left: 10px;
+    vertical-align: middle;
+}
+
+.game-stats {
+    display: flex;
+    gap: 24px;
+    font-size: 1rem;
+}
+
+.stat-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.stat-label {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-bottom: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.stat-value {
+    font-weight: 700;
+    font-size: 1.25rem;
+    color: var(--text);
+}
+
+.stat-cash {
+    color: var(--success) !important;
+}
+
+.stat-chips {
+    color: var(--rare) !important;
+}
+
+.cash-with-tooltip {
+    position: relative;
+}
+
+.cash-tooltip-wrapper {
+    position: relative;
+    cursor: help;
+}
+
+.interest-tooltip {
+    position: absolute;
+    bottom: -36px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--warning);
+    color: #1c1917;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+    z-index: 100;
+}
+
+.interest-tooltip.visible {
+    position: fixed;
+    transform: none;
+    opacity: 1;
+    z-index: 10001;
+}
+
+.interest-tooltip::before {
+    content: '';
+    position: absolute;
+    top: -6px;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 6px solid transparent;
+    border-bottom-color: var(--warning);
+}
+
+.cash-tooltip-wrapper:hover .interest-tooltip {
+    opacity: 1;
+}
+
+/* ========== Game Content ========== */
+.game-content {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    padding: 24px;
+    flex: 1;
+    min-height: 0;
+}
+
+@media (max-width: 900px) {
+    .game-content {
+        grid-template-columns: 1fr;
+    }
+}
+
+.section {
+    background: var(--bg-section);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+.section-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin-bottom: 16px;
+    color: var(--text);
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+}
+
+/* ========== Rolling Section ========== */
+.roll-section {
+    text-align: center;
+}
+
+.roll-button {
+    background: var(--accent);
+    color: white;
+    border: none;
+    padding: 14px 36px;
+    font-size: 1.05rem;
+    font-weight: 700;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.2s;
+    margin: 8px 0;
+}
+
+.roll-button:hover:not(:disabled) {
+    background: var(--accent-dim);
+    transform: translateY(-1px);
+}
+
+.roll-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.rolls-remaining {
+    font-size: 1rem;
+    margin: 12px 0;
+    color: var(--text-muted);
+    font-weight: 600;
+}
+
+/* Last roll holder: fixed area that "holds" the current item with rarity + mods */
+.last-roll-holder {
+    margin-top: 16px;
+    flex: 0 0 auto;
+}
+
+.last-roll-label {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+}
+
+.last-item-box {
+    min-height: 100px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px dashed var(--border);
+    border-radius: 10px;
+    background: var(--bg-card);
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    padding: 12px;
+}
+
+.last-item-box:not(:empty) {
+    border-style: solid;
+    border-color: var(--border);
+}
+
+.last-roll-placeholder {
+    color: var(--text-muted);
+    font-size: 1.25rem;
+}
+
+/* Roll animation */
+.last-item-box.is-rolling .roll-animation-in-progress {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 12px;
+}
+.roll-dice {
+    font-size: 2.5rem;
+    animation: roll-dice-spin 0.4s ease-in-out infinite;
+}
+.roll-text {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    font-weight: 600;
+}
+@keyframes roll-dice-spin {
+    0% { transform: rotate(0deg) scale(1); }
+    50% { transform: rotate(180deg) scale(1.1); }
+    100% { transform: rotate(360deg) scale(1); }
+}
+
+/* Rolled thing inside holder - full rarity + mods display */
+.rolled-thing-holder {
+    width: 100%;
+    min-height: 88px;
+    padding: 14px 16px;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    text-align: center;
+    border: 2px solid rgba(255, 255, 255, 0.15) !important;
+}
+
+.rolled-thing-holder.rarity-common { background: linear-gradient(135deg, #3f3f46 0%, #27272a 100%); }
+.rolled-thing-holder.rarity-uncommon { background: linear-gradient(135deg, #166534 0%, #14532d 100%); }
+.rolled-thing-holder.rarity-rare { background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%); }
+.rolled-thing-holder.rarity-epic { background: linear-gradient(135deg, #5b21b6 0%, #4c1d95 100%); }
+.rolled-thing-holder.rarity-legendary { background: linear-gradient(135deg, #b45309 0%, #92400e 100%); }
+
+.rolled-thing-name {
+    font-weight: 700;
+    font-size: 1.05rem;
+    color: #fff;
+    line-height: 1.2;
+}
+
+.rolled-thing-rarity {
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    opacity: 0.95;
+}
+
+.rolled-thing-mods {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    justify-content: center;
+}
+
+.rolled-thing-mods .mod-badge {
+    font-size: 0.7rem;
+    padding: 4px 8px;
+    background: rgba(0, 0, 0, 0.35);
+    border-radius: 4px;
+    color: rgba(255, 255, 255, 0.95);
+}
+
+.rolled-thing-value {
+    font-weight: 700;
+    font-size: 1rem;
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.rolled-thing-holder.rare-celebration {
+    animation: pulse-glow 0.6s ease-out;
+}
+
+@keyframes pulse-glow {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.3); }
+    50% { box-shadow: 0 0 20px 4px rgba(245, 158, 11, 0.5); }
+}
+
+/* ========== Inventory: minimalist - rarity color + name only ========== */
+.inventory-section {
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.inventory-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    gap: 10px;
+    margin-top: 12px;
+    flex: 1;
+    min-height: 0;
+    align-content: start;
+}
+
+.inventory-item-minimal {
+    padding: 10px 12px;
+    border-radius: 8px;
+    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 48px;
+    border: none;
+    transition: transform 0.2s, box-shadow 0.2s;
+    position: relative;
+}
+
+.inventory-item-minimal .inventory-item-name {
+    font-size: 0.75rem;
+    font-weight: 700;
+    line-height: 1.2;
+    color: #fff;
+    text-transform: none;
+    letter-spacing: 0;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.inventory-item-hover {
+    cursor: pointer;
+}
+
+.inventory-item-hover:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+/* Legendary particle effect (small squares around name) */
+.legendary-particle-wrap {
+    position: relative;
+    display: inline-block;
+}
+.legendary-particle-wrap::before,
+.legendary-particle-wrap::after {
+    content: '';
+    position: absolute;
+    width: 4px;
+    height: 4px;
+    background: rgba(251, 191, 36, 0.8);
+    border-radius: 1px;
+    animation: particle-float 2s ease-in-out infinite;
+}
+.legendary-particle-wrap::before {
+    top: -6px;
+    left: -8px;
+    animation-delay: 0s;
+}
+.legendary-particle-wrap::after {
+    top: -4px;
+    right: -8px;
+    animation-delay: 0.5s;
+}
+@keyframes particle-float {
+    0%, 100% { opacity: 0.8; transform: translateY(0); }
+    50% { opacity: 0.4; transform: translateY(-4px); }
+}
+.rolled-thing-holder.rarity-legendary .rolled-thing-name-wrap {
+    position: relative;
+    display: inline-block;
+}
+.rolled-thing-holder.rarity-legendary .rolled-thing-name-wrap::before,
+.rolled-thing-holder.rarity-legendary .rolled-thing-name-wrap::after {
+    content: '';
+    position: absolute;
+    width: 5px;
+    height: 5px;
+    background: rgba(255, 255, 255, 0.7);
+    border-radius: 1px;
+    animation: particle-float 2s ease-in-out infinite;
+}
+.rolled-thing-holder.rarity-legendary .rolled-thing-name-wrap::before {
+    top: -4px;
+    left: -12px;
+}
+.rolled-thing-holder.rarity-legendary .rolled-thing-name-wrap::after {
+    top: -4px;
+    right: -12px;
+    animation-delay: 0.7s;
+}
+
+/* Drag and drop */
+.inventory-item.dragging {
+    opacity: 0.5;
+}
+.inventory-item.drag-over {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+.topbar-perk-badge[draggable="true"] {
+    cursor: grab;
+}
+.topbar-perk-badge[draggable="true"]:active {
+    cursor: grabbing;
+}
+
+.inventory-item-hover:hover .inventory-item-tooltip {
+    opacity: 1;
+    visibility: visible;
+}
+
+/* Rarity colors for inventory (minimalist cards) */
+.inventory-item.rarity-common {
+    background: linear-gradient(135deg, #52525b 0%, #3f3f46 100%);
+}
+
+.inventory-item.rarity-uncommon {
+    background: linear-gradient(135deg, #15803d 0%, #166534 100%);
+}
+
+.inventory-item.rarity-rare {
+    background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+}
+
+.inventory-item.rarity-epic {
+    background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);
+}
+
+.inventory-item.rarity-legendary {
+    background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
+}
+
+/* Inline tooltip content is copied to floating tooltip; hide this from view */
+.inventory-item-tooltip {
+    position: absolute;
+    left: -9999px;
+    top: 0;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.inventory-item-tooltip::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 6px solid transparent;
+    border-top-color: var(--border);
+}
+
+/* Floating item tooltip (smart position, doesn't affect layout) */
+#floating-item-tooltip.floating-tooltip {
+    position: fixed;
+    padding: 12px 16px;
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    font-size: 0.85rem;
+    max-width: 280px;
+    z-index: 10002;
+    pointer-events: none;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.15s, visibility 0.15s;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+}
+
+#floating-item-tooltip.visible {
+    opacity: 1;
+    visibility: visible;
+}
+
+#floating-item-tooltip .tooltip-name { font-weight: 700; margin-bottom: 6px; }
+#floating-item-tooltip .tooltip-rarity { font-size: 0.7rem; text-transform: uppercase; color: var(--text-muted); margin-bottom: 6px; }
+#floating-item-tooltip .tooltip-mods { display: flex; flex-wrap: wrap; gap: 4px; margin: 6px 0; }
+#floating-item-tooltip .tooltip-value { color: var(--success); font-weight: 700; }
+#floating-item-tooltip .tooltip-base { color: var(--warning); font-size: 0.8rem; margin-top: 4px; }
+
+/* Floating perk tooltip (hold to see desc/special/rarity) */
+#floating-perk-tooltip.perk-tooltip {
+    position: fixed;
+    padding: 12px 16px;
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    font-size: 0.85rem;
+    max-width: 280px;
+    z-index: 10002;
+    pointer-events: none;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.15s, visibility 0.15s;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+}
+#floating-perk-tooltip.visible {
+    opacity: 1;
+    visibility: visible;
+}
+#floating-perk-tooltip .pt-name { font-weight: 700; display: block; margin-bottom: 4px; }
+#floating-perk-tooltip .pt-rarity { font-size: 0.7rem; text-transform: uppercase; color: var(--text-muted); display: block; margin-bottom: 6px; }
+#floating-perk-tooltip .pt-desc { display: block; margin-bottom: 4px; color: var(--text); }
+#floating-perk-tooltip .pt-special { display: block; color: var(--accent); font-weight: 600; }
+
+/* Shop perk card: description/special in tooltip on hold */
+.perk-card-shop {
+    position: relative;
+}
+.perk-card-tooltip {
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    margin-bottom: 8px;
+    padding: 10px 12px;
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 0.8rem;
+    max-width: 260px;
+    z-index: 50;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity 0.15s, visibility 0.15s;
+}
+.perk-card-shop:hover .perk-card-tooltip {
+    opacity: 1;
+    visibility: visible;
+}
+.perk-card-tooltip .pt-desc { display: block; margin-bottom: 4px; }
+.perk-card-tooltip .pt-special { display: block; color: var(--accent); }
+
+/* Rarity-colored item names */
+.rarity-color.rarity-common { color: #a1a1aa; }
+.rarity-color.rarity-uncommon { color: #4ade80; }
+.rarity-color.rarity-rare { color: #60a5fa; }
+.rarity-color.rarity-epic { color: #c4b5fd; }
+.rarity-color.rarity-legendary { color: #fbbf24; }
+
+.tooltip-name {
+    font-weight: 700;
+    margin-bottom: 6px;
+    font-size: 0.9rem;
+}
+
+.tooltip-rarity {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+}
+
+.tooltip-mods {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin: 6px 0;
+}
+
+.tooltip-mods .mod-badge {
+    background: var(--bg-section);
+    border: 1px solid var(--border);
+    font-size: 0.75rem;
+    padding: 3px 6px;
+    color: var(--text);
+}
+
+.tooltip-value {
+    color: var(--success);
+    font-weight: 700;
+}
+
+.tooltip-base {
+    color: var(--warning);
+    font-size: 0.8rem;
+    margin-top: 4px;
+}
+
+.inventory-total {
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+    font-size: 1rem;
+    font-weight: 700;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: var(--text);
+}
+
+.total-value {
+    color: var(--success);
+    font-size: 1.2rem;
+}
+
+/* Empty inventory message */
+.inventory-list .inventory-empty-msg {
+    grid-column: 1 / -1;
+    color: var(--text-muted);
+    padding: 24px;
+    text-align: center;
+    font-size: 0.9rem;
+}
+
+/* ========== Action Buttons ========== */
+.action-buttons {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    padding: 20px 24px;
+    border-top: 1px solid var(--border);
+    flex-shrink: 0;
+}
+
+.btn {
+    padding: 14px 32px;
+    font-size: 1rem;
+    font-weight: 700;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.2s;
+}
+
+.btn-primary {
+    background: var(--accent);
+    color: white;
+}
+
+.btn-primary:hover {
+    background: var(--accent-dim);
+    transform: translateY(-1px);
+}
+
+.btn-danger {
+    background: #991b1b;
+    color: #fecaca;
+}
+
+.btn-danger:hover {
+    background: #b91c1c;
+}
+
+/* ========== Shop ========== */
+.perk-card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 16px;
+}
+
+.perk-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    transition: border-color 0.2s, transform 0.2s;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+}
+
+.perk-card:hover:not(.perk-purchased) {
+    border-color: var(--accent);
+    transform: translateY(-2px);
+}
+
+.perk-card.perk-purchased {
+    opacity: 0.6;
+    filter: grayscale(0.4);
+}
+
+.perk-purchased-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--text-muted);
+    z-index: 5;
+}
+
+.perk-card.rarity-common { border-left: 4px solid var(--common); }
+.perk-card.rarity-uncommon { border-left: 4px solid var(--uncommon); }
+.perk-card.rarity-rare { border-left: 4px solid var(--rare); }
+.perk-card.rarity-epic { border-left: 4px solid var(--epic); }
+.perk-card.rarity-legendary { border-left: 4px solid var(--legendary); }
+
+.perk-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+.perk-card-name {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--text);
+    flex: 1;
+}
+
+.perk-rarity-badge {
+    font-size: 0.65rem;
+    font-weight: 700;
+    padding: 4px 8px;
+    border-radius: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.perk-card.rarity-common .perk-rarity-badge { background: var(--common); color: #fff; }
+.perk-card.rarity-uncommon .perk-rarity-badge { background: var(--uncommon); color: #fff; }
+.perk-card.rarity-rare .perk-rarity-badge { background: var(--rare); color: #fff; }
+.perk-card.rarity-epic .perk-rarity-badge { background: var(--epic); color: #fff; }
+.perk-card.rarity-legendary .perk-rarity-badge { background: var(--legendary); color: #1c1917; }
+
+.perk-card-description {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    margin-bottom: 12px;
+    line-height: 1.5;
+    flex-grow: 1;
+}
+
+.perk-special {
+    font-size: 0.8rem;
+    color: var(--accent);
+    font-weight: 600;
+    padding: 8px;
+    background: rgba(124, 108, 244, 0.12);
+    border-radius: 6px;
+    margin-bottom: 12px;
+}
+
+.perk-card-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    margin-top: auto;
+    padding-top: 14px;
+    border-top: 1px solid var(--border);
+}
+
+.perk-card-cost {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--success);
+}
+
+.perk-buy-btn {
+    background: var(--accent);
+    color: white;
+    border: none;
+    padding: 10px 18px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 700;
+    font-size: 0.9rem;
+    transition: background 0.2s;
+}
+
+.perk-buy-btn:hover:not(:disabled) {
+    background: var(--accent-dim);
+}
+
+.perk-buy-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.perk-card.flip-purchase {
+    animation: cardFlip 0.5s ease-in-out;
+}
+
+@keyframes cardFlip {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.02); }
+    100% { transform: scale(1); }
+}
+
+/* ========== Boss Reward Screen ========== */
+.boss-reward-screen {
+    padding: 32px 24px;
+    text-align: center;
+    max-width: 900px;
+    margin: 0 auto;
+}
+.boss-reward-title {
+    font-size: 2rem;
+    font-weight: 800;
+    color: var(--legendary);
+    margin-bottom: 8px;
+}
+.boss-reward-subtitle {
+    font-size: 1.1rem;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+}
+.boss-reward-picked {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--accent);
+    margin-bottom: 24px;
+}
+.boss-perk-grid {
+    margin-bottom: 24px;
+}
+.boss-perk-card {
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+.boss-perk-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 24px rgba(124, 108, 244, 0.3);
+}
+.boss-perk-card.boss-perk-selected {
+    border-color: var(--success);
+    box-shadow: 0 0 0 2px var(--success);
+}
+.boss-perk-check {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    background: var(--success);
+    color: #fff;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    z-index: 6;
+}
+
+/* ========== Screens (Start, Game Over, etc.) ========== */
+.screen {
+    text-align: center;
+    padding: 48px 24px;
+    max-width: 560px;
+    margin: 0 auto;
+}
+
+.screen-title {
+    font-size: 2.25rem;
+    font-weight: 700;
+    margin: 0 0 16px;
+    color: var(--text);
+}
+
+.screen-subtitle {
+    font-size: 1.15rem;
+    color: var(--text-muted);
+    margin-bottom: 32px;
+    line-height: 1.5;
+}
+
+.screen-content {
+    font-size: 1rem;
+    margin-bottom: 32px;
+    line-height: 1.7;
+    color: var(--text-muted);
+}
+
+.screen-content p {
+    margin-bottom: 12px;
+}
+
+/* ========== Attributes (stats modal + shop) ========== */
+.attributes-display {
+    background: var(--bg-section);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    margin-top: 20px;
+}
+
+.attributes-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 10px;
+}
+
+.attribute-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px;
+    text-align: center;
+}
+
+.attribute-name {
+    font-weight: 600;
+    color: var(--text-muted);
+    margin-bottom: 4px;
+    font-size: 0.85rem;
+}
+
+.attribute-value {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--text);
+}
+
+/* ========== Animations ========== */
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes float-up {
+    0% {
+        opacity: 1;
+        transform: translate(-50%, 0);
+    }
+    100% {
+        opacity: 0;
+        transform: translate(-50%, -80px);
+    }
+}
+
+/* ========== Scrollbar ========== */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--bg-section);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--text-muted);
+}
