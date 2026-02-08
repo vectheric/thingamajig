@@ -18,6 +18,7 @@
     --rare: #3b82f6;
     --epic: #a78bfa;
     --legendary: #f59e0b;
+    --chip-blue: #3b82f6;
     --panel-width: 1200px;
     --panel-height: 880px;
 }
@@ -30,7 +31,7 @@
 
 body {
     font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-    background: var(--bg-page);
+    background: var(--bg-panel); /* Changed to match previous UI bg */
     color: var(--text);
     min-height: 100vh;
     overflow: hidden;
@@ -43,10 +44,11 @@ body {
     width: 100vw;
     height: 100vh;
     overflow: hidden;
+    z-index: 1; /* Ensure above canvas */
 }
 
 #game-ui {
-    background: var(--bg-panel);
+    background: transparent; /* Transparent to show particles */
     width: 100%;
     height: 100%;
     min-width: 100vw;
@@ -82,6 +84,9 @@ body {
     border-left: 3px solid;
     pointer-events: auto;
     line-height: 1.3;
+}
+.notification.hiding {
+    animation: notificationOut 0.3s ease-in forwards;
 }
 .notification-count {
     opacity: 0.9;
@@ -122,6 +127,13 @@ body {
     to {
         opacity: 1;
         transform: translateX(0);
+    }
+}
+
+@keyframes notificationOut {
+    to {
+        opacity: 0;
+        transform: translateX(24px);
     }
 }
 
@@ -303,6 +315,23 @@ body {
     margin-bottom: 16px;
     text-align: center;
 }
+.index-search-row {
+    margin-bottom: 12px;
+}
+.index-search {
+    width: 100%;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 10px 12px;
+    border-radius: 10px;
+    font-weight: 600;
+    outline: none;
+}
+.index-search:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(124, 108, 244, 0.2);
+}
 .index-tabs {
     display: flex;
     gap: 8px;
@@ -332,6 +361,31 @@ body {
     display: flex;
     flex-direction: column;
     gap: 4px;
+}
+.index-entry-toggle {
+    width: 100%;
+    text-align: left;
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 10px;
+    background: transparent;
+    border: 1px solid transparent;
+    padding: 8px 10px;
+    border-radius: 10px;
+    cursor: pointer;
+    color: inherit;
+}
+.index-entry-toggle:hover {
+    background: var(--bg-section);
+    border-color: var(--border);
+}
+.index-entry-details {
+    padding: 8px 10px 10px;
+    margin-top: 2px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border-muted);
+    border-radius: 10px;
 }
 .index-entry-name {
     font-weight: 700;
@@ -429,6 +483,22 @@ body {
     color: var(--rare) !important;
 }
 
+.chip-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.2em;
+    height: 1.2em;
+    margin-left: 6px;
+    border-radius: 999px;
+    font-weight: 900;
+    font-size: 0.95em;
+    color: #dbeafe;
+    background: rgba(59, 130, 246, 0.18);
+    border: 1px solid rgba(59, 130, 246, 0.45);
+    box-shadow: 0 6px 18px rgba(59, 130, 246, 0.12);
+}
+
 .cash-with-tooltip {
     position: relative;
 }
@@ -454,6 +524,12 @@ body {
     pointer-events: none;
     transition: opacity 0.2s;
     z-index: 100;
+    height: auto;
+    line-height: 1.2;
+    min-height: unset;
+    max-height: 40px;
+    display: flex;
+    align-items: center;
 }
 
 .interest-tooltip.visible {
@@ -480,16 +556,20 @@ body {
 /* ========== Game Content ========== */
 .game-content {
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 24px;
-    padding: 24px;
+    grid-template-columns: 0.6fr 2.5fr 0.8fr;
+    gap: 20px;
+    padding: 20px;
     flex: 1;
     min-height: 0;
+    align-items: start;
 }
 
-@media (max-width: 900px) {
+@media (max-width: 1100px) {
     .game-content {
-        grid-template-columns: 1fr;
+        grid-template-columns: 1fr 1fr;
+    }
+    .loot-section {
+        grid-column: 1 / -1;
     }
 }
 
@@ -595,6 +675,32 @@ body {
 .roll-dice {
     font-size: 2.5rem;
     animation: roll-dice-spin 0.4s ease-in-out infinite;
+    position: relative;
+    z-index: 1;
+}
+/* Particles for dice */
+.roll-dice::before,
+.roll-dice::after {
+    content: '✨';
+    position: absolute;
+    font-size: 1rem;
+    animation: dice-particle 0.6s ease-out infinite;
+    opacity: 0;
+    pointer-events: none;
+    top: 50%;
+    left: 50%;
+}
+.roll-dice::before {
+    animation-delay: 0s;
+    color: #fbbf24;
+}
+.roll-dice::after {
+    animation-delay: 0.3s;
+    color: #60a5fa;
+}
+@keyframes dice-particle {
+    0% { transform: translate(-50%, -50%) scale(0.5); opacity: 1; }
+    100% { transform: translate(-50%, -50%) scale(1.5) rotate(180deg); opacity: 0; }
 }
 .roll-text {
     font-size: 0.9rem;
@@ -654,7 +760,7 @@ body {
     font-size: 0.7rem;
     padding: 4px 8px;
     background: rgba(0, 0, 0, 0.35);
-    border-radius: 4px;
+    border-radius: 999px;
     color: rgba(255, 255, 255, 0.95);
 }
 
@@ -673,7 +779,223 @@ body {
     50% { box-shadow: 0 0 20px 4px rgba(245, 158, 11, 0.5); }
 }
 
-/* ========== Inventory: minimalist - rarity color + name only ========== */
+/* ========== Loot Section (formerly Inventory) ========== */
+.loot-section {
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.loot-list {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 8px;
+    margin-top: 12px;
+    max-height: 420px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding-right: 4px;
+    flex: 1;
+    min-height: 0;
+    align-content: start;
+}
+
+.loot-item-minimal {
+    border-radius: 10px;
+    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid transparent;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    transform-style: preserve-3d;
+    perspective: 200px;
+    font-size: 0.65rem;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    min-height: 60px;
+    padding: 8px 4px;
+    aspect-ratio: 1;
+    animation: lootPop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
+}
+
+@keyframes lootPop {
+    from { opacity: 0; transform: scale(0.5) translateY(10px); }
+    to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+
+/* 3D Tilt effect for loot items like shop perks */
+.loot-item-minimal:hover {
+    transform: scale(0.95);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+}
+
+.loot-item-minimal .loot-item-name {
+    font-size: 0.65rem;
+    font-weight: 700;
+    line-height: 1.1;
+    color: #fff;
+    text-transform: none;
+    letter-spacing: 0;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
+    -webkit-box-orient: vertical;
+    box-orient: vertical;
+    overflow: hidden;
+    padding: 2px;
+    pointer-events: none;
+}
+
+.loot-item-hover {
+    cursor: pointer;
+    transform-style: preserve-3d;
+    transition: transform 0.15s ease-out;
+    position: relative;
+}
+
+.loot-item-hover:hover {
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+}
+
+.loot-item-press-hint {
+    position: absolute;
+    bottom: 2px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 0.45rem;
+    color: rgba(255, 255, 255, 0.6);
+    opacity: 0;
+    transition: opacity 0.2s;
+    white-space: nowrap;
+    pointer-events: none;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+}
+
+.loot-item-minimal:hover .loot-item-press-hint {
+    opacity: 1;
+}
+
+/* Custom scrollbar for loot list */
+.loot-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+.loot-list::-webkit-scrollbar-track {
+    background: var(--bg-card);
+    border-radius: 3px;
+}
+
+.loot-list::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 3px;
+}
+
+.loot-list::-webkit-scrollbar-thumb:hover {
+    background: var(--accent);
+}
+
+/* Loot inline tooltip content is copied to floating tooltip; keep it hidden */
+.loot-item-tooltip {
+    position: absolute;
+    left: -9999px;
+    top: 0;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    opacity: 0;
+    pointer-events: none;
+}
+
+/* Rarity colors for loot (minimalist cards) */
+.loot-item.rarity-common {
+    background: linear-gradient(135deg, #52525b 0%, #3f3f46 100%);
+}
+
+.loot-item.rarity-uncommon {
+    background: linear-gradient(135deg, #15803d 0%, #166534 100%);
+}
+
+.loot-item.rarity-rare {
+    background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+}
+
+.loot-item.rarity-epic {
+    background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);
+}
+
+.loot-item.rarity-legendary {
+    background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
+}
+
+.loot-total {
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+    font-size: 1rem;
+    font-weight: 700;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: var(--text);
+}
+
+.loot-empty-msg {
+    grid-column: 1 / -1;
+    color: var(--text-muted);
+    padding: 24px;
+    text-align: center;
+    font-size: 0.9rem;
+}
+
+/* Consolidated pagination styles - unified for loot and inventory */
+.pagination,
+.loot-pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 12px;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+}
+
+.pagination button,
+.loot-pagination button {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 6px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    font-weight: 600;
+    transition: all 0.2s;
+}
+
+.pagination button:hover:not(:disabled),
+.loot-pagination button:hover:not(:disabled) {
+    background: var(--accent);
+    border-color: var(--accent);
+}
+
+.pagination button:disabled,
+.loot-pagination button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.pagination .page-info,
+.loot-pagination .page-info {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    font-weight: 600;
+}
+
+/* ========== Inventory Section (Consumables) ========== */
 .inventory-section {
     min-height: 0;
     display: flex;
@@ -682,7 +1004,90 @@ body {
 
 .inventory-list {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-top: 12px;
+    flex: 1;
+    min-height: 0;
+    align-content: start;
+}
+
+.inventory-slot {
+    aspect-ratio: 1;
+    background: var(--bg-card);
+    border: 2px solid var(--border);
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+}
+
+.inventory-slot:hover {
+    border-color: var(--accent);
+    transform: scale(0.95);
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.25);
+}
+
+.inventory-slot.empty {
+    border-style: dashed;
+    opacity: 0.5;
+    cursor: default;
+}
+
+.inventory-slot.empty:hover {
+    transform: none;
+    box-shadow: none;
+}
+
+.inventory-slot .slot-icon {
+    font-size: 1.5rem;
+    margin-bottom: 2px;
+}
+
+.inventory-slot .slot-name {
+    font-size: 0.6rem;
+    font-weight: 600;
+    color: var(--text);
+    text-align: center;
+    line-height: 1.1;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.inventory-slot .slot-stack {
+    position: absolute;
+    bottom: 2px;
+    right: 4px;
+    font-size: 0.65rem;
+    font-weight: 700;
+    color: var(--success);
+    background: rgba(0, 0, 0, 0.5);
+    padding: 1px 4px;
+    border-radius: 4px;
+}
+
+.inventory-slot .slot-placeholder {
+    font-size: 1.5rem;
+    color: var(--text-muted);
+}
+/* ========== Inventory: Square items, 5 per row ========== */
+.inventory-section {
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.inventory-list {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
     gap: 10px;
     margin-top: 12px;
     flex: 1;
@@ -691,20 +1096,25 @@ body {
 }
 
 .inventory-item-minimal {
-    padding: 10px 12px;
-    border-radius: 8px;
+    aspect-ratio: 1;
+    border-radius: 12px;
     text-align: center;
     display: flex;
     align-items: center;
     justify-content: center;
-    min-height: 48px;
-    border: none;
-    transition: transform 0.2s, box-shadow 0.2s;
+    border: 2px solid transparent;
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s;
     position: relative;
+    transform-style: preserve-3d;
+    perspective: 200px;
+}
+
+.inventory-item-minimal:hover {
+    transform: scale(0.95);
 }
 
 .inventory-item-minimal .inventory-item-name {
-    font-size: 0.75rem;
+    font-size: 0.7rem;
     font-weight: 700;
     line-height: 1.2;
     color: #fff;
@@ -712,17 +1122,25 @@ body {
     letter-spacing: 0;
     display: -webkit-box;
     -webkit-line-clamp: 2;
+    line-clamp: 2;
     -webkit-box-orient: vertical;
+    box-orient: vertical;
     overflow: hidden;
+    padding: 4px;
 }
-
 .inventory-item-hover {
     cursor: pointer;
+    transform-style: preserve-3d;
+    transition: transform 0.15s ease-out;
 }
 
 .inventory-item-hover:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+}
+
+/* Mouse-following 3D tilt effect base */
+.inventory-item-minimal.tilt-effect {
+    transition: transform 0.1s ease-out;
 }
 
 /* Legendary particle effect (small squares around name) */
@@ -894,9 +1312,45 @@ body {
 #floating-perk-tooltip .pt-desc { display: block; margin-bottom: 4px; color: var(--text); }
 #floating-perk-tooltip .pt-special { display: block; color: var(--accent); font-weight: 600; }
 
-/* Shop perk card: description/special in tooltip on hold */
-.perk-card-shop {
-    position: relative;
+/* Reroll button in shop */
+.reroll-section {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.reroll-btn {
+    background: linear-gradient(135deg, var(--accent), var(--accent-dim));
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 10px;
+    cursor: pointer;
+    font-weight: 700;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s;
+    box-shadow: 0 4px 15px rgba(124, 108, 244, 0.3);
+}
+
+.reroll-btn:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(124, 108, 244, 0.4);
+}
+
+.reroll-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.reroll-cost {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    font-weight: 600;
 }
 .perk-card-tooltip {
     position: absolute;
@@ -957,6 +1411,7 @@ body {
     border: 1px solid var(--border);
     font-size: 0.75rem;
     padding: 3px 6px;
+    border-radius: 999px;
     color: var(--text);
 }
 
@@ -984,7 +1439,7 @@ body {
 }
 
 .total-value {
-    color: var(--success);
+    color: var(--chip-blue, #60a5fa);
     font-size: 1.2rem;
 }
 
@@ -1007,6 +1462,17 @@ body {
     flex-shrink: 0;
 }
 
+/* Simple screen fade/scale transition */
+.screen { }
+.screen.screen-enter {
+    opacity: 0;
+    transform: scale(0.98);
+    transition: opacity 180ms ease, transform 180ms ease;
+}
+.screen.screen-enter-active {
+    opacity: 1;
+    transform: scale(1);
+}
 .btn {
     padding: 14px 32px;
     font-size: 1rem;
@@ -1036,128 +1502,730 @@ body {
     background: #b91c1c;
 }
 
-/* ========== Shop ========== */
+/* ========== Shop - Balatro Style Cards ========== */
 .perk-card-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-    gap: 16px;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 15px;
+    padding: 20px;
+    perspective: 1000px;
+    width: 100%;
+    max-width: 100%;
+    justify-items: center;
 }
 
 .perk-card {
     background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 20px;
-    transition: border-color 0.2s, transform 0.2s;
+    border: 2px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     display: flex;
     flex-direction: column;
     position: relative;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    transform-style: preserve-3d;
 }
 
-.perk-card:hover:not(.perk-purchased) {
-    border-color: var(--accent);
-    transform: translateY(-2px);
+/* Balatro-style vertical card layout - fixed height, no description */
+.perk-card-shop {
+    cursor: pointer;
+    width: 200px;
+    height: 280px;
+    flex: 0 0 auto;
 }
 
-.perk-card.perk-purchased {
-    opacity: 0.6;
-    filter: grayscale(0.4);
+/* Card Portrait/Art Area - Top half with Balatro-style gradient */
+.perk-card-art {
+    height: 110px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+    border-bottom: 2px solid var(--border);
 }
 
-.perk-purchased-overlay {
+/* Rarity-specific gradient backgrounds for art area - Balatro style */
+.perk-card.rarity-common .perk-card-art {
+    background: linear-gradient(135deg, #5a5a62 0%, #4a4a52 40%, #3a3a42 100%);
+}
+
+.perk-card.rarity-uncommon .perk-card-art {
+    background: linear-gradient(135deg, #2a7f4f 0%, #1a6f3f 40%, #0a5f2f 100%);
+}
+
+.perk-card.rarity-rare .perk-card-art {
+    background: linear-gradient(135deg, #2e5aaa 0%, #1e4a9a 40%, #0e3a8a 100%);
+}
+
+.perk-card.rarity-epic .perk-card-art {
+    background: linear-gradient(135deg, #6b3aaa 0%, #5b2a9a 40%, #4b1a8a 100%);
+}
+
+.perk-card.rarity-legendary .perk-card-art {
+    background: linear-gradient(135deg, #f0c040 0%, #d0a030 30%, #b08020 60%, #906010 100%);
+    box-shadow: inset 0 0 30px rgba(255, 200, 100, 0.3);
+}
+
+/* Perk icon in art area */
+.perk-card-icon {
+    font-size: 3rem;
+    filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.5));
+    z-index: 2;
+    transition: transform 0.3s ease;
+}
+
+.perk-card:hover .perk-card-icon {
+    transform: scale(1.1);
+}
+
+/* Holographic shine effect on art area */
+.perk-card-art::before {
+    content: '';
     position: absolute;
     inset: 0;
-    background: rgba(0, 0, 0, 0.6);
+    background: linear-gradient(
+        105deg,
+        transparent 40%,
+        rgba(255, 255, 255, 0.15) 45%,
+        rgba(255, 255, 255, 0.3) 50%,
+        rgba(255, 255, 255, 0.15) 55%,
+        transparent 60%
+    );
+    transform: translateX(-100%);
+    transition: transform 0.8s;
+    z-index: 3;
+    pointer-events: none;
+}
+
+.perk-card:hover .perk-card-art::before {
+    transform: translateX(100%);
+}
+
+/* Secondary slower shine for legendary */
+.perk-card.rarity-legendary .perk-card-art::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+        75deg,
+        transparent 35%,
+        rgba(255, 255, 200, 0.2) 45%,
+        rgba(255, 255, 200, 0.35) 50%,
+        rgba(255, 255, 200, 0.2) 55%,
+        transparent 65%
+    );
+    transform: translateX(-100%);
+    animation: holographicShine 3s ease-in-out infinite;
+    z-index: 3;
+}
+
+@keyframes holographicShine {
+    0%, 100% { transform: translateX(-100%); }
+    50% { transform: translateX(100%); }
+}
+
+/* Card Info Area - Bottom half */
+.perk-card-info {
+    flex: 1;
+    padding: 12px 10px 10px;
+    display: flex;
+    flex-direction: column;
+    background: linear-gradient(180deg, rgba(255,255,255,0.03) 0%, transparent 30%);
+    min-height: 0;
+    justify-content: space-between;
+}
+
+.perk-card-name {
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: var(--text);
+    text-align: center;
+    margin-bottom: 0;
+    line-height: 1.2;
+}
+
+/* Perk description removed - cards now same size */
+
+/* ========== Shop Consumables ========== */
+.shop-consumables-section {
+    margin-top: 30px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+}
+
+.shop-section-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 16px;
+    text-align: center;
+}
+
+.shop-consumables-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+    max-width: 100%;
+    margin: 0 auto;
+}
+
+.consumable-card {
+    background: var(--bg-card);
+    border: 2px solid var(--border);
+    border-radius: 12px;
+    padding: 8px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 0;
+}
+
+.consumable-card:hover:not(.consumable-locked) {
+    transform: translateY(-4px);
+    border-color: var(--accent);
+    box-shadow: 0 8px 24px rgba(124, 108, 244, 0.25);
+}
+
+.consumable-card:hover .consumable-tooltip {
+    opacity: 1;
+    visibility: visible;
+    bottom: calc(100% + 10px);
+}
+
+.consumable-card-icon {
+    font-size: 2rem;
+    margin-bottom: 4px;
+}
+
+.consumable-card-name {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 4px;
+    line-height: 1.2;
+}
+
+.consumable-card-desc {
+    display: none;
+}
+
+.consumable-card-cost {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--success);
+    padding: 2px 8px;
+    background: rgba(34, 197, 94, 0.1);
+    border-radius: 6px;
+}
+
+.consumable-tooltip {
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    padding: 10px;
+    border-radius: 8px;
+    width: 200px;
+    z-index: 50;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: all 0.2s;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+}
+
+.consumable-tooltip .ct-name {
+    font-weight: 700;
+    margin-bottom: 4px;
+    color: var(--accent);
+    font-size: 0.9rem;
+}
+
+.consumable-tooltip .ct-desc {
+    font-size: 0.75rem;
+    color: var(--text);
+    line-height: 1.3;
+}
+
+.consumable-locked {
+    opacity: 0.6;
+    filter: grayscale(0.7);
+    cursor: not-allowed;
+}
+
+.consumable-locked-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
     border-radius: 12px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 1.25rem;
-    font-weight: 700;
+    font-size: 0.9rem;
+    font-weight: 800;
+    color: #f87171;
+    z-index: 10;
+    backdrop-filter: blur(2px);
+}
+
+/* Rarity colors for consumable cards */
+.consumable-card.rarity-common { border-color: rgba(113, 113, 122, 0.5); }
+.consumable-card.rarity-uncommon { border-color: rgba(34, 197, 94, 0.5); }
+.consumable-card.rarity-rare { border-color: rgba(59, 130, 246, 0.5); }
+.consumable-card.rarity-epic { border-color: rgba(167, 139, 250, 0.5); }
+
+.shop-consumables-empty {
+    text-align: center;
     color: var(--text-muted);
-    z-index: 5;
+    padding: 20px;
+    font-size: 0.9rem;
 }
 
-.perk-card.rarity-common { border-left: 4px solid var(--common); }
-.perk-card.rarity-uncommon { border-left: 4px solid var(--uncommon); }
-.perk-card.rarity-rare { border-left: 4px solid var(--rare); }
-.perk-card.rarity-epic { border-left: 4px solid var(--epic); }
-.perk-card.rarity-legendary { border-left: 4px solid var(--legendary); }
-
-.perk-card-header {
+.perk-card-footer {
     display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    gap: 10px;
-    margin-bottom: 12px;
+    justify-content: center;
+    align-items: center;
+    padding-top: 8px;
+    border-top: 1px solid var(--border);
+    margin-top: auto;
 }
 
-.perk-card-name {
-    font-size: 1.15rem;
+.perk-card-cost {
+    font-size: 1.05rem;
     font-weight: 700;
-    color: var(--text);
-    flex: 1;
+    color: var(--success);
+    display: flex;
+    align-items: center;
+    gap: 4px;
 }
 
+/* Rarity badges - positioned like Balatro seals */
 .perk-rarity-badge {
-    font-size: 0.65rem;
-    font-weight: 700;
-    padding: 4px 8px;
-    border-radius: 6px;
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    font-size: 0.55rem;
+    font-weight: 800;
+    padding: 3px 8px;
+    border-radius: 12px;
     text-transform: uppercase;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.06em;
+    z-index: 5;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
 .perk-card.rarity-common .perk-rarity-badge { background: var(--common); color: #fff; }
 .perk-card.rarity-uncommon .perk-rarity-badge { background: var(--uncommon); color: #fff; }
 .perk-card.rarity-rare .perk-rarity-badge { background: var(--rare); color: #fff; }
 .perk-card.rarity-epic .perk-rarity-badge { background: var(--epic); color: #fff; }
-.perk-card.rarity-legendary .perk-rarity-badge { background: var(--legendary); color: #1c1917; }
+.perk-card.rarity-legendary .perk-rarity-badge { 
+    background: linear-gradient(135deg, #fbbf24, #f59e0b); 
+    color: #1c1917;
+    box-shadow: 0 2px 12px rgba(251, 191, 36, 0.5);
+}
 
-.perk-card-description {
+/* Rarity-colored borders */
+.perk-card.rarity-common { 
+    border-color: rgba(113, 113, 122, 0.6);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3), inset 0 0 0 1px rgba(113, 113, 122, 0.2);
+}
+.perk-card.rarity-uncommon { 
+    border-color: rgba(34, 197, 94, 0.5);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3), inset 0 0 0 1px rgba(34, 197, 94, 0.15);
+}
+.perk-card.rarity-rare { 
+    border-color: rgba(59, 130, 246, 0.5);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3), inset 0 0 0 1px rgba(59, 130, 246, 0.15);
+}
+.perk-card.rarity-epic { 
+    border-color: rgba(167, 139, 250, 0.5);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3), inset 0 0 0 1px rgba(167, 139, 250, 0.15);
+}
+.perk-card.rarity-legendary { 
+    border-color: rgba(245, 158, 11, 0.6);
+    box-shadow: 0 4px 25px rgba(245, 158, 11, 0.15), inset 0 0 0 1px rgba(245, 158, 11, 0.2);
+}
+
+/* Hover Animation - 3D Tilt and Lift */
+.perk-card:hover:not(.perk-purchased):not(.perk-locked) {
+    transform: translateY(-12px) rotateX(5deg) rotateY(-2deg);
+    border-color: var(--accent);
+    box-shadow: 
+        0 20px 50px rgba(124, 108, 244, 0.3),
+        0 8px 20px rgba(0, 0, 0, 0.4);
+}
+
+/* Selection Animation - Golden Border Pulse */
+.perk-card.perk-selected {
+    border-color: #fbbf24;
+    box-shadow: 
+        0 0 0 3px rgba(251, 191, 36, 0.6),
+        0 0 30px rgba(251, 191, 36, 0.4),
+        0 16px 50px rgba(124, 108, 244, 0.25);
+    animation: selectedPulse 2s ease-in-out infinite;
+}
+
+@keyframes selectedPulse {
+    0%, 100% {
+        box-shadow: 
+            0 0 0 3px rgba(251, 191, 36, 0.6),
+            0 0 25px rgba(251, 191, 36, 0.35),
+            0 12px 40px rgba(124, 108, 244, 0.2);
+    }
+    50% {
+        box-shadow: 
+            0 0 0 5px rgba(251, 191, 36, 0.8),
+            0 0 40px rgba(251, 191, 36, 0.6),
+            0 20px 60px rgba(124, 108, 244, 0.35);
+    }
+}
+
+/* Enhanced Legendary Card Effects */
+.perk-card.rarity-legendary {
+    border-color: rgba(251, 191, 36, 0.5);
+    box-shadow: 0 0 20px rgba(251, 191, 36, 0.15);
+}
+
+.perk-card.rarity-legendary:hover:not(.perk-purchased):not(.perk-locked) {
+    border-color: #fbbf24;
+    box-shadow: 
+        0 0 0 2px rgba(251, 191, 36, 0.5),
+        0 25px 60px rgba(251, 191, 36, 0.25),
+        0 0 40px rgba(251, 191, 36, 0.2);
+}
+
+/* Legendary Particle System - Multiple floating squares */
+.perk-card.rarity-legendary .perk-card-art {
+    overflow: visible;
+}
+
+/* Base particles using pseudo-elements */
+.perk-card.rarity-legendary::before,
+.perk-card.rarity-legendary::after {
+    content: '';
+    position: absolute;
+    border-radius: 1px;
+    pointer-events: none;
+    z-index: 15;
+}
+
+/* Particle 1 - Top area, small, orbital motion */
+.perk-card.rarity-legendary::before {
+    width: 5px;
+    height: 5px;
+    background: rgba(255, 220, 100, 0.95);
+    top: -8px;
+    left: 15%;
+    animation: orbitalParticle1 4s ease-in-out infinite;
+}
+
+/* Particle 2 - Right side, medium, different orbit */
+.perk-card.rarity-legendary::after {
+    width: 7px;
+    height: 7px;
+    background: rgba(255, 200, 80, 0.9);
+    top: 30%;
+    right: -10px;
+    animation: orbitalParticle2 5s ease-in-out infinite;
+}
+
+/* Art area particles */
+.perk-card.rarity-legendary .perk-card-art::before {
+    content: '';
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    background: rgba(255, 240, 140, 0.85);
+    left: -6px;
+    bottom: 20%;
+    border-radius: 1px;
+    z-index: 15;
+    animation: floatParticle3 3.5s ease-in-out infinite;
+}
+
+/* Pulsing particle on legendary icon */
+.perk-card.rarity-legendary .perk-card-icon::after {
+    content: '';
+    position: absolute;
+    width: 4px;
+    height: 4px;
+    background: rgba(255, 255, 200, 0.9);
+    border-radius: 50%;
+    top: 20%;
+    right: 25%;
+    animation: pulseGlow 2s ease-in-out infinite;
+}
+
+/* Particle animations with size pulsing */
+@keyframes orbitalParticle1 {
+    0%, 100% {
+        transform: translate(0, 0) scale(0.8) rotate(0deg);
+        opacity: 0.7;
+    }
+    25% {
+        transform: translate(20px, -15px) scale(1.3) rotate(90deg);
+        opacity: 1;
+    }
+    50% {
+        transform: translate(40px, 0) scale(1) rotate(180deg);
+        opacity: 0.8;
+    }
+    75% {
+        transform: translate(20px, 15px) scale(1.2) rotate(270deg);
+        opacity: 1;
+    }
+}
+
+@keyframes orbitalParticle2 {
+    0%, 100% {
+        transform: translate(0, 0) scale(1) rotate(0deg);
+        opacity: 0.8;
+    }
+    33% {
+        transform: translate(-20px, -20px) scale(1.4) rotate(120deg);
+        opacity: 1;
+    }
+    66% {
+        transform: translate(-35px, 10px) scale(0.7) rotate(240deg);
+        opacity: 0.6;
+    }
+}
+
+@keyframes floatParticle3 {
+    0%, 100% {
+        transform: translate(0, 0) scale(0.9);
+        opacity: 0.7;
+    }
+    50% {
+        transform: translate(25px, -15px) scale(1.5);
+        opacity: 1;
+    }
+}
+
+@keyframes pulseGlow {
+    0%, 100% {
+        transform: scale(0.5);
+        opacity: 0.6;
+    }
+    50% {
+        transform: scale(2);
+        opacity: 1;
+    }
+}
+
+/* Locked and Purchased States */
+.perk-card.perk-locked:not(.perk-purchased) {
+    opacity: 0.55;
+    filter: grayscale(0.5);
+    transform: none !important;
+}
+
+.perk-card.perk-purchased {
+    opacity: 0.45;
+    filter: grayscale(0.7);
+    transform: none !important;
+}
+
+.perk-locked-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     font-size: 0.9rem;
-    color: var(--text-muted);
-    margin-bottom: 12px;
-    line-height: 1.5;
-    flex-grow: 1;
+    font-weight: 800;
+    color: #f87171;
+    z-index: 20;
+    backdrop-filter: blur(1px);
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+    letter-spacing: 0.05em;
+}
+/* Card Entrance Animation */
+.perk-card {
+    animation: cardEnter 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
 }
 
-.perk-special {
-    font-size: 0.8rem;
-    color: var(--accent);
-    font-weight: 600;
-    padding: 8px;
-    background: rgba(124, 108, 244, 0.12);
-    border-radius: 6px;
-    margin-bottom: 12px;
+.perk-card:nth-child(1) { animation-delay: 0s; }
+.perk-card:nth-child(2) { animation-delay: 0.08s; }
+.perk-card:nth-child(3) { animation-delay: 0.16s; }
+.perk-card:nth-child(4) { animation-delay: 0.24s; }
+
+@keyframes cardEnter {
+    from {
+        opacity: 0;
+        transform: translateY(40px) scale(0.85);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
 }
 
-.perk-card-footer {
+/* Additional particle container for legendary cards */
+.perk-card-particles {
+    position: absolute;
+    inset: -20px;
+    pointer-events: none;
+    overflow: visible;
+    z-index: 20;
+}
+
+.perk-card-particles span {
+    position: absolute;
+    width: 4px;
+    height: 4px;
+    background: rgba(255, 215, 100, 0.9);
+    border-radius: 1px;
+    box-shadow: 0 0 6px rgba(255, 200, 100, 0.5);
+}
+
+.perk-card-particles span:nth-child(1) {
+    top: 0%;
+    left: 30%;
+    animation: particleDrift1 3s ease-in-out infinite;
+}
+
+.perk-card-particles span:nth-child(2) {
+    top: 60%;
+    left: 5%;
+    width: 6px;
+    height: 6px;
+    animation: particleDrift2 4s ease-in-out infinite;
+}
+
+.perk-card-particles span:nth-child(3) {
+    top: 80%;
+    right: 10%;
+    width: 3px;
+    height: 3px;
+    animation: particleDrift3 2.5s ease-in-out infinite;
+}
+
+@keyframes particleDrift1 {
+    0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.6; }
+    50% { transform: translate(15px, -25px) scale(1.6); opacity: 1; }
+}
+
+@keyframes particleDrift2 {
+    0%, 100% { transform: translate(0, 0) scale(0.8); opacity: 0.5; }
+    50% { transform: translate(-20px, -15px) scale(1.4); opacity: 0.9; }
+}
+
+@keyframes particleDrift3 {
+    0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.7; }
+    50% { transform: translate(10px, -20px) scale(0.6); opacity: 1; }
+}
+
+/* ========== Reward Screen ========== */
+.reward-screen {
+    max-width: 960px;
+    margin: 0 auto;
+}
+
+.reward-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 22px auto 18px;
+    max-width: 400px;
+}
+
+.reward-card {
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.01));
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 16px;
+    text-align: left;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
     display: flex;
     justify-content: space-between;
     align-items: center;
-    gap: 12px;
-    margin-top: auto;
-    padding-top: 14px;
-    border-top: 1px solid var(--border);
 }
 
-.perk-card-cost {
-    font-size: 1.1rem;
+.reward-label {
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+    font-weight: 600;
+}
+
+.reward-value {
+    font-size: 1.15rem;
     font-weight: 700;
+    color: var(--text);
+}
+
+.reward-total {
+    margin-top: 14px;
+    padding: 18px 18px;
+    border-radius: 16px;
+    border: 1px solid rgba(124, 108, 244, 0.35);
+    background: radial-gradient(800px 240px at 50% 0%, rgba(124, 108, 244, 0.20), rgba(124, 108, 244, 0.04));
+}
+
+.reward-total-label {
+    color: rgba(233, 213, 255, 0.92);
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    font-size: 0.8rem;
+    margin-bottom: 8px;
+}
+
+.reward-total-value {
+    font-size: 2rem;
+    font-weight: 950;
+    color: #dbeafe;
+    text-shadow: 0 0 22px rgba(59, 130, 246, 0.22);
+}
+
+.reward-total-sub {
+    margin-top: 6px;
+    color: var(--text-muted);
+    font-weight: 700;
+}
+
+.reward-cash {
     color: var(--success);
+    font-weight: 900;
 }
 
-.perk-buy-btn {
-    background: var(--accent);
-    color: white;
-    border: none;
-    padding: 10px 18px;
-    border-radius: 8px;
-    cursor: pointer;
+.reward-next {
+    margin-top: 14px;
     font-weight: 700;
+}
+
+.reward-next-ok {
+    color: #93c5fd;
+}
+
+.reward-next-bad {
+    color: #fca5a5;
+}
+
+.reward-click-hint {
+    color: var(--text-muted);
     font-size: 0.9rem;
-    transition: background 0.2s;
+    font-style: italic;
+    margin-top: 16px;
+    opacity: 0.7;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 0.5; }
+    50% { opacity: 0.9; }
 }
 
 .perk-buy-btn:hover:not(:disabled) {
@@ -1177,6 +2245,77 @@ body {
     0% { transform: scale(1); }
     50% { transform: scale(1.02); }
     100% { transform: scale(1); }
+}
+
+/* ========== Breakdown / Game Over Screen ========== */
+.breakdown-screen.game_over .screen-title {
+    color: var(--danger);
+    text-shadow: 0 0 10px rgba(239, 68, 68, 0.4);
+}
+
+.game-over-quote {
+    font-size: 1.1rem;
+    font-style: italic;
+    color: var(--text-muted);
+    margin: 20px 0;
+    padding: 0 20px;
+    opacity: 0.9;
+    border-left: 3px solid var(--accent);
+    text-align: left;
+    max-width: 600px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 12px;
+    margin: 20px 0;
+    text-align: left;
+}
+
+.stat-row {
+    background: rgba(255, 255, 255, 0.03);
+    padding: 12px 16px;
+    border-radius: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border: 1px solid var(--border);
+}
+
+.stat-row.highlight {
+    background: rgba(124, 108, 244, 0.1);
+    border-color: var(--accent);
+}
+
+.stat-label {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+}
+
+.stat-value {
+    font-weight: 700;
+    color: var(--text);
+    font-size: 1.1rem;
+}
+
+.btn-restart {
+    margin-top: 24px;
+    padding: 16px 40px;
+    font-size: 1.2rem;
+    background: var(--danger);
+    color: white;
+    border: none;
+    box-shadow: 0 4px 15px rgba(239, 68, 68, 0.4);
+    transition: all 0.2s ease;
+}
+
+.btn-restart:hover {
+    background: #dc2626;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(239, 68, 68, 0.5);
 }
 
 /* ========== Boss Reward Screen ========== */
@@ -1242,29 +2381,178 @@ body {
     margin: 0 auto;
 }
 
+/* Start Screen Special Styling */
+.start-screen {
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    max-width: none;
+    background: transparent;
+    position: relative;
+    z-index: 10;
+    transition: opacity 0.5s ease, transform 0.8s cubic-bezier(0.6, -0.28, 0.735, 0.045);
+}
+
+.start-screen.launching {
+    opacity: 0;
+    transform: scale(1.5);
+    pointer-events: none;
+}
+
 .screen-title {
-    font-size: 2.25rem;
-    font-weight: 700;
-    margin: 0 0 16px;
-    color: var(--text);
+    font-size: 4.5rem;
+    font-weight: 900;
+    margin: 0 0 8px;
+    color: #fff;
+    text-transform: uppercase;
+    letter-spacing: -0.02em;
+    position: relative;
+    text-shadow: 0 0 30px rgba(124, 108, 244, 0.5);
+}
+
+/* Glitch effect for title */
+.screen-title.glitch {
+    position: relative;
+}
+
+.screen-title.glitch::before,
+.screen-title.glitch::after {
+    content: attr(data-text);
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0.8;
+}
+
+.screen-title.glitch::before {
+    color: #0ff;
+    z-index: -1;
+    animation: glitch-anim-1 2.5s infinite linear alternate-reverse;
+}
+
+.screen-title.glitch::after {
+    color: #f0f;
+    z-index: -2;
+    animation: glitch-anim-2 3s infinite linear alternate-reverse;
+}
+
+@keyframes glitch-anim-1 {
+    0% { clip-path: inset(20% 0 80% 0); transform: translate(-2px, 1px); }
+    20% { clip-path: inset(60% 0 10% 0); transform: translate(2px, -1px); }
+    40% { clip-path: inset(40% 0 50% 0); transform: translate(-2px, 2px); }
+    60% { clip-path: inset(80% 0 5% 0); transform: translate(2px, -2px); }
+    80% { clip-path: inset(10% 0 70% 0); transform: translate(-1px, 1px); }
+    100% { clip-path: inset(30% 0 20% 0); transform: translate(1px, -1px); }
+}
+
+@keyframes glitch-anim-2 {
+    0% { clip-path: inset(10% 0 60% 0); transform: translate(2px, -1px); }
+    20% { clip-path: inset(80% 0 5% 0); transform: translate(-2px, 2px); }
+    40% { clip-path: inset(30% 0 20% 0); transform: translate(2px, -2px); }
+    60% { clip-path: inset(15% 0 80% 0); transform: translate(-1px, 1px); }
+    80% { clip-path: inset(55% 0 10% 0); transform: translate(1px, -1px); }
+    100% { clip-path: inset(40% 0 30% 0); transform: translate(-2px, 1px); }
 }
 
 .screen-subtitle {
-    font-size: 1.15rem;
-    color: var(--text-muted);
-    margin-bottom: 32px;
-    line-height: 1.5;
+    font-size: 1.4rem;
+    color: var(--text);
+    font-weight: 300;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+    opacity: 0.9;
 }
 
-.screen-content {
-    font-size: 1rem;
-    margin-bottom: 32px;
-    line-height: 1.7;
+.screen-author {
+    font-size: 0.9rem;
     color: var(--text-muted);
+    font-style: italic;
+    margin-bottom: 48px;
+    opacity: 0.7;
+    letter-spacing: 0.05em;
 }
 
-.screen-content p {
+.screen-description {
+    background: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(10px);
+    padding: 24px 32px;
+    border-radius: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    max-width: 480px;
+    margin-bottom: 48px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+.screen-description p {
     margin-bottom: 12px;
+    font-size: 1.05rem;
+    color: #e2e8f0;
+    line-height: 1.6;
+}
+
+.screen-description p:last-child {
+    margin-bottom: 0;
+}
+
+/* Launch Button */
+.btn-launch {
+    position: relative;
+    padding: 20px 60px;
+    background: transparent;
+    border: 2px solid var(--accent);
+    color: var(--accent);
+    font-size: 1.5rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    cursor: pointer;
+    overflow: hidden;
+    transition: all 0.3s cubic-bezier(0.23, 1, 0.32, 1);
+    box-shadow: 0 0 20px rgba(124, 108, 244, 0.2);
+}
+
+.btn-launch::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: var(--accent);
+    transition: transform 0.4s cubic-bezier(0.23, 1, 0.32, 1);
+    z-index: -1;
+}
+
+.btn-launch:hover {
+    color: #fff;
+    box-shadow: 0 0 40px rgba(124, 108, 244, 0.6);
+    transform: translateY(-2px);
+    text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+
+.btn-launch:hover::before {
+    transform: translateX(100%);
+}
+
+.btn-launch:active {
+    transform: translateY(1px) scale(0.98);
+}
+
+.btn-launch.active {
+    background: var(--accent);
+    color: #fff;
+    box-shadow: 0 0 60px var(--accent);
+    transform: scale(1.1);
+}
+
+/* Legacy content class kept for compatibility if needed */
+.screen-content {
+    display: none;
 }
 
 /* ========== Attributes (stats modal + shop) ========== */
@@ -1303,7 +2591,242 @@ body {
     color: var(--text);
 }
 
-/* ========== Animations ========== */
+/* Consumable slots below perk cards */
+.consumable-section {
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+}
+
+.consumable-title {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    margin-bottom: 12px;
+    text-align: center;
+}
+
+.consumable-slots {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    max-width: 420px;
+    margin: 0 auto;
+}
+
+.consumable-slot {
+    aspect-ratio: 1;
+    background: var(--bg-card);
+    border: 2px solid var(--border);
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+}
+
+.consumable-slot.filled:hover {
+    border-color: var(--accent);
+    transform: translateY(-2px);
+}
+
+.consumable-slot.selected {
+    border-color: var(--success);
+    background: rgba(34, 197, 94, 0.1);
+    box-shadow: 0 0 15px rgba(34, 197, 94, 0.3);
+}
+
+.consumable-slot.empty {
+    border-style: dashed;
+    opacity: 0.5;
+    cursor: default;
+}
+
+.consumable-slot .consumable-icon {
+    font-size: 2rem;
+    margin-bottom: 0;
+}
+
+/* Confirm Overlay */
+.consumable-confirm-overlay {
+    position: absolute;
+    bottom: 8px;
+    left: 0;
+    right: 0;
+    text-align: center;
+    font-size: 0.6rem;
+    font-weight: 800;
+    color: var(--success);
+    text-transform: uppercase;
+    background: rgba(0,0,0,0.6);
+    padding: 2px 0;
+    border-radius: 4px;
+    margin: 0 8px;
+    pointer-events: none;
+    animation: fadeIn 0.2s ease-out;
+}
+
+/* Tooltip for inventory slots */
+.consumable-slot .consumable-tooltip {
+    position: absolute;
+    bottom: calc(100% + 10px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    padding: 10px;
+    border-radius: 8px;
+    width: 180px;
+    z-index: 100;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: all 0.2s;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+}
+
+/* Fix tooltip cutoff for grid items */
+/* Left column: align left */
+.consumable-slot:nth-child(3n+1) .consumable-tooltip {
+    left: 0;
+    transform: none;
+}
+
+/* Right column: align right */
+.consumable-slot:nth-child(3n) .consumable-tooltip {
+    left: auto;
+    right: 0;
+    transform: none;
+}
+
+.consumable-slot:hover .consumable-tooltip {
+    opacity: 1;
+    visibility: visible;
+}
+
+.consumable-slot .ct-name {
+    font-weight: 700;
+    margin-bottom: 4px;
+    color: var(--accent);
+    font-size: 0.85rem;
+    text-align: left;
+}
+
+.consumable-slot .ct-desc {
+    font-size: 0.7rem;
+    color: var(--text);
+    line-height: 1.3;
+    text-align: left;
+    margin-bottom: 6px;
+}
+
+.consumable-slot .ct-click-hint {
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    font-style: italic;
+    text-align: center;
+    border-top: 1px solid rgba(255,255,255,0.1);
+    padding-top: 4px;
+    margin-top: 4px;
+}
+
+/* Unified pagination styles */
+.pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 12px;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+}
+
+.pagination button {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 6px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    font-weight: 600;
+    transition: all 0.2s;
+}
+
+.pagination button:hover:not(:disabled) {
+    background: var(--accent);
+    border-color: var(--accent);
+}
+
+.pagination button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.pagination .page-info {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    font-weight: 600;
+}
+
+@keyframes diceRoll {
+    0% { transform: rotateX(0deg) rotateY(0deg) rotateZ(0deg); }
+    25% { transform: rotateX(180deg) rotateY(90deg) rotateZ(45deg); }
+    50% { transform: rotateX(360deg) rotateY(180deg) rotateZ(90deg); }
+    75% { transform: rotateX(540deg) rotateY(270deg) rotateZ(135deg); }
+    100% { transform: rotateX(720deg) rotateY(360deg) rotateZ(180deg); }
+}
+
+.dice-rolling {
+    animation: diceRoll 0.6s ease-out;
+}
+
+/* Enhanced purchase animation */
+@keyframes purchaseSuccess {
+    0% { 
+        transform: scale(1);
+        box-shadow: 0 0 0 0 rgba(251, 191, 36, 0);
+    }
+    25% {
+        transform: scale(1.05);
+        box-shadow: 0 0 20px 5px rgba(251, 191, 36, 0.5);
+    }
+    50% { 
+        transform: scale(0.95);
+        box-shadow: 0 0 40px 10px rgba(251, 191, 36, 0.3);
+    }
+    75% {
+        transform: scale(1.02);
+    }
+    100% { 
+        transform: scale(1);
+        box-shadow: 0 0 0 0 rgba(251, 191, 36, 0);
+    }
+}
+
+.perk-purchased-anim {
+    animation: purchaseSuccess 0.5s ease-out;
+}
+
+/* Sparkle effect for purchase */
+@keyframes sparkle {
+    0%, 100% { opacity: 0; transform: scale(0); }
+    50% { opacity: 1; transform: scale(1); }
+}
+
+.purchase-sparkle {
+    position: absolute;
+    width: 4px;
+    height: 4px;
+    background: #fbbf24;
+    border-radius: 50%;
+    pointer-events: none;
+    animation: sparkle 0.6s ease-out forwards;
+}
 @keyframes fadeIn {
     from { opacity: 0; }
     to { opacity: 1; }

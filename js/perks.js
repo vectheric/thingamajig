@@ -134,10 +134,10 @@ const PERKS = {
     JACKPOT: {
         id: 'jackpot',
         name: 'Jackpot',
-        description: '+3 Chip multiplier, +2 Rolls',
+        description: '+7 Chip multiplier, +7 Rolls',
         cost: 145,
         rarity: 'epic',
-        attributes: { chip_multiplier: 3, rolls: 2 }
+        attributes: { chip_multiplier: 7, rolls: 7 }
     },
     PRISTINE_COLLECTOR: {
         id: 'pristine_collector',
@@ -285,7 +285,7 @@ function getShopPerks() {
  * @param {Object} owned - owned perks object
  * @returns {Array} random perks filtered by wave
  */
-function getRandomShopPerks(wave, count = 4, owned = {}) {
+function getRandomShopPerks(wave, count = 4, owned = {}, rng = Math.random) {
     const allPerks = getShopPerks().filter(p => !owned[p.id]);
     
     // Weight perks by rarity and wave
@@ -314,7 +314,7 @@ function getRandomShopPerks(wave, count = 4, owned = {}) {
     
     for (let i = 0; i < Math.min(count, available.length); i++) {
         const totalWeight = available.reduce((sum, item) => sum + item.weight, 0);
-        let random = Math.random() * totalWeight;
+        let random = rng() * totalWeight;
         
         for (let j = 0; j < available.length; j++) {
             random -= available[j].weight;

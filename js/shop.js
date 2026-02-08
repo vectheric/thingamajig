@@ -7,6 +7,7 @@ class Shop {
     constructor(gameState) {
         this.gameState = gameState;
         this.currentShopPerks = [];
+        this.currentShopConsumables = [];
     }
 
     /**
@@ -16,7 +17,13 @@ class Shop {
         this.currentShopPerks = getRandomShopPerks(
             this.gameState.wave,
             4,
-            this.gameState.perksPurchased
+            this.gameState.perksPurchased,
+            (this.gameState.rngStreams && this.gameState.rngStreams.perks) ? this.gameState.rngStreams.perks : Math.random
+        );
+        // Generate 3 random consumables for the shop (can have duplicates)
+        this.currentShopConsumables = getRandomShopConsumables(
+            3,
+            (this.gameState.rngStreams && this.gameState.rngStreams.perks) ? this.gameState.rngStreams.perks : Math.random
         );
         return this.currentShopPerks;
     }
@@ -39,6 +46,45 @@ class Shop {
             special: perk.special,
             owned: !!this.gameState.perksPurchased[perk.id]
         }));
+    }
+
+    /**
+     * Get current shop consumables
+     */
+    getShopConsumables() {
+        if (this.currentShopConsumables.length === 0) {
+            this.generateShopPerks();
+        }
+        return this.currentShopConsumables;
+    }
+
+    /**
+     * Purchase a consumable from the shop
+     */
+    purchaseConsumable(index) {
+        const consumables = this.getShopConsumables();
+        if (index < 0 || index >= consumables.length) {
+            return { success: false, message: 'Invalid consumable' };
+        }
+        
+        const consumable = consumables[index];
+        if (this.gameState.cash < consumable.cost) {
+            return { success: false, message: `Not enough cash! Need ${consumable.cost}$` };
+        }
+        
+        // Try to add to inventory
+        const result = this.gameState.addConsumable(consumable);
+        if (!result.success) {
+            return result;
+        }
+        
+        // Spend cash
+        this.gameState.currency.spendCash(consumable.cost);
+        
+        // Remove from shop
+        this.currentShopConsumables.splice(index, 1);
+        
+        return { success: true, message: `Purchased ${consumable.name}!` };
     }
 
     /**

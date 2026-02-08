@@ -34,6 +34,9 @@ class CurrencySystem {
      * @param {number} amount - chips to add
      */
     addChips(amount) {
+        if (amount > 0 && typeof game !== 'undefined' && game.gameState) {
+            game.gameState.addStat('totalChipsEarned', amount);
+        }
         this.chips = Math.max(0, this.chips + amount);
     }
 
@@ -55,6 +58,9 @@ class CurrencySystem {
      * @param {number} amount - cash to add
      */
     addCash(amount) {
+        if (amount > 0 && typeof game !== 'undefined' && game.gameState) {
+            game.gameState.addStat('totalCashEarned', amount);
+        }
         this.cash = Math.max(0, this.cash + amount);
     }
 

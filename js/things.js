@@ -34,54 +34,95 @@ const THING_TEMPLATES = {
     STONE: {
         name: 'Stone',
         baseValue: 1,
-        rarityMultiplier: 1.0
+        rarityMultiplier: 1.0,
+        tier: RARITIES.COMMON,
+        rarity: 14,
+        color: '#9ca3af'
     },
     COPPER_ORE: {
         name: 'Copper Ore',
         baseValue: 3,
-        rarityMultiplier: 1.1
+        rarityMultiplier: 1.1,
+        tier: RARITIES.COMMON,
+        rarity: 10,
+        color: '#f97316'
     },
     SILVER_ORE: {
         name: 'Silver Ore',
         baseValue: 5,
-        rarityMultiplier: 1.2
+        rarityMultiplier: 1.2,
+        tier: RARITIES.UNCOMMON,
+        rarity: 8,
+        color: '#e5e7eb'
     },
     GOLD_ORE: {
         name: 'Gold Ore',
         baseValue: 10,
-        rarityMultiplier: 1.4
+        rarityMultiplier: 1.4,
+        tier: RARITIES.RARE,
+        rarity: 6,
+        color: '#fbbf24'
     },
     DIAMOND: {
         name: 'Diamond',
         baseValue: 20,
-        rarityMultiplier: 1.6
+        rarityMultiplier: 1.6,
+        tier: RARITIES.EPIC,
+        rarity: 4,
+        color: '#a5f3fc'
     },
     MYSTIC_CRYSTAL: {
         name: 'Mystic Crystal',
         baseValue: 15,
-        rarityMultiplier: 1.5
+        rarityMultiplier: 1.5,
+        tier: RARITIES.RARE,
+        rarity: 5,
+        color: '#22d3ee'
     },
     ANCIENT_RELIC: {
         name: 'Ancient Relic',
         baseValue: 25,
-        rarityMultiplier: 2.0
+        rarityMultiplier: 2.0,
+        tier: RARITIES.EPIC,
+        rarity: 3,
+        color: '#a78bfa'
     },
     CURSED_ITEM: {
         name: 'Cursed Item',
         baseValue: 0,
-        rarityMultiplier: 0.5
+        rarityMultiplier: 0.5,
+        tier: RARITIES.UNCOMMON,
+        rarity: 6,
+        color: '#22c55e'
     },
     BLESSED_ARTIFACT: {
         name: 'Blessed Artifact',
         baseValue: 30,
-        rarityMultiplier: 2.2
+        rarityMultiplier: 2.2,
+        tier: RARITIES.LEGENDARY,
+        rarity: 2,
+        color: '#f59e0b'
     },
     VOID_ESSENCE: {
         name: 'Void Essence',
         baseValue: 40,
-        rarityMultiplier: 1.8
+        rarityMultiplier: 1.8,
+        tier: RARITIES.LEGENDARY,
+        rarity: 1,
+        color: '#8b5cf6'
     }
 };
+
+function createSeededRng(seed) {
+    let a = seed >>> 0;
+    return function () {
+        a |= 0;
+        a = (a + 0x6D2B79F5) | 0;
+        let t = Math.imul(a ^ (a >>> 15), 1 | a);
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+}
 
 /**
  * Roll a random thing
@@ -89,23 +130,36 @@ const THING_TEMPLATES = {
  * @param {number} wave - current wave (optional, defaults to 1)
  * @returns {Object} { name, value, rarity }
  */
-function rollThing(wave = 1) {
-    // Determine rarity with wave scaling
-    const rarity = selectByWeight(getWaveBasedRarityWeights(wave));
-    
-    // Select random thing template
-    const templates = Object.values(THING_TEMPLATES);
-    const template = templates[Math.floor(Math.random() * templates.length)];
-    
-    // Calculate value
-    const baseValue = RARITY_VALUES[rarity];
+function rollThing(wave = 1, rng = Math.random, rarityWeightsOverride) {
+    const template = selectByWeight(getWaveBasedTemplateWeights(wave, rarityWeightsOverride), rng);
+    const rarity = template.tier || template.rarity;
+
+    const baseValue = RARITY_VALUES[rarity] + template.baseValue;
     const finalValue = Math.round(baseValue * template.rarityMultiplier);
-    
+
     return {
         name: template.name,
         value: finalValue,
-        rarity: rarity
+        rarity: rarity,
+        nameStyle: template.color ? { color: template.color } : undefined
     };
+}
+function getWaveBasedTemplateWeights(wave, rarityWeightsOverride) {
+    const rarityWeights = rarityWeightsOverride || getWaveBasedRarityWeights(wave);
+    const templates = Object.values(THING_TEMPLATES);
+    const weights = [];
+
+    for (const template of templates) {
+        const tier = template.tier || template.rarity;
+        const rarityWeight = rarityWeights[tier] ?? 0;
+        const templateWeight = typeof template.rarity === 'number'
+            ? template.rarity
+            : (typeof template.weight === 'number' ? template.weight : 1);
+        const weight = rarityWeight * Math.max(0, templateWeight);
+        if (weight > 0) weights.push({ item: template, weight });
+    }
+
+    return weights;
 }
 
 /**
@@ -175,14 +229,20 @@ function getWaveBasedRarityWeights(wave) {
  * @param {Object} weights - { option: weight, ... }
  * @returns {string} selected option
  */
-function selectByWeight(weights) {
-    const totalWeight = Object.values(weights).reduce((a, b) => a + b, 0);
-    let random = Math.random() * totalWeight;
-    
-    for (const [option, weight] of Object.entries(weights)) {
-        random -= weight;
-        if (random <= 0) return option;
+function selectByWeight(weights, rng = Math.random) {
+    const entries = Array.isArray(weights)
+        ? weights
+        : Object.entries(weights).map(([item, weight]) => ({ item, weight }));
+
+    if (entries.length === 0) return null;
+
+    const totalWeight = entries.reduce((sum, entry) => sum + entry.weight, 0);
+    let random = rng() * totalWeight;
+
+    for (const entry of entries) {
+        random -= entry.weight;
+        if (random <= 0) return entry.item;
     }
-    
-    return Object.keys(weights)[0];
+
+    return entries[0].item;
 }

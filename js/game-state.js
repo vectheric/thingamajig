@@ -4,8 +4,30 @@
  */
 
 class GameState {
-    constructor() {
+    constructor(seed) {
+        this.seed = (seed >>> 0) || (Date.now() >>> 0);
+        this.rngStreams = this._createRngStreams(this.seed);
         this.resetGame();
+    }
+
+    _deriveSeed(label) {
+        let h = 2166136261;
+        const s = `${this.seed}:${label}`;
+        for (let i = 0; i < s.length; i++) {
+            h ^= s.charCodeAt(i);
+            h = Math.imul(h, 16777619);
+        }
+        return h >>> 0;
+    }
+
+    _createRngStreams() {
+        const mk = (label) => (typeof createSeededRng === 'function' ? createSeededRng(this._deriveSeed(label)) : Math.random);
+        return {
+            loot: mk('loot'),
+            mods: mk('mods'),
+            perks: mk('perks'),
+            luck: mk('luck')
+        };
     }
 
     resetGame() {
@@ -17,6 +39,35 @@ class GameState {
         this.rollsUsed = 0;
         this.rareItemStreak = 0;
         this.pendingBossReward = null;
+        this.pendingNextWave = null;
+        this._lowRarityStreak = 0;
+        this.consumables = []; // Array of consumable items (max 9)
+        this.lootPage = 0; // Current loot page for pagination (formerly inventoryPage)
+        this.itemsPerPage = 10;
+        this.potionsUsed = 0; // Track potions used during run
+
+        // Stats Tracking
+        this.stats = {
+            startTime: Date.now(),
+            totalChipsEarned: 0,
+            totalCashEarned: 0,
+            totalItemsRolled: 0,
+            totalRollsUsed: 0
+        };
+    }
+
+    getGameTime() {
+        const now = Date.now();
+        const diff = now - this.stats.startTime;
+        const minutes = Math.floor(diff / 60000);
+        const seconds = Math.floor((diff % 60000) / 1000);
+        return `${minutes}m ${seconds}s`;
+    }
+
+    addStat(key, value) {
+        if (this.stats[key] !== undefined) {
+            this.stats[key] += value;
+        }
     }
 
     /** Reorder inventory (drag & drop) */
@@ -83,6 +134,7 @@ class GameState {
         this.inventory = [];
         this.rareItemStreak = 0; // Reset streak at wave start
         this.currency.resetWaveLocalCurrency(); // Reset chips for new wave
+        this._lowRarityStreak = 0;
     }
 
     /**
@@ -158,13 +210,35 @@ class GameState {
     }
 
     _doOneRoll(modChanceBoost) {
-        let thing = rollThing(this.wave);
-        thing = applyModifications(thing, modChanceBoost);
+        let rarityWeightsOverride;
+        if (typeof getWaveBasedRarityWeights === 'function') {
+            const base = getWaveBasedRarityWeights(this.wave);
+            const s = this._lowRarityStreak;
+            if (s >= 6) {
+                const boost = Math.min(10, (s - 5) * 2);
+                rarityWeightsOverride = {
+                    ...base,
+                    rare: (base.rare || 0) + boost,
+                    epic: (base.epic || 0) + Math.max(1, Math.floor(boost / 2)),
+                    legendary: (base.legendary || 0) + Math.max(0, Math.floor(boost / 5)),
+                    common: Math.max(0, (base.common || 0) - boost)
+                };
+            }
+        }
+
+        let thing = rollThing(this.wave, this.rngStreams.loot, rarityWeightsOverride);
+        thing = applyModifications(thing, modChanceBoost, this.rngStreams.mods);
         const attrs = this.getAttributes();
-        if (Math.random() < (attrs.luck || 0) * 0.05) {
-            thing = applyModifications(rollThing(this.wave), modChanceBoost);
+        if (this.rngStreams.luck() < (attrs.luck || 0) * 0.05) {
+            thing = applyModifications(rollThing(this.wave, this.rngStreams.loot, rarityWeightsOverride), modChanceBoost, this.rngStreams.mods);
         }
         thing.value = Math.round(thing.value * (1 + (attrs.value_multiplier || 0) * 0.1));
+
+        if (thing.rarity === 'rare' || thing.rarity === 'epic' || thing.rarity === 'legendary') {
+            this._lowRarityStreak = 0;
+        } else {
+            this._lowRarityStreak++;
+        }
         return thing;
     }
 
@@ -197,14 +271,19 @@ class GameState {
         return this.inventory.reduce((sum, thing) => sum + thing.value, 0);
     }
 
+    /** Calculate chips earned for a given inventory value (applies chip_multiplier attribute) */
+    calculateEarnedChipsForValue(value) {
+        const attrs = this.getAttributes();
+        const multiplier = 1 + (attrs.chip_multiplier || 0) * 0.15;
+        return Math.round(Math.max(0, value) * multiplier);
+    }
+
     /**
      * Sell inventory and earn chips for this wave
      */
     sellInventory() {
         const value = this.getInventoryValue();
-        const attrs = this.getAttributes();
-        const multiplier = 1 + attrs.chip_multiplier * 0.15;
-        const earnedChips = Math.round(value * multiplier);
+        const earnedChips = this.calculateEarnedChipsForValue(value);
         this.currency.addChips(earnedChips);
         return earnedChips;
     }
@@ -332,5 +411,116 @@ class GameState {
             result['Mod Chance'] = `+${Math.round(attrs.modification_chance * 100)}%`;
         }
         return result;
+    }
+
+    /**
+     * Add a consumable item (max 6 slots)
+     */
+    addConsumable(consumable) {
+        if (this.consumables.length >= 9) {
+            return { success: false, message: 'Consumable slots full!' };
+        }
+        this.consumables.push({
+            ...consumable,
+            id: Date.now() + Math.random()
+        });
+        return { success: true, message: `Added ${consumable.name}!` };
+    }
+
+    /**
+     * Use a consumable by index
+     */
+    useConsumable(index) {
+        if (index < 0 || index >= this.consumables.length) {
+            return { success: false, message: 'Invalid consumable slot' };
+        }
+        const consumable = this.consumables[index];
+        
+        // Apply consumable effect
+        if (consumable.effect === 'rolls') {
+            this.rollsUsed = Math.max(0, this.rollsUsed - (consumable.value || 1));
+        } else if (consumable.effect === 'cash') {
+            this.currency.addCash(consumable.value || 10);
+        } else if (consumable.effect === 'interest') {
+            this.currency.addInterestStacks(consumable.value || 1);
+        }
+        
+        // Track potion usage
+        this.potionsUsed++;
+        
+        // Remove the consumable
+        const name = consumable.name;
+        this.consumables.splice(index, 1);
+        return { success: true, message: `Used ${name}!`, effect: consumable.effect };
+    }
+
+    /**
+     * Get paginated loot items (formerly inventory)
+     */
+    getPaginatedLoot() {
+        const start = this.lootPage * this.itemsPerPage;
+        const end = start + this.itemsPerPage;
+        return {
+            items: this.inventory.slice(start, end),
+            totalItems: this.inventory.length,
+            currentPage: this.lootPage,
+            totalPages: Math.ceil(this.inventory.length / this.itemsPerPage),
+            hasNext: end < this.inventory.length,
+            hasPrev: this.lootPage > 0
+        };
+    }
+
+    /**
+     * Go to next loot page
+     */
+    nextLootPage() {
+        const maxPage = Math.ceil(this.inventory.length / this.itemsPerPage) - 1;
+        if (this.lootPage < maxPage) {
+            this.lootPage++;
+        }
+    }
+
+    /**
+     * Go to previous loot page
+     */
+    prevLootPage() {
+        if (this.lootPage > 0) {
+            this.lootPage--;
+        }
+    }
+
+    /**
+     * Reset loot page when starting new wave
+     */
+    resetLootPage() {
+        this.lootPage = 0;
+    }
+
+    /**
+     * Get paginated inventory items (legacy - redirects to loot)
+     */
+    getPaginatedInventory() {
+        return this.getPaginatedLoot();
+    }
+
+    /**
+     * Go to next inventory page (legacy - redirects to loot)
+     */
+    nextInventoryPage() {
+        this.nextLootPage();
+    }
+
+    /**
+     * Go to previous inventory page (legacy - redirects to loot)
+     */
+    prevInventoryPage() {
+        this.prevLootPage();
+    }
+
+    /**
+     * Reset inventory page (legacy - redirects to loot)
+     */
+    resetInventoryPage() {
+        this.resetLootPage();
     }
 }

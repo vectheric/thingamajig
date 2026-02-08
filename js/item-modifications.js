@@ -155,7 +155,8 @@ const MODS = {
 function getRandomSizeMod() {
     const mods = Object.values(SIZE_MODS);
     const totalChance = mods.reduce((sum, mod) => sum + mod.chance, 0);
-    let random = Math.random() * totalChance;
+    const rng = arguments.length > 0 && typeof arguments[0] === 'function' ? arguments[0] : Math.random;
+    let random = rng() * totalChance;
     
     for (let mod of mods) {
         random -= mod.chance;
@@ -173,10 +174,11 @@ function getRandomSizeMod() {
 function getRandomMods(modChanceBoost = 1.0) {
     const modArray = Object.values(MODS);
     const selectedMods = [];
+    const rng = arguments.length > 1 && typeof arguments[1] === 'function' ? arguments[1] : Math.random;
     
     // Adjust mod count chances based on boost
     // Base: 40% for 1 mod, 15% for 2 mods, 45% for 0 mods
-    const baseChance = Math.random();
+    const baseChance = rng();
     const modChance1 = 0.4 * modChanceBoost;
     const modChance2 = 0.15 * modChanceBoost;
     
@@ -187,7 +189,7 @@ function getRandomMods(modChanceBoost = 1.0) {
     
     for (let i = 0; i < modCount && availableMods.length > 0; i++) {
         const totalChance = availableMods.reduce((sum, mod) => sum + mod.chance * modChanceBoost, 0);
-        let random = Math.random() * totalChance;
+        let random = rng() * totalChance;
         
         for (let j = 0; j < availableMods.length; j++) {
             random -= availableMods[j].chance * modChanceBoost;
@@ -209,8 +211,9 @@ function getRandomMods(modChanceBoost = 1.0) {
  * @returns {Object} modified item with size and mods
  */
 function applyModifications(item, modChanceBoost = 1.0) {
-    const sizeMod = getRandomSizeMod();
-    const mods = getRandomMods(modChanceBoost);
+    const rng = arguments.length > 2 && typeof arguments[2] === 'function' ? arguments[2] : Math.random;
+    const sizeMod = getRandomSizeMod(rng);
+    const mods = getRandomMods(modChanceBoost, rng);
     
     // Calculate price multiplier from all mods
     let priceMultiplier = sizeMod.priceMultiplier;
