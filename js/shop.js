@@ -14,11 +14,15 @@ class Shop {
      * Get random shop perks for current wave (4 perks, unowned only)
      */
     generateShopPerks() {
+        const attrs = this.gameState.getAttributes();
+        const luck = attrs.luck || 0;
+        
         this.currentShopPerks = getRandomShopPerks(
             this.gameState.wave,
             4,
             this.gameState.perksPurchased,
-            (this.gameState.rngStreams && this.gameState.rngStreams.perks) ? this.gameState.rngStreams.perks : Math.random
+            (this.gameState.rngStreams && this.gameState.rngStreams.perks) ? this.gameState.rngStreams.perks : Math.random,
+            luck
         );
         // Generate 3 random consumables for the shop (can have duplicates)
         this.currentShopConsumables = getRandomShopConsumables(
@@ -43,7 +47,9 @@ class Shop {
             description: perk.description,
             cost: perk.cost,
             rarity: perk.rarity,
+            type: perk.type,
             special: perk.special,
+            nameStyle: perk.nameStyle,
             owned: !!this.gameState.perksPurchased[perk.id]
         }));
     }
@@ -90,9 +96,31 @@ class Shop {
     /**
      * Try to purchase a perk
      */
-    purchasePerk(perkId) {
+    purchasePerk(perkId, instanceId = null) {
         const result = this.gameState.purchasePerk(perkId);
-        // Keep purchased perk visible but grayscaled - don't remove it
+        
+        // If success and it's a subperk/special, remove from shop to prevent multiple purchases in one go
+        // (It will reappear next time it's generated)
+        if (result.success) {
+            let index = -1;
+            
+            // If instanceId is provided, look for exact match
+            if (instanceId) {
+                index = this.currentShopPerks.findIndex(p => p.instanceId === instanceId);
+            } 
+            // Fallback to finding first matching ID (legacy behavior)
+            if (index === -1) {
+                index = this.currentShopPerks.findIndex(p => p.id === perkId);
+            }
+
+            if (index !== -1) {
+                const perk = this.currentShopPerks[index];
+                if (perk.type === 'subperk' || perk.tier === 'special') {
+                    this.currentShopPerks.splice(index, 1);
+                }
+            }
+        }
+
         return result;
     }
 

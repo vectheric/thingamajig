@@ -176,6 +176,12 @@ body {
     border: 1px solid var(--border);
 }
 
+.topbar-perk-badge.rarity-common { background: linear-gradient(135deg, #3f3f46 0%, #27272a 100%); color: #fff; border-color: rgba(255,255,255,0.2); }
+.topbar-perk-badge.rarity-uncommon { background: linear-gradient(135deg, #166534 0%, #14532d 100%); color: #fff; border-color: rgba(255,255,255,0.2); }
+.topbar-perk-badge.rarity-rare { background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%); color: #fff; border-color: rgba(255,255,255,0.2); }
+.topbar-perk-badge.rarity-epic { background: linear-gradient(135deg, #5b21b6 0%, #4c1d95 100%); color: #fff; border-color: rgba(255,255,255,0.2); }
+.topbar-perk-badge.rarity-legendary { background: linear-gradient(135deg, #b45309 0%, #92400e 100%); color: #fff; border-color: rgba(255,255,255,0.2); }
+
 .no-perks {
     color: var(--text-muted);
     font-style: italic;
@@ -715,6 +721,9 @@ body {
 
 /* Rolled thing inside holder - full rarity + mods display */
 .rolled-thing-holder {
+    position: relative;
+    overflow: hidden;
+    color: #fff;
     width: 100%;
     min-height: 88px;
     padding: 14px 16px;
@@ -728,17 +737,177 @@ body {
     border: 2px solid rgba(255, 255, 255, 0.15) !important;
 }
 
-.rolled-thing-holder.rarity-common { background: linear-gradient(135deg, #3f3f46 0%, #27272a 100%); }
+/* Global Overlay for legibility */
+.rolled-thing-holder::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.4);
+    z-index: 0;
+    pointer-events: none;
+}
+
+/* Loot item overlay - smaller and rounded */
+.loot-item-minimal::before,
+.loot-item::before {
+    content: '';
+    position: absolute;
+    inset: 3px; /* Smaller than container */
+    background: rgba(0, 0, 0, 0.4);
+    z-index: 0;
+    pointer-events: none;
+    border-radius: 8px; /* Matching rounded corners */
+}
+
+/* Ensure content is above overlay */
+.rolled-thing-holder > *,
+.loot-item-minimal > *,
+.loot-item > * {
+    position: relative;
+    z-index: 1;
+}
+
+/* Old Tiers (preserved for perks if needed, or fallback) */
+.rolled-thing-holder.rarity-common { background: linear-gradient(135deg, #27272a 0%, #18181b 100%); }
 .rolled-thing-holder.rarity-uncommon { background: linear-gradient(135deg, #166534 0%, #14532d 100%); }
-.rolled-thing-holder.rarity-rare { background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%); }
+.rolled-thing-holder.rarity-rare { background: linear-gradient(135deg, #f97316 0%, #ea580c 100%); } /* ORANGE for Items */
 .rolled-thing-holder.rarity-epic { background: linear-gradient(135deg, #5b21b6 0%, #4c1d95 100%); }
 .rolled-thing-holder.rarity-legendary { background: linear-gradient(135deg, #b45309 0%, #92400e 100%); }
+
+/* PERK TIER COLORS (Explicitly separated) */
+.perk-card.rarity-common { background: linear-gradient(135deg, #27272a 0%, #18181b 100%); }
+.perk-card.rarity-uncommon { background: linear-gradient(135deg, #166534 0%, #14532d 100%); }
+.perk-card.rarity-rare { background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%); } /* BLUE for Perks */
+.perk-card.rarity-epic { background: linear-gradient(135deg, #5b21b6 0%, #4c1d95 100%); }
+.perk-card.rarity-legendary { background: linear-gradient(135deg, #b45309 0%, #92400e 100%); }
+
+/* NEW ITEM TIERS */
+.rolled-thing-holder.rarity-significant { 
+    background: linear-gradient(135deg, #52525b 0%, #3f3f46 100%); /* Lighter version of Common */
+    color: #fff; 
+    border-color: #71717a !important;
+    box-shadow: inset 0 0 10px rgba(255,255,255,0.1);
+} 
+.rolled-thing-holder.rarity-master { background: linear-gradient(135deg, #7e22ce 0%, #581c87 100%); } /* Purple */
+.rolled-thing-holder.rarity-surreal { background: linear-gradient(135deg, #14b8a6 0%, #0f766e 100%); } /* Teal */
+.rolled-thing-holder.rarity-mythic { background: linear-gradient(135deg, #ec4899 0%, #be185d 100%); } /* Pink */
+.rolled-thing-holder.rarity-exotic { background: linear-gradient(135deg, #eab308 0%, #a16207 100%); } /* Yellow */
+.rolled-thing-holder.rarity-exquisite { background: linear-gradient(135deg, #15803d 0%, #14532d 100%); } /* Dark Green */
+
+/* SUPERNATURAL & BEYOND (Particles/Effects) */
+.rolled-thing-holder.rarity-transcendent { 
+    background: linear-gradient(135deg, #1e3a8a 0%, #172554 100%); /* Slightly Dark Blue */
+    position: relative;
+    overflow: hidden;
+}
+.rolled-thing-holder.rarity-enigmatic { 
+    background: linear-gradient(135deg, #84cc16 0%, #4d7c0f 100%); /* Slimy Green */
+    position: relative;
+    overflow: hidden;
+}
+.rolled-thing-holder.rarity-unfathomable { 
+    background: linear-gradient(45deg, #1e3a8a, #312e81, #1e3a8a); /* Dark Blue Gradient Animated */
+    background-size: 200% 200%;
+    animation: gradient-shift 3s ease infinite, shake-medium 0.5s infinite;
+    position: relative;
+    overflow: hidden;
+}
+.rolled-thing-holder.rarity-otherworldly { 
+    background: linear-gradient(45deg, #be185d, #831843, #be185d); /* Dark Pink Gradient Animated */
+    background-size: 200% 200%;
+    animation: gradient-shift 3s ease infinite, shake-medium 0.5s infinite;
+    position: relative;
+    overflow: hidden;
+}
+.rolled-thing-holder.rarity-imaginary { 
+    background: linear-gradient(45deg, #fef08a, #ffffff, #fef08a); /* White Yellow Animated */
+    background-size: 200% 200%;
+    animation: gradient-shift 2s linear infinite, shake-light 2s infinite;
+    color: #fff;
+    position: relative;
+    overflow: hidden;
+    text-shadow: 0 0 5px rgba(0,0,0,0.8);
+}
+.rolled-thing-holder.rarity-zenith { 
+    background: #09090b; /* Dark BG */
+    color: #fff;
+    border: 1px solid #fff;
+    animation: shake-heavy 0.2s infinite;
+    position: relative;
+    overflow: hidden;
+}
+
+/* Animations */
+@keyframes gradient-shift {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
+@keyframes shake-light {
+    0% { transform: translate(0, 0); }
+    25% { transform: translate(1px, 1px); }
+    50% { transform: translate(-1px, -1px); }
+    75% { transform: translate(1px, -1px); }
+    100% { transform: translate(0, 0); }
+}
+@keyframes shake-medium {
+    0% { transform: translate(0, 0); }
+    25% { transform: translate(2px, 2px); }
+    50% { transform: translate(-2px, -2px); }
+    75% { transform: translate(2px, -2px); }
+    100% { transform: translate(0, 0); }
+}
+@keyframes shake-heavy {
+    0% { transform: translate(0, 0); }
+    25% { transform: translate(3px, 3px); }
+    50% { transform: translate(-3px, -3px); }
+    75% { transform: translate(3px, -3px); }
+    100% { transform: translate(0, 0); }
+}
+
+/* Particle Containers */
+.particle-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 1;
+}
+
+/* Text overrides for light backgrounds */
+.rolled-thing-holder.rarity-significant .rolled-thing-name,
+.rolled-thing-holder.rarity-significant .rolled-thing-rarity,
+.rolled-thing-holder.rarity-significant .rolled-thing-value,
+.rolled-thing-holder.rarity-imaginary .rolled-thing-name,
+.rolled-thing-holder.rarity-imaginary .rolled-thing-rarity,
+.rolled-thing-holder.rarity-imaginary .rolled-thing-value {
+    color: #fff;
+    text-shadow: 0 0 2px rgba(0,0,0,0.5);
+}
+.rolled-thing-holder.rarity-imaginary .rolled-thing-mods .mod-badge,
+.rolled-thing-holder.rarity-significant .rolled-thing-mods .mod-badge {
+    background: rgba(0,0,0,0.5);
+    color: #fff;
+    border: 1px solid rgba(255,255,255,0.2);
+}
+
 
 .rolled-thing-name {
     font-weight: 700;
     font-size: 1.05rem;
     color: #fff;
     line-height: 1.2;
+    background: rgba(0, 0, 0, 0.4);
+    padding: 6px 16px;
+    border-radius: 8px;
+    display: inline-block;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    margin-bottom: 2px;
 }
 
 .rolled-thing-rarity {
@@ -767,7 +936,8 @@ body {
 .rolled-thing-value {
     font-weight: 700;
     font-size: 1rem;
-    color: rgba(255, 255, 255, 0.9);
+    color: #fff;
+    text-shadow: 0 0 2px rgba(0,0,0,0.5);
 }
 
 .rolled-thing-holder.rare-celebration {
@@ -788,10 +958,10 @@ body {
 
 .loot-list {
     display: grid;
-    grid-template-columns: repeat(5, 1fr);
-    gap: 8px;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
     margin-top: 12px;
-    max-height: 420px;
+    max-height: 70vh; /* Responsive vertical scaling */
     overflow-y: auto;
     overflow-x: hidden;
     padding-right: 4px;
@@ -801,7 +971,8 @@ body {
 }
 
 .loot-item-minimal {
-    border-radius: 10px;
+    width: 100%;
+    border-radius: 12px;
     text-align: center;
     display: flex;
     align-items: center;
@@ -811,13 +982,14 @@ body {
     position: relative;
     transform-style: preserve-3d;
     perspective: 200px;
-    font-size: 0.65rem;
+    font-size: 1rem; /* Bigger text */
     cursor: pointer;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-    min-height: 60px;
-    padding: 8px 4px;
-    aspect-ratio: 1;
+    min-height: 0;
+    padding: 10px;
+    aspect-ratio: 1; /* Square */
     animation: lootPop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
+    overflow: hidden; /* Prevent content from expanding box */
 }
 
 @keyframes lootPop {
@@ -833,7 +1005,7 @@ body {
 }
 
 .loot-item-minimal .loot-item-name {
-    font-size: 0.65rem;
+    font-size: 0.9rem; /* Increased from 0.65rem */
     font-weight: 700;
     line-height: 1.1;
     color: #fff;
@@ -847,6 +1019,7 @@ body {
     overflow: hidden;
     padding: 2px;
     pointer-events: none;
+    word-break: break-word; /* Ensure long words wrap */
 }
 
 .loot-item-hover {
@@ -912,7 +1085,7 @@ body {
 
 /* Rarity colors for loot (minimalist cards) */
 .loot-item.rarity-common {
-    background: linear-gradient(135deg, #52525b 0%, #3f3f46 100%);
+    background: linear-gradient(135deg, #27272a 0%, #18181b 100%);
 }
 
 .loot-item.rarity-uncommon {
@@ -920,7 +1093,7 @@ body {
 }
 
 .loot-item.rarity-rare {
-    background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+    background: linear-gradient(135deg, #f97316 0%, #ea580c 100%); /* Orange */
 }
 
 .loot-item.rarity-epic {
@@ -929,6 +1102,140 @@ body {
 
 .loot-item.rarity-legendary {
     background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
+}
+
+/* NEW ITEM TIERS FOR LOOT LIST */
+.loot-item.rarity-significant {
+    background: linear-gradient(135deg, #52525b 0%, #3f3f46 100%);
+    color: #fff;
+    border: 1px solid #71717a;
+}
+
+.loot-item.rarity-master { background: linear-gradient(135deg, #7e22ce 0%, #581c87 100%); }
+.loot-item.rarity-surreal { background: linear-gradient(135deg, #14b8a6 0%, #0f766e 100%); }
+.loot-item.rarity-mythic { background: linear-gradient(135deg, #ec4899 0%, #be185d 100%); }
+.loot-item.rarity-exotic { background: linear-gradient(135deg, #eab308 0%, #a16207 100%); }
+.loot-item.rarity-exquisite { background: linear-gradient(135deg, #15803d 0%, #14532d 100%); }
+.loot-item.rarity-transcendent { background: linear-gradient(135deg, #1e3a8a 0%, #172554 100%); }
+.loot-item.rarity-enigmatic { background: linear-gradient(135deg, #84cc16 0%, #4d7c0f 100%); }
+
+.loot-item.rarity-unfathomable { 
+    background: linear-gradient(45deg, #1e3a8a, #312e81, #1e3a8a);
+    background-size: 200% 200%;
+    animation: gradient-shift 3s ease infinite;
+}
+
+.loot-item.rarity-otherworldly { 
+    background: linear-gradient(45deg, #be185d, #831843, #be185d);
+    background-size: 200% 200%;
+    animation: gradient-shift 3s ease infinite;
+}
+
+.loot-item.rarity-imaginary { 
+    background: linear-gradient(45deg, #fef08a, #ffffff, #fef08a);
+    background-size: 200% 200%;
+    animation: gradient-shift 2s linear infinite;
+    color: #fff;
+}
+.loot-item.rarity-imaginary .loot-item-name { color: #fff; text-shadow: 0 0 2px rgba(0,0,0,0.8); }
+
+.loot-item.rarity-zenith { 
+    background: #09090b;
+    color: #fff;
+    border: 1px solid #fff;
+}
+
+.loot-item.rarity-mythical {
+    background: linear-gradient(135deg, #a855f7 0%, #7e22ce 100%);
+    box-shadow: 0 0 15px rgba(168, 85, 247, 0.4);
+    animation: mythicalPulse 2s infinite;
+}
+
+.topbar-perk-badge.rarity-mythical { 
+    background: linear-gradient(135deg, #a855f7 0%, #7e22ce 100%); 
+    color: #fff; 
+    border-color: #d8b4fe; 
+    box-shadow: 0 0 15px rgba(168, 85, 247, 0.6); 
+    animation: mythicalPulse 2s infinite; 
+}
+
+.perk-card.rarity-mythical { 
+    border-color: #d8b4fe; 
+    background: linear-gradient(to bottom right, #27272a, #581c87); 
+    box-shadow: 0 0 20px rgba(168, 85, 247, 0.3); 
+}
+.perk-card.rarity-mythical .perk-rarity-badge { 
+    background: #a855f7; 
+    color: #fff; 
+    box-shadow: 0 0 10px rgba(255,255,255,0.5); 
+}
+.perk-card.rarity-mythical .perk-card-name { 
+    text-shadow: 0 0 5px rgba(216, 180, 254, 0.8); 
+}
+
+.perk-card.rarity-special {
+    border-color: #490033;
+    background: linear-gradient(to bottom right, #27272a, #52525b);
+    box-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
+}
+.perk-card.rarity-special .perk-rarity-badge {
+    background: #490033;
+    color: #000;
+    box-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
+    font-weight: 800;
+}
+.perk-card.rarity-special .perk-card-name {
+    color: #490033;
+    text-shadow: 0 0 5px rgba(255, 255, 255, 0.5);
+}
+.topbar-perk-badge.rarity-special {
+    background: linear-gradient(135deg, #490033 0%, #140024 100%);
+    color: #000;
+    border-color: #fff;
+    box-shadow: 0 0 10px rgba(255, 255, 255, 0.4);
+}
+
+@keyframes mythicalPulse {
+    0% { box-shadow: 0 0 10px rgba(168, 85, 247, 0.6); }
+    50% { box-shadow: 0 0 20px rgba(168, 85, 247, 0.9); border-color: #fff; }
+    100% { box-shadow: 0 0 10px rgba(168, 85, 247, 0.6); }
+}
+
+/* Glitch Effect for NULLIFICATI0N */
+.perk-glitch {
+    position: relative;
+    overflow: hidden;
+}
+.perk-glitch::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: repeating-linear-gradient(
+        transparent 0%,
+        rgba(255, 0, 0, 0.1) 1%,
+        transparent 2%
+    );
+    animation: glitch-scan 3s infinite linear;
+    pointer-events: none;
+    z-index: 2;
+}
+@keyframes glitch-scan {
+    0% { transform: translateY(-100%); }
+    100% { transform: translateY(100%); }
+}
+.perk-glitch:hover {
+    animation: glitch-shake 0.3s infinite;
+}
+@keyframes glitch-shake {
+    0% { transform: translate(0, 0); }
+    20% { transform: translate(-2px, 2px); }
+    40% { transform: translate(-2px, -2px); }
+    60% { transform: translate(2px, 2px); }
+    80% { transform: translate(2px, -2px); }
+    100% { transform: translate(0, 0); }
 }
 
 .loot-total {
@@ -1200,6 +1507,33 @@ body {
 .inventory-item.dragging {
     opacity: 0.5;
 }
+
+/* Subperk Purchase Effect */
+.subperk-particle {
+    position: fixed;
+    width: 14px;
+    height: 14px;
+    background: #ffffff;
+    border: none;
+    pointer-events: none;
+    z-index: 10000;
+    animation: subperk-float 2s ease-out forwards;
+}
+
+@keyframes subperk-float {
+    0% { 
+        opacity: 0;
+        transform: scale(0.5) translate(0, 0) rotate(0deg);
+    }
+    10% { 
+        opacity: 1; 
+        transform: scale(1.5) translate(0, 0) rotate(45deg); 
+    }
+    100% { 
+        opacity: 0; 
+        transform: scale(0) translate(var(--tx), var(--ty)) rotate(135deg); 
+    }
+}
 .inventory-item.drag-over {
     outline: 2px solid var(--accent);
     outline-offset: 2px;
@@ -1218,7 +1552,7 @@ body {
 
 /* Rarity colors for inventory (minimalist cards) */
 .inventory-item.rarity-common {
-    background: linear-gradient(135deg, #52525b 0%, #3f3f46 100%);
+    background: linear-gradient(135deg, #27272a 0%, #18181b 100%);
 }
 
 .inventory-item.rarity-uncommon {
@@ -1226,7 +1560,7 @@ body {
 }
 
 .inventory-item.rarity-rare {
-    background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+    background: linear-gradient(135deg, #f97316 0%, #ea580c 100%); /* Orange */
 }
 
 .inventory-item.rarity-epic {
@@ -1235,6 +1569,47 @@ body {
 
 .inventory-item.rarity-legendary {
     background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
+}
+
+/* NEW ITEM TIERS FOR INVENTORY */
+.inventory-item.rarity-significant {
+    background: linear-gradient(135deg, #52525b 0%, #3f3f46 100%); /* Darker Silver/Slate */
+    color: #fff;
+    border: 1px solid #71717a;
+}
+
+.inventory-item.rarity-master { background: linear-gradient(135deg, #7e22ce 0%, #581c87 100%); }
+.inventory-item.rarity-surreal { background: linear-gradient(135deg, #14b8a6 0%, #0f766e 100%); }
+.inventory-item.rarity-mythic { background: linear-gradient(135deg, #ec4899 0%, #be185d 100%); }
+.inventory-item.rarity-exotic { background: linear-gradient(135deg, #eab308 0%, #a16207 100%); }
+.inventory-item.rarity-exquisite { background: linear-gradient(135deg, #15803d 0%, #14532d 100%); }
+.inventory-item.rarity-transcendent { background: linear-gradient(135deg, #1e3a8a 0%, #172554 100%); }
+.inventory-item.rarity-enigmatic { background: linear-gradient(135deg, #84cc16 0%, #4d7c0f 100%); }
+
+.inventory-item.rarity-unfathomable { 
+    background: linear-gradient(45deg, #1e3a8a, #312e81, #1e3a8a);
+    background-size: 200% 200%;
+    animation: gradient-shift 3s ease infinite;
+}
+
+.inventory-item.rarity-otherworldly { 
+    background: linear-gradient(45deg, #be185d, #831843, #be185d);
+    background-size: 200% 200%;
+    animation: gradient-shift 3s ease infinite;
+}
+
+.inventory-item.rarity-imaginary { 
+    background: linear-gradient(45deg, #fef08a, #ffffff, #fef08a);
+    background-size: 200% 200%;
+    animation: gradient-shift 2s linear infinite;
+    color: #000;
+}
+.inventory-item.rarity-imaginary .inventory-item-name { color: #000; text-shadow: none; }
+
+.inventory-item.rarity-zenith { 
+    background: #09090b;
+    color: #fff;
+    border: 1px solid #fff;
 }
 
 /* Inline tooltip content is copied to floating tooltip; hide this from view */
@@ -1635,6 +2010,13 @@ body {
     background: linear-gradient(180deg, rgba(255,255,255,0.03) 0%, transparent 30%);
     min-height: 0;
     justify-content: space-between;
+}
+
+/* Shop Card Text Section - Solid Gray */
+.perk-card-shop .perk-card-info {
+    background: #27272a;
+    color: #fff;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .perk-card-name {
@@ -2049,6 +2431,29 @@ body {
     backdrop-filter: blur(1px);
     text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
     letter-spacing: 0.05em;
+}
+
+.perk-purchased-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.7);
+    color: #4ade80;
+    font-family: monospace;
+    font-weight: 900;
+    font-size: 1.4rem;
+    letter-spacing: 0.1em;
+    transform: rotate(-10deg);
+    border: 3px solid #4ade80;
+    border-radius: 8px;
+    margin: 30px 10px;
+    z-index: 25;
+    backdrop-filter: blur(2px);
+    box-shadow: 0 0 15px rgba(74, 222, 128, 0.3), inset 0 0 15px rgba(74, 222, 128, 0.1);
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+    pointer-events: none;
 }
 /* Card Entrance Animation */
 .perk-card {

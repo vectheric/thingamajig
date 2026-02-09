@@ -26,7 +26,7 @@ class Inventory {
             value: thing.value,
             rarity: thing.rarity,
             nameStyle: thing.nameStyle,
-            sizeMod: thing.sizeMod,
+            attribute: thing.attribute,
             mods: thing.mods,
             baseValue: thing.baseValue,
             priceMultiplier: thing.priceMultiplier

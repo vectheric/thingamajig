@@ -40,7 +40,7 @@ class GameState {
         this.rareItemStreak = 0;
         this.pendingBossReward = null;
         this.pendingNextWave = null;
-        this._lowRarityStreak = 0;
+        this._badLuckStreak = 0;
         this.consumables = []; // Array of consumable items (max 9)
         this.lootPage = 0; // Current loot page for pagination (formerly inventoryPage)
         this.itemsPerPage = 10;
@@ -54,6 +54,9 @@ class GameState {
             totalItemsRolled: 0,
             totalRollsUsed: 0
         };
+        
+        // Perk-specific tracking
+        this.chipEaterStartValue = 0;
     }
 
     getGameTime() {
@@ -115,8 +118,27 @@ class GameState {
 
         for (const perkId in this.perksPurchased) {
             const count = this.perksPurchased[perkId];
-            let perk = PERKS[Object.keys(PERKS).find(k => PERKS[k].id === perkId)];
+            let perk = typeof getPerkById === 'function' ? getPerkById(perkId) : Object.values(PERKS).find(p => p.id === perkId);
             if (!perk && typeof getBossPerkById === 'function') perk = getBossPerkById(perkId);
+            
+            // Special handling for Nullification (dynamic scaling)
+            if (perkId === 'nullificati0n') {
+                const wavesActive = typeof count === 'number' ? count : 0;
+                attributes.luck = (attributes.luck || 0) + (0.404 * wavesActive);
+                attributes.rolls = (attributes.rolls || 0) + (4 * wavesActive);
+                continue; 
+            }
+
+            // Special handling for Chip Eater (dynamic scaling)
+            if (perkId === 'chip_eater') {
+                const totalChips = this.stats.totalChipsEarned || 0;
+                const startValue = this.chipEaterStartValue || 0;
+                const earnedSincePurchase = Math.max(0, totalChips - startValue);
+                // 0.5 Value Multiplier per 1 Chip earned since purchase
+                attributes.value_multiplier = (attributes.value_multiplier || 0) + (0.5 * earnedSincePurchase);
+                continue;
+            }
+
             if (perk && perk.attributes) {
                 for (const attr in perk.attributes) {
                     attributes[attr] = (attributes[attr] || 0) + (perk.attributes[attr] * count);
@@ -134,7 +156,25 @@ class GameState {
         this.inventory = [];
         this.rareItemStreak = 0; // Reset streak at wave start
         this.currency.resetWaveLocalCurrency(); // Reset chips for new wave
-        this._lowRarityStreak = 0;
+        // Bad luck streak persists across waves until a high tier item is found
+
+        // Nullification Scaling: Increment active waves count
+        if (this.perksPurchased['nullificati0n']) {
+             // Store start wave if not present (legacy support or first run)
+             // But actually, we need to track how many waves passed.
+             // Let's use a specific counter for Nullification stacks.
+             // We can store it in perksPurchased as a value? No, perksPurchased is usually boolean or stack count.
+             // For Nullification, it's not "stacks" of the perk, it's "waves active".
+             // Let's create a separate counter in stats or just use perksPurchased value if it's not boolean.
+             // Actually, for Nullification, we can use perksPurchased['nullificati0n'] as the counter.
+             // Initial purchase sets it to 1 (or 0). Each wave start increments it.
+             // Wait, purchasePerk sets it to true. Let's change purchase logic for this specific perk or check here.
+             
+             if (this.perksPurchased['nullificati0n'] === true) {
+                 this.perksPurchased['nullificati0n'] = 0; // Initialize counter
+             }
+             this.perksPurchased['nullificati0n']++;
+        }
     }
 
     /**
@@ -210,35 +250,76 @@ class GameState {
     }
 
     _doOneRoll(modChanceBoost) {
-        let rarityWeightsOverride;
-        if (typeof getWaveBasedRarityWeights === 'function') {
-            const base = getWaveBasedRarityWeights(this.wave);
-            const s = this._lowRarityStreak;
-            if (s >= 6) {
-                const boost = Math.min(10, (s - 5) * 2);
-                rarityWeightsOverride = {
-                    ...base,
-                    rare: (base.rare || 0) + boost,
-                    epic: (base.epic || 0) + Math.max(1, Math.floor(boost / 2)),
-                    legendary: (base.legendary || 0) + Math.max(0, Math.floor(boost / 5)),
-                    common: Math.max(0, (base.common || 0) - boost)
-                };
+        // Calculate adjusted weights based on Luck and Bad Luck Streak
+        const baseWeights = typeof getWaveBasedRarityWeights === 'function' ? getWaveBasedRarityWeights(this.wave) : {};
+        const attrs = this.getAttributes();
+        const luck = attrs.luck || 0;
+        const badLuck = this._badLuckStreak || 0;
+        
+        // Luck Mitigation: Boost chances for higher tiers
+        // Every 4 bad rolls adds effective luck, plus base luck
+        const effectiveLuck = luck + Math.floor(badLuck / 4);
+        
+        const adjustedWeights = { ...baseWeights };
+        
+        if (effectiveLuck > 0) {
+            // Boost Rare, Epic, Legendary based on effective luck
+            if (adjustedWeights['rare']) adjustedWeights['rare'] *= (1 + effectiveLuck * 0.15);
+            if (adjustedWeights['epic']) adjustedWeights['epic'] *= (1 + effectiveLuck * 0.20);
+            if (adjustedWeights['legendary']) adjustedWeights['legendary'] *= (1 + effectiveLuck * 0.25);
+        }
+
+        let thing = rollThing(this.wave, this.rngStreams.loot, adjustedWeights);
+        
+        // Update Bad Luck Streak
+        // Reset on Rare or better
+        if (thing.tier === 'rare' || thing.tier === 'epic' || thing.tier === 'legendary') {
+            this._badLuckStreak = 0;
+        } else {
+            this._badLuckStreak++;
+        }
+
+        // Prepare modification options
+        const guaranteedMods = [];
+        const rarityMultipliers = {};
+        
+        // Check for perks that guarantee mods or modify rarity
+        for (const perkId in this.perksPurchased) {
+            // Find perk definition
+            const perk = typeof getPerkById === 'function' ? getPerkById(perkId) : Object.values(PERKS).find(p => p.id === perkId);
+            
+            if (perk) {
+                if (perk.special && perk.special.startsWith('guaranteed_mod_')) {
+                    const modId = perk.special.replace('guaranteed_mod_', '');
+                    guaranteedMods.push(modId);
+                }
+                
+                if (perk.mod_rarity_modifiers) {
+                    for (const [modId, multiplier] of Object.entries(perk.mod_rarity_modifiers)) {
+                        rarityMultipliers[modId] = (rarityMultipliers[modId] || 1) * multiplier;
+                    }
+                }
             }
         }
 
-        let thing = rollThing(this.wave, this.rngStreams.loot, rarityWeightsOverride);
-        thing = applyModifications(thing, modChanceBoost, this.rngStreams.mods);
-        const attrs = this.getAttributes();
+        const modOptions = {
+            modChanceBoost: modChanceBoost,
+            rng: this.rngStreams.mods,
+            guaranteedMods: guaranteedMods,
+            luck: effectiveLuck,
+            rarityMultipliers: rarityMultipliers
+        };
+
+        thing = applyModifications(thing, modOptions);
+        
+        // Luck-based extra roll (chance to reroll entirely if lucky)
         if (this.rngStreams.luck() < (attrs.luck || 0) * 0.05) {
-            thing = applyModifications(rollThing(this.wave, this.rngStreams.loot, rarityWeightsOverride), modChanceBoost, this.rngStreams.mods);
+            const newThing = rollThing(this.wave, this.rngStreams.loot, adjustedWeights);
+            thing = applyModifications(newThing, modOptions);
         }
+        
         thing.value = Math.round(thing.value * (1 + (attrs.value_multiplier || 0) * 0.1));
 
-        if (thing.rarity === 'rare' || thing.rarity === 'epic' || thing.rarity === 'legendary') {
-            this._lowRarityStreak = 0;
-        } else {
-            this._lowRarityStreak++;
-        }
         return thing;
     }
 
@@ -362,19 +443,47 @@ class GameState {
      * @returns {Object} { success: boolean, message: string }
      */
     purchasePerk(perkId) {
-        // Check if already purchased
+        // Find the perk first
+        const perk = typeof getPerkById === 'function' ? getPerkById(perkId) : Object.values(PERKS).find(p => p.id === perkId);
+        if (!perk) return { success: false, message: 'Perk not found' };
+
+        // Check if already purchased / Max Stacks
         if (this.perksPurchased[perkId]) {
-            return { 
-                success: false, 
-                message: 'You already own this perk!' 
+            if (!perk.maxStacks) {
+                return { 
+                    success: false, 
+                    message: 'You already own this perk!' 
+                };
+            }
+            if (this.perksPurchased[perkId] >= perk.maxStacks) {
+                return {
+                    success: false,
+                    message: 'Max stacks reached!'
+                };
+            }
+        }
+
+        // Check for NULLIFICATI0N lock
+        if (this.perksPurchased['nullificati0n']) {
+            return {
+                success: false,
+                message: 'NULLIFICATI0N prevents further purchases!'
             };
         }
 
-        // Find the perk
-        const perkKey = Object.keys(PERKS).find(k => PERKS[k].id === perkId);
-        if (!perkKey) return { success: false, message: 'Perk not found' };
+        // Check Requirements
+        if (perk.requires) {
+            const requiredPerkId = perk.requires;
+            const requiredPerk = typeof getPerkById === 'function' ? getPerkById(requiredPerkId) : Object.values(PERKS).find(p => p.id === requiredPerkId);
+            
+            if (!this.perksPurchased[requiredPerkId]) {
+                return {
+                    success: false,
+                    message: `Requires ${requiredPerk ? requiredPerk.name : 'Unknown Perk'}!`
+                };
+            }
+        }
 
-        const perk = PERKS[perkKey];
         const cost = getPerkCost(perkId);
 
         // Perks cost CASH (persistent currency), not chips
@@ -385,9 +494,44 @@ class GameState {
             };
         }
 
+        // Handle Overwrites (Mutually Exclusive Perks)
+        if (perk.overwrites && Array.isArray(perk.overwrites)) {
+            perk.overwrites.forEach(overwrittenId => {
+                if (this.perksPurchased[overwrittenId]) {
+                    delete this.perksPurchased[overwrittenId];
+                    // Remove from perkOrder to update UI correctly
+                    const index = this.perkOrder.indexOf(overwrittenId);
+                    if (index > -1) {
+                        this.perkOrder.splice(index, 1);
+                    }
+                }
+            });
+        }
+
         this.currency.spendCash(cost);
-        this.perksPurchased[perkId] = true;
-        if (!this.perkOrder.includes(perkId)) this.perkOrder.push(perkId);
+
+        // Special handling for NULLIFICATI0N: Wipes all other perks
+        if (perkId === 'nullificati0n') {
+            this.perksPurchased = {};
+            this.perkOrder = [];
+        }
+
+        // Add Perk
+        if (perk.maxStacks) {
+            this.perksPurchased[perkId] = (this.perksPurchased[perkId] || 0) + 1;
+        } else {
+            this.perksPurchased[perkId] = true;
+        }
+
+        // Initialize Chip Eater tracking
+        if (perkId === 'chip_eater') {
+            this.chipEaterStartValue = this.stats.totalChipsEarned || 0;
+        }
+
+        // Add to order for UI (unless hidden or already there for stacks)
+        if (!perk.hidden && !this.perkOrder.includes(perkId)) {
+            this.perkOrder.push(perkId);
+        }
 
         return {
             success: true,
@@ -452,6 +596,16 @@ class GameState {
         const name = consumable.name;
         this.consumables.splice(index, 1);
         return { success: true, message: `Used ${name}!`, effect: consumable.effect };
+    }
+
+    /**
+     * Check if player has enough chips (potential) to advance
+     */
+    hasReachedWaveGoal() {
+        const value = this.getInventoryValue();
+        const earned = this.calculateEarnedChipsForValue(value);
+        const cost = this.getWaveEntryCost();
+        return earned >= cost;
     }
 
     /**

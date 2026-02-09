@@ -1,0 +1,29 @@
+
+/* Fire Particle Animation */
+.fire-particle {
+    position: fixed;
+    width: 6px;
+    height: 6px;
+    background: #fbbf24;
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 9999;
+    box-shadow: 0 0 4px #ef4444;
+    animation: fireFly 0.8s ease-out forwards;
+}
+
+@keyframes fireFly {
+    0% {
+        transform: translate(0, 0) scale(1);
+        opacity: 1;
+        background: #fff;
+    }
+    50% {
+        background: #f59e0b;
+    }
+    100% {
+        transform: translate(var(--dx), var(--dy)) scale(0);
+        opacity: 0;
+        background: #ef4444;
+    }
+}

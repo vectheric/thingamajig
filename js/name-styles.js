@@ -3,7 +3,7 @@
  * Used by UI when rendering item names and perk names.
  */
 
-const RARITY_NAME_STYLES = {
+const TIER_NAME_STYLES = {
     common: {
         color: '#a1a1aa',
         fontWeight: 'bold',
@@ -48,11 +48,11 @@ const RARITY_NAME_STYLES = {
 
 /** Perk name styles by rarity (same structure) */
 const PERK_NAME_STYLES = {
-    common: { ...RARITY_NAME_STYLES.common },
-    uncommon: { ...RARITY_NAME_STYLES.uncommon },
-    rare: { ...RARITY_NAME_STYLES.rare },
-    epic: { ...RARITY_NAME_STYLES.epic },
-    legendary: { ...RARITY_NAME_STYLES.legendary },
+    common: { ...TIER_NAME_STYLES.common },
+    uncommon: { ...TIER_NAME_STYLES.uncommon },
+    rare: { ...TIER_NAME_STYLES.rare },
+    epic: { ...TIER_NAME_STYLES.epic },
+    legendary: { ...TIER_NAME_STYLES.legendary },
 };
 
 /**
@@ -80,7 +80,7 @@ function nameStyleToCss(style) {
  */
 function getItemNameStyle(item) {
     const rarity = (item && item.rarity) || 'common';
-    const base = RARITY_NAME_STYLES[rarity] || RARITY_NAME_STYLES.common;
+    const base = TIER_NAME_STYLES[rarity] || TIER_NAME_STYLES.common;
     return item && item.nameStyle ? { ...base, ...item.nameStyle } : base;
 }
 
@@ -90,7 +90,7 @@ function getItemNameStyle(item) {
  * @returns {Object} style object
  */
 function getPerkNameStyle(perk) {
-    const rarity = (perk && perk.rarity) || 'common';
+    const rarity = (perk && (perk.rarity || perk.tier)) || 'common';
     const base = PERK_NAME_STYLES[rarity] || PERK_NAME_STYLES.common;
     return perk && perk.nameStyle ? { ...base, ...perk.nameStyle } : base;
 }

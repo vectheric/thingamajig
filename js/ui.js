@@ -143,7 +143,7 @@ class UI {
 
                 <div class="section roll-section">
                     <div class="section-title">Rolling</div>
-                    <button class="roll-button" onclick="game.handleRoll()" ${this.gameState.getRemainingRolls() <= 0 ? 'disabled' : ''}>
+                    <button class="roll-button" onclick="game.handleRoll()" ${(this.gameState.getRemainingRolls() <= 0 || this.gameState.hasReachedWaveGoal()) ? 'disabled' : ''}>
                         ROLL (SPACE)
                     </button>
                     <div class="rolls-remaining">
@@ -528,11 +528,22 @@ class UI {
             const p = full || (PERKS[Object.keys(PERKS).find(k => PERKS[k].id === perk.id)]);
             const desc = (p && p.description) || '';
             const special = (p && p.special) ? p.special.replace(/_/g, ' ') : '';
-            const rarity = (p && p.rarity) || 'common';
+            const rarity = (p && (p.rarity || p.tier)) || 'common';
             const nameStyle = typeof getPerkNameStyle === 'function' ? getPerkNameStyle(p) : {};
             const nameCss = typeof nameStyleToCss === 'function' ? nameStyleToCss(nameStyle) : '';
-            const safeName = typeof escapeHtml === 'function' ? escapeHtml(perk.name) : perk.name;
-            return `<span class="topbar-perk-badge perk-tooltip-anchor" draggable="true" data-perk-id="${perk.id}" data-perk-name="${escapeAttr(perk.name)}" data-perk-rarity="${escapeAttr(rarity)}" data-perk-desc="${escapeAttr(desc)}" data-perk-special="${escapeAttr(special)}"><span class="topbar-perk-name"${nameCss}>${safeName}</span></span>`;
+            
+            let displayName = perk.name;
+            const count = this.gameState.perksPurchased[perk.id] || 0;
+            if (p && p.type === 'subperk' && count > 0) {
+                 if (p.maxStacks) {
+                     displayName += ` ${count}/${p.maxStacks}`;
+                 } else {
+                     displayName += ` x${count}`;
+                 }
+            }
+            
+            const safeName = typeof escapeHtml === 'function' ? escapeHtml(displayName) : displayName;
+            return `<span class="topbar-perk-badge perk-tooltip-anchor rarity-${rarity.toLowerCase()}" draggable="true" data-perk-id="${perk.id}" data-perk-name="${escapeAttr(perk.name)}" data-perk-rarity="${escapeAttr(rarity)}" data-perk-desc="${escapeAttr(desc)}" data-perk-special="${escapeAttr(special)}"><span class="topbar-perk-name"${nameCss}>${safeName}</span></span>`;
         }).join('');
     }
 
@@ -636,11 +647,23 @@ class UI {
             const nameStyle = typeof getItemNameStyle === 'function' ? getItemNameStyle(item) : {};
             const nameCss = typeof nameStyleToCss === 'function' ? nameStyleToCss(nameStyle) : '';
             const safeName = typeof escapeHtml === 'function' ? escapeHtml(displayName) : displayName;
-            const legendWrap = item.rarity === 'legendary' ? ' loot-item-name legendary-particle-wrap' : '';
+            
+            // Particle wrappers for high tiers
+            let legendWrap = '';
+            if (['transcendent', 'enigmatic', 'unfathomable', 'otherworldly', 'imaginary', 'zenith'].includes(item.rarity)) {
+                legendWrap = ' loot-item-name particle-wrap';
+                // Add specific particle containers if needed, currently just CSS class on wrapper
+            } else if (item.rarity === 'legendary' || item.rarity === 'surreal' || item.rarity === 'mythic' || item.rarity === 'exotic' || item.rarity === 'exquisite') {
+                legendWrap = ' loot-item-name high-tier-wrap';
+            }
 
             return `
                 <div class="loot-item loot-item-minimal ${this.inventory.getRarityClass(item.rarity)}" data-item-index="${actualIndex}">
-                    <div class="loot-item-name${legendWrap}"${nameCss}>${safeName}</div>
+                    <div class="loot-item-name${legendWrap}"${nameCss}>
+                        ${safeName}
+                        ${item.rarity === 'zenith' ? '<div class="zenith-question-mark">?</div>' : ''}
+                        ${['transcendent', 'enigmatic', 'unfathomable', 'otherworldly', 'imaginary', 'zenith'].includes(item.rarity) ? '<div class="particle-container"></div>' : ''}
+                    </div>
                     <div class="loot-item-tooltip" aria-hidden="true">
                         <div class="tooltip-name"${nameCss}>${safeName}</div>
                         <div class="tooltip-rarity">${item.rarity.toUpperCase()}</div>
@@ -708,6 +731,8 @@ class UI {
         const getPerkIcon = (perk) => {
             const name = perk.name.toLowerCase();
             const special = (perk.special || '').toLowerCase();
+            if (name.includes('heliosol')) return '☀️'; // Heliosol icon
+            if (name.includes('solar')) return '🔥'; // Solar Power icon
             if (name.includes('luck') || special.includes('luck')) return '🍀';
             if (name.includes('roll') || special.includes('roll')) return '🎲';
             if (name.includes('chip') || special.includes('chip')) return '💎';
@@ -716,6 +741,7 @@ class UI {
             if (name.includes('auto') || special.includes('auto')) return '⚡';
             if (name.includes('interest') || special.includes('interest')) return '📈';
             if (name.includes('boss') || special.includes('boss')) return '👑';
+            if (perk.rarity === 'mythical') return '🌌';
             if (perk.rarity === 'legendary') return '✨';
             if (perk.rarity === 'epic') return '🔮';
             if (perk.rarity === 'rare') return '💠';
@@ -728,22 +754,112 @@ class UI {
             const isOwned = item.owned;
             const nameStyle = typeof getPerkNameStyle === 'function' ? getPerkNameStyle(item) : {};
             const nameCss = typeof nameStyleToCss === 'function' ? nameStyleToCss(nameStyle) : '';
-            const safeName = typeof escapeHtml === 'function' ? escapeHtml(item.name) : item.name;
-            const safeDesc = typeof escapeHtml === 'function' ? escapeHtml(item.description) : item.description;
-            const isSelected = selectedId && selectedId === item.id;
-            const locked = isOwned || !canAfford;
+            
+            // Subperk Name Logic
+            let displayName = item.name;
+            if (item.type === 'subperk') {
+                 const count = this.gameState.perksPurchased[item.id] || 0;
+                 if (count > 0) {
+                     if (item.maxStacks) {
+                         displayName += ` ${count}/${item.maxStacks}`;
+                     } else {
+                         displayName += ` x${count}`;
+                     }
+                 }
+            }
+            const safeName = typeof escapeHtml === 'function' ? escapeHtml(displayName) : displayName;
+            
+            // Dynamic description for Heliosol's Spear
+            let descText = item.description;
+            if (item.id === 'heliosol_spear') {
+                const solarCount = this.gameState.perksPurchased['solar_power'] || 0;
+                if (solarCount > 0) {
+                    let max = 50;
+                    if (typeof PERKS !== 'undefined' && PERKS.SOLAR_POWER) max = PERKS.SOLAR_POWER.maxStacks || 50;
+                    descText += ` (Solar Power: ${solarCount}/${max})`;
+                }
+            }
+            const safeDesc = typeof escapeHtml === 'function' ? escapeHtml(descText) : descText;
+
+            const isSelected = selectedId && (item.instanceId ? selectedId === item.instanceId : selectedId === item.id);
+            const locked = !canAfford; // Allow purchase of duplicates/stackables if in shop
             const icon = getPerkIcon(item);
             const isLegendary = item.rarity === 'legendary';
+            const isMythical = item.rarity === 'mythical';
+            const isNullification = item.id === 'nullificati0n';
 
-            const lockedOverlay = locked && !isOwned
-                ? '<div class="perk-locked-overlay">🔒 LOCKED</div>'
+            // Check Requirement
+            let reqHtml = '';
+            let reqLocked = false;
+            let reqPerk = null;
+            if (typeof PERKS !== 'undefined') {
+                const perkDef = PERKS[Object.keys(PERKS).find(k => PERKS[k].id === item.id)];
+                if (perkDef && perkDef.requires && !this.gameState.perksPurchased[perkDef.requires]) {
+                     reqLocked = true;
+                     const reqId = perkDef.requires;
+                     const reqP = PERKS[Object.keys(PERKS).find(k => PERKS[k].id === reqId)];
+                     reqPerk = reqP ? reqP.name : reqId;
+                     reqHtml = `<div class="perk-req-warning">Requires: ${reqPerk}</div>`;
+                }
+            }
+
+            // Check Nullification Lock
+            // If we own Nullification, everything else is locked (except consumables, but this is perks shop)
+            let nullificationLocked = false;
+            if (this.gameState.perksPurchased['nullificati0n'] && !isOwned && item.id !== 'nullificati0n') {
+                nullificationLocked = true;
+            }
+
+            // Check Overwrite Warning
+            let overwriteHtml = '';
+            if (typeof PERKS !== 'undefined') {
+                const perkDef = PERKS[Object.keys(PERKS).find(k => PERKS[k].id === item.id)];
+                if (perkDef && perkDef.overwrites) {
+                    const conflicts = perkDef.overwrites.filter(id => this.gameState.perksPurchased[id]);
+                    if (conflicts.length > 0) {
+                         const confNames = conflicts.map(id => {
+                             const p = PERKS[Object.keys(PERKS).find(k => PERKS[k].id === id)];
+                             return p ? p.name : id;
+                         }).join(', ');
+                         overwriteHtml = `<div class="perk-overwrite-warning">⚠️ Replaces: ${confNames}</div>`;
+                    }
+                }
+            }
+
+            const lockedOverlay = (locked && !isOwned) || reqLocked || nullificationLocked
+                ? `<div class="perk-locked-overlay">${nullificationLocked ? '⛔ NULLIFIED' : (reqLocked ? '🔒 LOCKED' : '🔒 LOCKED')}</div>`
+                : '';
+                
+            let showPurchased = false;
+            let overlayText = '';
+            
+            if (isOwned) {
+                if (item.maxStacks) {
+                    // Stackable: only show if maxed
+                    if (this.gameState.perksPurchased[item.id] >= item.maxStacks) {
+                        showPurchased = true;
+                        overlayText = '✓ MAXED';
+                    }
+                } else {
+                    // Normal non-stackable: always show purchased
+                    showPurchased = true;
+                    overlayText = '✓ PURCHASED';
+                }
+            }
+
+            const purchasedOverlay = showPurchased
+                ? `<div class="perk-purchased-overlay">${overlayText}</div>` 
                 : '';
 
+            // Add animation classes for subperks
+            const rollingClass = item.type === 'subperk' ? ' rolling-text' : '';
+            const rollingAttr = item.type === 'subperk' ? ` data-final-text="${safeName}"` : '';
+
             return `
-                <div class="perk-card perk-card-shop perk-tooltip-anchor rarity-${item.rarity} ${isOwned ? 'perk-purchased' : ''} ${isSelected ? 'perk-selected' : ''} ${locked ? 'perk-locked' : ''}" data-perk-id="${item.id}" data-perk-name="${escapeAttr(item.name)}" data-perk-rarity="${escapeAttr(item.rarity)}" data-perk-desc="${escapeAttr(item.description)}" data-perk-special="${escapeAttr(item.special || '')}" data-perk-cost="${item.cost}" onclick="game.handleShopPerkClick('${item.id}')" style="animation-delay: ${index * 0.1}s">
-                    ${isOwned ? '<div class="perk-purchased-overlay">✓ PURCHASED</div>' : ''}
+                <div class="perk-card perk-card-shop perk-tooltip-anchor rarity-${item.rarity} ${showPurchased ? 'perk-purchased' : ''} ${isSelected ? 'perk-selected' : ''} ${locked || reqLocked || nullificationLocked ? 'perk-locked' : ''} ${isNullification ? 'perk-glitch' : ''}" data-perk-id="${item.id}" data-perk-instance-id="${item.instanceId || ''}" data-perk-name="${escapeAttr(item.name)}" data-perk-rarity="${escapeAttr(item.rarity)}" data-perk-desc="${escapeAttr(safeDesc)}" data-perk-special="${escapeAttr(item.special || '')}" data-perk-cost="${item.cost}" onclick="game.handleShopPerkClick('${item.id}', '${item.instanceId || ''}')" style="animation-delay: ${index * 0.1}s">
+                    ${purchasedOverlay}
                     ${lockedOverlay}
-                    ${isLegendary ? `
+                    ${isLegendary || isMythical ? `
                         <div class="perk-card-particles">
                             <span></span><span></span><span></span>
                         </div>
@@ -753,7 +869,9 @@ class UI {
                         <div class="perk-card-icon">${icon}</div>
                     </div>
                     <div class="perk-card-info">
-                        <div class="perk-card-name"${nameCss}>${safeName}</div>
+                        <div class="perk-card-name${rollingClass}"${nameCss}${rollingAttr}>${item.type === 'subperk' ? this.scrambleText(safeName) : safeName}</div>
+                        ${reqHtml}
+                        ${overwriteHtml}
                         <div class="perk-card-footer">
                             <div class="perk-card-cost">${item.cost}$</div>
                         </div>
@@ -761,6 +879,49 @@ class UI {
                 </div>
             `;
         }).join('');
+    }
+
+    scrambleText(text) {
+        // Initial random scramble
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()';
+        return text.split('').map(c => {
+            if (c === ' ' || c === '(' || c === ')') return c;
+            return chars[Math.floor(Math.random() * chars.length)];
+        }).join('');
+    }
+
+    startTextRollingAnimation() {
+        const elements = document.querySelectorAll('.rolling-text');
+        if (elements.length === 0) return;
+
+        elements.forEach(el => {
+            const finalText = el.getAttribute('data-final-text');
+            if (!finalText) return;
+
+            let iterations = 0;
+            const maxIterations = 20; // How many scrambles before solving
+            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+            
+            const interval = setInterval(() => {
+                el.innerText = finalText
+                    .split('')
+                    .map((letter, index) => {
+                        if (index < iterations / 2) { // Reveal gradually
+                            return letter;
+                        }
+                        if (letter === ' ' || letter === '(' || letter === ')') return letter;
+                        return chars[Math.floor(Math.random() * chars.length)];
+                    })
+                    .join('');
+                
+                iterations++;
+                
+                if (iterations >= maxIterations + finalText.length * 2) {
+                    clearInterval(interval);
+                    el.innerText = finalText; // Ensure final state
+                }
+            }, 50); // Speed of scramble
+        });
     }
 
 
@@ -908,6 +1069,31 @@ class UI {
             </div>
         `;
         this.container.innerHTML = html;
+
+        // Add keyboard navigation
+        if (type === 'wave_complete' && canAdvance) {
+            const handleRewardKey = (e) => {
+                // If screen changed, remove listener
+                if (this.currentScreen !== 'rewards') {
+                    document.removeEventListener('keydown', handleRewardKey);
+                    return;
+                }
+                
+                // Allow F12, F5 etc
+                if (e.key.startsWith('F') || e.ctrlKey || e.altKey) return;
+                
+                e.preventDefault();
+                document.removeEventListener('keydown', handleRewardKey);
+                game.handleContinueFromRewards();
+            };
+            
+            // Small delay to prevent accidental skips if holding keys
+            setTimeout(() => {
+                if (this.currentScreen === 'rewards') {
+                    document.addEventListener('keydown', handleRewardKey);
+                }
+            }, 300);
+        }
     }
 
     /**
@@ -1137,11 +1323,6 @@ class UI {
                 <!-- Center: Shop Perks -->
                 <div class="section roll-section" style="overflow-y: auto;">
                     <div class="section-title">Shop Perks</div>
-                    <div class="shop-actions-row" style="margin-bottom: 20px;">
-                        <button id="reroll-btn" class="reroll-btn" onclick="game.handleRerollShop()">
-                            🎲 Reroll Shop (${rerollCost}$)
-                        </button>
-                    </div>
                     <div id="shop-grid" class="perk-card-grid">
                         ${this.renderShop()}
                     </div>
@@ -1152,6 +1333,9 @@ class UI {
                     <div class="section-title">Actions</div>
                     <div class="shop-footer-actions" style="display: flex; flex-direction: column; gap: 10px; margin-top: auto; margin-bottom: auto; width: 100%;">
                         <div class="shop-subtitle" style="text-align: center; margin-bottom: 20px; color: var(--text-muted);">Prepare for the next battle</div>
+                        <button id="reroll-btn" class="reroll-btn" onclick="game.handleRerollShop()" style="margin-bottom: 10px; width: 100%;">
+                            Reroll (<span id="reroll-cost">${rerollCost}</span>$)
+                        </button>
                         <button class="btn btn-primary btn-block start-wave-btn" onclick="game.handleStartWave()" style="padding: 16px; font-size: 1.2rem; width: 100%;">
                             Start Wave ${displayWave}
                         </button>
@@ -1161,6 +1345,22 @@ class UI {
         `;
         this.container.innerHTML = html;
         
+        // Add keyboard navigation
+        const handleShopKey = (e) => {
+            if (this.currentScreen !== 'shop') {
+                document.removeEventListener('keydown', handleShopKey);
+                return;
+            }
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                document.removeEventListener('keydown', handleShopKey);
+                game.handleStartWave();
+            }
+        };
+        // Remove any existing listener first just in case (though difficult to reference anonymous func)
+        // We rely on the screen check to clean up
+        document.addEventListener('keydown', handleShopKey);
+
         this.attachEventListeners();
         setTimeout(() => {
             if (typeof game !== 'undefined' && game.attachTiltEffect) {
