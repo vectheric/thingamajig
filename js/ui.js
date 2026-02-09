@@ -39,7 +39,7 @@ class UI {
     }
 
     renderChipIcon() {
-        return '<span class="chip-icon">C</span>';
+        return '<span class="chip-icon">Ȼ</span>';
     }
 
     /**
@@ -117,8 +117,8 @@ class UI {
                         <span class="stat-value">${this.gameState.wave}</span>
                     </div>
                     <div class="stat-item">
-                        <span class="stat-label">${isNextWaveBoss ? 'Boss (chips)' : 'Need (chips)'}</span>
-                        <span class="stat-value stat-chips">${this.gameState.getWaveEntryCost()} ${this.renderChipIcon()}</span>
+                        <span class="stat-label">${isNextWaveBoss ? 'Boss (Ȼ)' : 'CHIPS NEEDED'}</span>
+                        <span class="stat-value stat-chips">${this.gameState.getWaveEntryCost()}${this.renderChipIcon()}</span>
                     </div>
                     <div class="stat-item cash-with-tooltip">
                         <span class="stat-label">Cash</span>
@@ -164,8 +164,11 @@ class UI {
                     ${this.renderPaginatedLootList().pagination}
                     <div class="loot-total">
                         <span>Total Value:</span>
-                        <span class="total-value">${loot.totalValue} ${this.renderChipIcon()}</span>
+                        <span class="total-value">${loot.totalValue}${this.renderChipIcon()}</span>
                     </div>
+                </div>
+                <div class="seed-display" style="position: fixed; bottom: 5px; right: 5px; opacity: 0.3; font-size: 0.7rem; font-family: monospace; pointer-events: none; z-index: 1000;">
+                    Seed: ${this.gameState.seedString || this.gameState.seed}
                 </div>
             </div>
         `;
@@ -390,6 +393,83 @@ class UI {
         }, true);
     }
 
+    getDynamicTooltipText(perkId) {
+        if (typeof PERKS === 'undefined' || !PERKS) return null;
+        const perkDef = Object.values(PERKS).find(p => p.id === perkId);
+        if (!perkDef || !perkDef.dynamicTooltip) return null;
+
+        switch (perkDef.dynamicTooltip) {
+            case 'chip_count':
+                const chips = typeof this.gameState.getInventoryValue === 'function' ? this.gameState.getInventoryValue() : 0;
+                return `<br><span style="color:var(--success)">Current Ȼ: ${chips}</span>`;
+            case 'virus_count':
+                let virus = this.gameState.perksPurchased['VIRUS'] || 0;
+                if (virus === true) virus = 1;
+                return `<br><span style="color:var(--warning)">VIRUS: ${virus}</span>`;
+            case 'set_collection':
+                const set = perkDef.set;
+                if (!set) return null;
+                const setPerks = Object.values(PERKS).filter(p => p.set === set);
+                if (setPerks.length === 0) return null;
+                
+                let html = '<div style="margin-top:8px; border-top:1px solid #444; padding-top:4px;">';
+                html += '<div style="font-weight:bold; color:#a855f7; margin-bottom:4px;">Set Collection:</div>';
+                html += '<div style="display:flex; flex-wrap:wrap; gap:4px; justify-content:center;">';
+                
+                setPerks.forEach(p => {
+                    const owned = this.gameState.perksPurchased[p.id];
+                    const opacity = owned ? '1' : '0.3';
+                    const border = owned ? '1px solid #a855f7' : '1px solid #444';
+                    const bg = owned ? 'rgba(168, 85, 247, 0.2)' : 'rgba(0,0,0,0.3)';
+                    html += `<div style="padding:2px 4px; font-size:1.2em; border-radius:4px; background:${bg}; border:${border}; opacity:${opacity}; width:30px; height:30px; display:flex; align-items:center; justify-content:center;" title="${p.name}">${p.icon || '?'}</div>`;
+                });
+                
+                html += '</div>';
+                
+                // Show active bonus
+                const ownedCount = setPerks.filter(p => this.gameState.perksPurchased[p.id]).length;
+                const bonusPerk = setPerks.find(p => p.setBonuses);
+                
+                if (bonusPerk && bonusPerk.setBonuses) {
+                     const bonuses = bonusPerk.setBonuses;
+                     let currentBonus = null;
+                     let nextBonus = null;
+                     let nextCount = 0;
+                     
+                     const sortedCounts = Object.keys(bonuses).map(Number).sort((a,b) => a-b);
+                     
+                     for (const c of sortedCounts) {
+                         if (ownedCount >= c) {
+                             currentBonus = bonuses[c];
+                         } else {
+                             nextBonus = bonuses[c];
+                             nextCount = c;
+                             break;
+                         }
+                     }
+                     
+                     if (currentBonus) {
+                         let bonusText = '';
+                         for (const [k, v] of Object.entries(currentBonus)) {
+                             if (k === 'luck' && v.add) bonusText += `+${v.add} Luck `;
+                             else if (k === 'rolls' && v.add) bonusText += `+${v.add} Rolls `;
+                             else if (k === 'valueBonus' && v.add) bonusText += `+${v.add * 100}% Value `;
+                             else bonusText += `${k} `;
+                         }
+                         html += `<div style="font-size:0.8em; color:#4ade80; margin-top:4px;">Active: ${bonusText}</div>`;
+                     }
+                     
+                     if (nextBonus) {
+                         html += `<div style="font-size:0.8em; color:#888; margin-top:2px;">Next (${ownedCount}/${nextCount}): ???</div>`;
+                     }
+                }
+                html += '</div>';
+                return html;
+            default:    
+                return null;
+        }
+    }
+
     attachPerkTooltips() {
         let perkTooltip = document.getElementById('floating-perk-tooltip');
         if (!perkTooltip) {
@@ -399,14 +479,29 @@ class UI {
             document.body.appendChild(perkTooltip);
         }
         this.container.addEventListener('mouseenter', (e) => {
+            // Chip Vision Perk Logic (Legacy - Topbar Title)
+            const topbar = e.target.closest('.perk-topbar');
+            if (topbar && this.gameState.perksPurchased['chip_vision']) {
+                const chips = typeof this.gameState.getInventoryValue === 'function' ? this.gameState.getInventoryValue() : 0;
+                topbar.title = `Ȼ: ${chips}`;
+            }
+
             const anchor = e.target.closest('.perk-tooltip-anchor');
             if (!anchor) return;
+            const perkId = anchor.getAttribute('data-perk-id');
             const name = anchor.getAttribute('data-perk-name') || '';
             const rarity = anchor.getAttribute('data-perk-rarity') || '';
             const desc = anchor.getAttribute('data-perk-desc') || '';
             const special = anchor.getAttribute('data-perk-special') || '';
             const esc = (s) => (typeof escapeHtml === 'function' ? escapeHtml(s || '') : (s || ''));
-            perkTooltip.innerHTML = `<span class="pt-name">${esc(name)}</span><span class="pt-rarity">${esc(rarity.toUpperCase())}</span><span class="pt-desc">${esc(desc)}</span>${special ? `<span class="pt-special">✨ ${esc(special)}</span>` : ''}`;
+
+            let descHtml = esc(desc);
+            const dynamicText = this.getDynamicTooltipText(perkId);
+            if (dynamicText) {
+                descHtml += dynamicText;
+            }
+
+            perkTooltip.innerHTML = `<span class="pt-name">${esc(name)}</span><span class="pt-rarity">${esc(rarity.toUpperCase())}</span><span class="pt-desc">${descHtml}</span>${special ? `<span class="pt-special">✨ ${esc(special)}</span>` : ''}`;
             perkTooltip.classList.add('visible');
             requestAnimationFrame(() => this.positionFloatingTooltip(perkTooltip, anchor.getBoundingClientRect()));
         }, true);
@@ -521,7 +616,7 @@ class UI {
     renderTopbarPerks() {
         const ownedPerks = this.shop.getOwnedPerks();
         if (ownedPerks.length === 0) {
-            return '<span class="no-perks">None yet</span>';
+            return '<span class="no-perks">no perks found</span>';
         }
         return ownedPerks.map((perk) => {
             const full = typeof getBossPerkById === 'function' ? getBossPerkById(perk.id) : null;
@@ -533,10 +628,12 @@ class UI {
             const nameCss = typeof nameStyleToCss === 'function' ? nameStyleToCss(nameStyle) : '';
             
             let displayName = perk.name;
-            const count = this.gameState.perksPurchased[perk.id] || 0;
+            let count = this.gameState.perksPurchased[perk.id] || 0;
+            if (count === true) count = 1;
+            
             if (p && p.type === 'subperk' && count > 0) {
                  if (p.maxStacks) {
-                     displayName += ` ${count}/${p.maxStacks}`;
+                     displayName += ` (${count}/${p.maxStacks})`;
                  } else {
                      displayName += ` x${count}`;
                  }
@@ -666,9 +763,9 @@ class UI {
                     </div>
                     <div class="loot-item-tooltip" aria-hidden="true">
                         <div class="tooltip-name"${nameCss}>${safeName}</div>
-                        <div class="tooltip-rarity">${item.rarity.toUpperCase()}</div>
+                        <div class="tooltip-rarity rarity-color rarity-${item.rarity}">${item.rarity.toUpperCase()}</div>
                         ${allMods.length > 0 ? `<div class="tooltip-mods">${modBadges}</div>` : ''}
-                        <div class="tooltip-value">Value: ${item.value} ${this.renderChipIcon()}</div>
+                        <div class="tooltip-value">Value: ${item.value}${this.renderChipIcon()}</div>
                         ${item.baseValue != null && item.baseValue !== item.value && item.priceMultiplier != null ? `<div class="tooltip-base">Base: ${item.baseValue} (×${item.priceMultiplier.toFixed(2)})</div>` : ''}
                     </div>
                 </div>
@@ -719,6 +816,18 @@ class UI {
         return slots.join('');
     }
 
+    getPerkIcon(perk) {
+        if (perk.icon) return perk.icon;
+        
+        // Fallback: Try to look up in global PERKS definitions if available
+        if (typeof PERKS !== 'undefined') {
+            const perkDef = Object.values(PERKS).find(p => p.id === perk.id);
+            if (perkDef && perkDef.icon) return perkDef.icon;
+        }
+        
+        return '📦';
+    }
+
     /**
      * Render shop items (Balatro-style vertical cards with art area and animations)
      */
@@ -726,28 +835,6 @@ class UI {
         const shopItems = this.shop.getAvailableItems();
         const cash = this.shop.getCash();
         const selectedId = (typeof game !== 'undefined' && game.selectedShopPerkId) ? game.selectedShopPerkId : null;
-
-        // Perk emoji icons based on name/description
-        const getPerkIcon = (perk) => {
-            const name = perk.name.toLowerCase();
-            const special = (perk.special || '').toLowerCase();
-            if (name.includes('heliosol')) return '☀️'; // Heliosol icon
-            if (name.includes('solar')) return '🔥'; // Solar Power icon
-            if (name.includes('luck') || special.includes('luck')) return '🍀';
-            if (name.includes('roll') || special.includes('roll')) return '🎲';
-            if (name.includes('chip') || special.includes('chip')) return '💎';
-            if (name.includes('cash') || special.includes('cash')) return '💰';
-            if (name.includes('value') || special.includes('value')) return '💎';
-            if (name.includes('auto') || special.includes('auto')) return '⚡';
-            if (name.includes('interest') || special.includes('interest')) return '📈';
-            if (name.includes('boss') || special.includes('boss')) return '👑';
-            if (perk.rarity === 'mythical') return '🌌';
-            if (perk.rarity === 'legendary') return '✨';
-            if (perk.rarity === 'epic') return '🔮';
-            if (perk.rarity === 'rare') return '💠';
-            if (perk.rarity === 'uncommon') return '🔹';
-            return '📦';
-        };
 
         return shopItems.map((item, index) => {
             const canAfford = cash >= item.cost;
@@ -758,14 +845,9 @@ class UI {
             // Subperk Name Logic
             let displayName = item.name;
             if (item.type === 'subperk') {
-                 const count = this.gameState.perksPurchased[item.id] || 0;
-                 if (count > 0) {
-                     if (item.maxStacks) {
-                         displayName += ` ${count}/${item.maxStacks}`;
-                     } else {
-                         displayName += ` x${count}`;
-                     }
-                 }
+                 let count = this.gameState.perksPurchased[item.id] || 0;
+                 if (count === true) count = 1;
+                 displayName += ` (${count + 1})`;
             }
             const safeName = typeof escapeHtml === 'function' ? escapeHtml(displayName) : displayName;
             
@@ -783,7 +865,7 @@ class UI {
 
             const isSelected = selectedId && (item.instanceId ? selectedId === item.instanceId : selectedId === item.id);
             const locked = !canAfford; // Allow purchase of duplicates/stackables if in shop
-            const icon = getPerkIcon(item);
+            const icon = this.getPerkIcon(item);
             const isLegendary = item.rarity === 'legendary';
             const isMythical = item.rarity === 'mythical';
             const isNullification = item.id === 'nullificati0n';
@@ -833,18 +915,10 @@ class UI {
             let showPurchased = false;
             let overlayText = '';
             
-            if (isOwned) {
-                if (item.maxStacks) {
-                    // Stackable: only show if maxed
-                    if (this.gameState.perksPurchased[item.id] >= item.maxStacks) {
-                        showPurchased = true;
-                        overlayText = '✓ MAXED';
-                    }
-                } else {
-                    // Normal non-stackable: always show purchased
-                    showPurchased = true;
-                    overlayText = '✓ PURCHASED';
-                }
+            if (isOwned && item.type !== 'subperk') {
+                // Always show purchased since stacking is removed (except for subperks)
+                showPurchased = true;
+                overlayText = '✓ PURCHASED';
             }
 
             const purchasedOverlay = showPurchased
@@ -925,6 +999,57 @@ class UI {
     }
 
 
+    /**
+     * Toggle seed display state: Hidden -> Visible -> Copied
+     */
+    toggleSeedDisplay(btn, seedString) {
+        const state = btn.dataset.state || 'hidden';
+        const valueSpan = btn.querySelector('.stat-value');
+        
+        if (state === 'hidden') {
+            // Unhide
+            btn.dataset.state = 'visible';
+            valueSpan.textContent = seedString;
+            valueSpan.style.fontFamily = 'monospace';
+            btn.style.background = 'rgba(255, 255, 255, 0.08)'; // Slightly lighter to show it's active
+        } else {
+            // Copy
+            const copyToClipboard = (text) => {
+                if (navigator.clipboard && window.isSecureContext) {
+                    return navigator.clipboard.writeText(text);
+                } else {
+                    // Fallback for non-secure contexts (e.g. HTTP)
+                    let textArea = document.createElement("textarea");
+                    textArea.value = text;
+                    textArea.style.position = "fixed";
+                    textArea.style.left = "-9999px";
+                    document.body.appendChild(textArea);
+                    textArea.focus();
+                    textArea.select();
+                    return new Promise((resolve, reject) => {
+                        document.execCommand('copy') ? resolve() : reject();
+                        textArea.remove();
+                    });
+                }
+            };
+
+            copyToClipboard(seedString).then(() => {
+                const originalText = valueSpan.textContent;
+                valueSpan.textContent = 'Copied!';
+                btn.style.borderColor = 'var(--success)';
+                
+                setTimeout(() => {
+                    valueSpan.textContent = seedString;
+                    btn.style.borderColor = 'var(--border)';
+                }, 1500);
+            }).catch(err => {
+                console.error('Failed to copy: ', err);
+                valueSpan.textContent = 'Error Copying';
+                setTimeout(() => valueSpan.textContent = seedString, 1500);
+            });
+        }
+    }
+
     renderBreakdownScreen(payload) {
         this.currentScreen = payload.type === 'game_over' ? 'gameover' : 'rewards';
         
@@ -949,6 +1074,7 @@ class UI {
             baseReward,
             interestReward,
             cashBonus,
+            chipsBonus, // Add chipsBonus
             totalReward,
             totalCash,
             canAdvance,
@@ -973,9 +1099,15 @@ class UI {
             contentHtml = `
                 <div class="reward-grid">
                     <div class="reward-card">
-                        <div class="reward-label">Chips Earned</div>
-                        <div class="reward-value">${chipsEarned} ${this.renderChipIcon()}</div>
+                        <div class="reward-label">Ȼ Earned</div>
+                        <div class="reward-value">${chipsEarned}${this.renderChipIcon()}</div>
                     </div>
+                    ${chipsBonus ? `
+                    <div class="reward-card">
+                        <div class="reward-label">Perk Ȼ</div>
+                        <div class="reward-value">+${chipsBonus}${this.renderChipIcon()}</div>
+                    </div>
+                    ` : ''}
                     <div class="reward-card">
                         <div class="reward-label">Left Rolls</div>
                         <div class="reward-value">${rollsRemaining}</div>
@@ -1006,10 +1138,10 @@ class UI {
 
             footerHtml = `
                 <div class="reward-next">
-                    <div class="reward-next-label" style="font-size: 1.2rem; margin-bottom: 10px;">Next: Wave costs <strong>${nextCost}</strong> ${this.renderChipIcon()}</div>
+                    <div class="reward-next-label" style="font-size: 1.2rem; margin-bottom: 10px;">Next: Wave costs <strong>${nextCost}</strong>${this.renderChipIcon()}</div>
                     ${canAdvance
                         ? `<div class="reward-click-hint">Click anywhere to continue</div>`
-                        : `<div class="reward-next-bad">You need <strong>${nextCost} ${this.renderChipIcon()}</strong> to continue.</div>`}
+                        : `<div class="reward-next-bad">CHIPS NEEDED: <strong>${nextCost}${this.renderChipIcon()}</strong></div>`}
                 </div>
             `;
         } else {
@@ -1027,7 +1159,7 @@ class UI {
                 
                 <div class="stats-grid">
                     <div class="stat-row">
-                        <span class="stat-label">Total Chips Earned</span>
+                        <span class="stat-label">Total Ȼ Earned</span>
                         <span class="stat-value">${stats.totalChipsEarned || 0}</span>
                     </div>
                     <div class="stat-row">
@@ -1050,6 +1182,13 @@ class UI {
                         <span class="stat-label">Max Wave</span>
                         <span class="stat-value">${this.gameState.wave}</span>
                     </div>
+                    <button class="stat-row seed-button" 
+                        onclick="game.ui.toggleSeedDisplay(this, '${this.gameState.seedString || this.gameState.seed}')"
+                        data-state="hidden"
+                        style="grid-column: 1 / -1; width: 100%; cursor: pointer; text-align: left; font-family: inherit; font-size: inherit; justify-content: space-between; align-items: center; display: flex;">
+                        <span class="stat-label">Seed</span>
+                        <span class="stat-value">Click to Reveal</span>
+                    </button>
                 </div>
             `;
 
@@ -1252,7 +1391,8 @@ class UI {
      */
     renderShopScreen() {
         this.currentScreen = 'shop';
-        this.shop.generateShopPerks();
+        // Removed automatic generation to prevent rerolling when returning from other screens
+        // this.shop.generateShopPerks();
         if (typeof game !== 'undefined' && game.resetRerollCost) {
             game.resetRerollCost();
         }
@@ -1336,6 +1476,9 @@ class UI {
                         <button id="reroll-btn" class="reroll-btn" onclick="game.handleRerollShop()" style="margin-bottom: 10px; width: 100%;">
                             Reroll (<span id="reroll-cost">${rerollCost}</span>$)
                         </button>
+                        <button class="btn btn-secondary btn-block" onclick="game.handleOpenForging()" style="padding: 12px; width: 100%;">
+                            Forging Chamber
+                        </button>
                         <button class="btn btn-primary btn-block start-wave-btn" onclick="game.handleStartWave()" style="padding: 16px; font-size: 1.2rem; width: 100%;">
                             Start Wave ${displayWave}
                         </button>
@@ -1367,6 +1510,985 @@ class UI {
                 game.attachTiltEffect();
             }
         }, 100);
+    }
+
+    renderForgingScreen(perkId = null) {
+        this.currentScreen = 'forging';
+        this.selectedForgePerk = perkId;
+        
+        // Initialize pan state if not exists
+        if (!this.forgePan) {
+            this.forgePan = { x: 0, y: 0, isDragging: false, startX: 0, startY: 0 };
+        }
+
+        const forgeable = this.gameState.getForgeableOptions ? this.gameState.getForgeableOptions() : [];
+        
+        // Sort recipes: Tier (Ascending) -> Name (Ascending)
+        const tierWeight = { 'common': 1, 'uncommon': 2, 'rare': 3, 'legendary': 4, 'special': 5 };
+        forgeable.sort((a, b) => {
+            const ta = tierWeight[a.tier] || 0;
+            const tb = tierWeight[b.tier] || 0;
+            if (ta !== tb) return ta - tb;
+            return a.name.localeCompare(b.name);
+        });
+        
+        // --- Sidebar: Recipe List ---
+        const sidebarHtml = forgeable.map(option => {
+            const isSelected = option.id === this.selectedForgePerk;
+            const canForge = option.canForge;
+            // Description
+            const desc = typeof escapeHtml === 'function' ? escapeHtml(option.description) : option.description;
+            
+            // Use icon from perk definition
+            const icon = this.getPerkIcon(option);
+            const rarity = option.tier || 'common';
+            const rarityClass = `rarity-${rarity}`;
+            
+            let nameStyleStr = '';
+            if (option.nameStyle) {
+                if (option.nameStyle.color) nameStyleStr += `color: ${option.nameStyle.color};`;
+                if (option.nameStyle.textStroke) nameStyleStr += `-webkit-text-stroke: ${option.nameStyle.textStroke};`;
+            }
+            
+            // Perk Card Style for Sidebar (mimics shop cards)
+            return `
+                    <div class="perk-card perk-card-shop perk-card-forge ${rarityClass} ${isSelected ? 'perk-selected' : ''}" 
+                         onclick="game.handleForgeSelect('${option.id}')"
+                         title="${desc}">
+                        <div class="perk-rarity-badge">${rarity.toUpperCase()}</div>
+                        <div class="perk-card-art">
+                            <div class="perk-card-icon">${icon}</div>
+                        </div>
+                        <div class="perk-card-info">
+                            <div class="perk-card-name" style="${nameStyleStr}">${option.name}</div>
+                            <div class="perk-card-footer">
+                                 <div class="forge-status-text" style="color: #9898a8; font-size: 0.75em; width: 100%; white-space: normal; line-height: 1.2;">
+                                    ${desc}
+                                 </div>
+                            </div>
+                        </div>
+                        ${canForge ? '<div class="forge-ready-overlay"></div>' : ''}
+                    </div>
+                `;
+            }).join('');
+
+        // --- Main Area: Tree View ---
+        let mainContentHtml = '';
+        let forgeActionHtml = '';
+        
+        if (this.selectedForgePerk) {
+            mainContentHtml = this.renderForgeTree(this.selectedForgePerk);
+            
+            // Floating Forge Action Button
+            const perk = typeof getPerkById === 'function' ? getPerkById(this.selectedForgePerk) : null;
+            if (perk) {
+                const canForge = this.gameState.canForgePerk(this.selectedForgePerk).canForge;
+                const reason = this.gameState.canForgePerk(this.selectedForgePerk).reason;
+                
+                forgeActionHtml = `
+                    <div class="forge-action-container">
+                        <button class="forge-btn-modern ${canForge ? 'ready' : 'locked'}" 
+                            onclick="game.handleForgePerk('${this.selectedForgePerk}')" 
+                            ${canForge ? '' : 'disabled'}>
+                            <span class="btn-text">Forge</span>
+                        </button>
+                        ${!canForge && reason ? `<div class="forge-reason-pill">${reason}</div>` : ''}
+                    </div>
+                `;
+            }
+        } else {
+            mainContentHtml = `
+                <div class="forge-empty-state">
+                    <div style="font-size: 4em; margin-bottom: 20px; opacity: 0.5;">⚒️</div>
+                    <div style="font-size: 1.2em; color: var(--text-muted);">Select a recipe from the left to view details</div>
+                </div>
+            `;
+        }
+
+        const html = `
+            <div class="perk-topbar">
+                <div class="topbar-title">Perks Owned:</div>
+                <div class="topbar-perks" id="topbar-perks">
+                    ${this.renderTopbarPerks()}
+                </div>
+                <button class="stats-button" onclick="game.toggleStats()">📊 Stats</button>
+                <button class="index-button" onclick="game.toggleIndex()">📖 Index</button>
+            </div>
+
+            <div id="stats-modal" class="stats-modal" style="display: none;">
+                <div class="stats-content">
+                    <button class="stats-close" onclick="game.toggleStats()">✕</button>
+                    <div class="stats-title">Your Stats & Attributes</div>
+                    ${this.renderAttributes()}
+                </div>
+            </div>
+            <div id="index-modal" class="index-modal" style="display: none;">
+                <div class="index-content">
+                    <button class="index-close" onclick="game.toggleIndex()">✕</button>
+                    <div class="index-title">📖 Knowledge Index</div>
+                    ${this.renderIndex()}
+                </div>
+            </div>
+
+            <div class="game-header">
+                <div class="game-title">Forging Chamber</div>
+                <div class="game-stats">
+                    <div class="stat-item cash-with-tooltip">
+                        <span class="stat-label">Cash</span>
+                        <div class="cash-tooltip-wrapper">
+                            <span class="stat-value stat-cash">${this.gameState.cash}$</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="game-content forge-screen-content">
+                <div class="forge-grid-bg"></div>
+                <div class="section forge-sidebar-section">
+                    <div class="section-title">Recipes</div>
+                    <div class="forge-sidebar-list">
+                        ${sidebarHtml || '<div style="padding:20px; text-align:center; color:gray;">No recipes available</div>'}
+                    </div>
+                    <button class="btn btn-secondary" onclick="game.handleReturnToShop()" style="margin-top: 15px; width: 100%;">
+                        ← Back to Shop
+                    </button>
+                </div>
+                <div class="section forge-main-section" id="forge-viewport">
+                    <div class="forge-particles"></div>
+                    
+                    <!-- Controls Overlay -->
+                    <div class="forge-overlay-controls">
+                        <!-- Top Left: Forge Action -->
+                        <div class="control-group-left">
+                            ${forgeActionHtml}
+                        </div>
+                        
+                        <!-- Top Right: View Controls -->
+                        <div class="control-group-right">
+                            <button class="btn-icon forge-reset-btn" id="btn-reset-view" title="Reset View">
+                                ⟲ Reset
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="forge-content-layer" id="forge-content" style="transform: translate(${this.forgePan.x}px, ${this.forgePan.y}px);">
+                        ${mainContentHtml}
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        this.container.innerHTML = html;
+        this.attachEventListeners();
+        this._injectForgeStyles();
+        this.setupForgeInteractions();
+    }
+
+    setupForgeInteractions() {
+        const viewport = document.getElementById('forge-viewport');
+        const content = document.getElementById('forge-content');
+        const resetBtn = document.getElementById('btn-reset-view');
+        
+        if (!viewport || !content) return;
+
+        // Reset Handler
+        if (resetBtn) {
+            resetBtn.onclick = (e) => {
+                e.stopPropagation();
+                this.forgePan.x = 0;
+                this.forgePan.y = 0;
+                // Add transition class for smooth reset
+                content.classList.add('animate-reset');
+                content.style.transform = `translate(0px, 0px)`;
+                
+                // Remove class after animation
+                setTimeout(() => {
+                    content.classList.remove('animate-reset');
+                }, 300);
+            };
+        }
+
+        // Drag Handlers
+        viewport.addEventListener('mousedown', (e) => {
+            // Only drag if clicking background or content wrapper, not buttons/cards directly
+            // Traverse up to see if we clicked a button or card
+            let target = e.target;
+            while (target && target !== viewport) {
+                if (target.tagName === 'BUTTON' || target.classList.contains('perk-card-tree')) {
+                    return;
+                }
+                target = target.parentElement;
+            }
+            
+            e.preventDefault(); // Prevent text selection
+            this.forgePan.isDragging = true;
+            this.forgePan.startX = e.clientX - this.forgePan.x;
+            this.forgePan.startY = e.clientY - this.forgePan.y;
+            viewport.style.cursor = 'grabbing';
+            content.classList.remove('animate-reset'); // Stop any reset animation
+        });
+
+        // Global listeners should only be attached once
+        if (!this._forgeListenersAttached) {
+            this._forgeListenersAttached = true;
+            
+            window.addEventListener('mousemove', (e) => {
+                if (!this.forgePan || !this.forgePan.isDragging) return;
+                e.preventDefault();
+                
+                this.forgePan.x = e.clientX - this.forgePan.startX;
+                this.forgePan.y = e.clientY - this.forgePan.startY;
+                
+                // We need to re-query content because it might have been re-rendered
+                const currentContent = document.getElementById('forge-content');
+                if (currentContent) {
+                    currentContent.style.transform = `translate(${this.forgePan.x}px, ${this.forgePan.y}px)`;
+                }
+            });
+
+            window.addEventListener('mouseup', () => {
+                if (this.forgePan && this.forgePan.isDragging) {
+                    this.forgePan.isDragging = false;
+                    const currentViewport = document.getElementById('forge-viewport');
+                    if (currentViewport) {
+                        currentViewport.style.cursor = 'grab';
+                    }
+                }
+            });
+        }
+    }
+
+    renderForgeTree(perkId) {
+        // Recursive tree builder
+
+        const buildTree = (id, parentId = null) => {
+            const perk = typeof getPerkById === 'function' ? getPerkById(id) : null;
+            if (!perk) return '';
+
+            const isTarget = id === this.selectedForgePerk;
+            const ownedCount = this.gameState.perksPurchased[id] || 0;
+            const isOwned = ownedCount > 0;
+            
+            const recipe = perk.forgeRecipe;
+            const hasRecipe = !!recipe;
+            
+            // Rarity Class
+            const rarityClass = perk.tier ? `rarity-${perk.tier}` : 'rarity-common';
+            
+            // Name Style
+            let nameStyleStr = '';
+            if (perk.nameStyle) {
+                if (perk.nameStyle.color) nameStyleStr += `color: ${perk.nameStyle.color};`;
+                if (perk.nameStyle.textStroke) nameStyleStr += `-webkit-text-stroke: ${perk.nameStyle.textStroke};`;
+            }
+
+            // Determine Icon
+            let icon = this.getPerkIcon(perk);
+
+            let nodeHtml = '';
+
+            if (isTarget) {
+                // Root node (Target) - Full Card
+                const canForge = this.gameState.canForgePerk(id).canForge;
+                const statusClass = canForge ? 'status-ready' : 'status-pending';
+                
+                nodeHtml = `
+                    <div class="perk-card perk-card-tree target-node-card ${rarityClass} ${statusClass}">
+                        <div class="perk-rarity-badge">${perk.tier ? perk.tier.toUpperCase() : 'COMMON'}</div>
+                        <div class="perk-card-art">
+                            <div class="perk-card-icon">${icon}</div>
+                        </div>
+                        <div class="perk-card-info">
+                            <div class="perk-card-name" style="${nameStyleStr}">${perk.name}</div>
+                            <div class="perk-card-description" style="font-size: 0.8em; color: #aaa; margin-bottom: 10px; text-align: center; white-space: normal; line-height: 1.3;">
+                                ${perk.description}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } else {
+                // Ingredient node - Simplified
+                const isMet = isOwned; 
+                const statusClass = isMet ? 'status-owned' : 'status-missing';
+                
+                nodeHtml = `
+                    <div class="ingredient-node-simple ${statusClass} ${rarityClass}">
+                        <div class="ing-icon">${icon}</div>
+                        <div class="ing-info">
+                            <div class="ing-name" style="${nameStyleStr}">${perk.name}</div>
+                        </div>
+                        
+                        <!-- Hover Tooltip -->
+                        <div class="ingredient-tooltip">
+                            <div class="tooltip-header">
+                                <span class="tooltip-name">${perk.name}</span>
+                                <span class="tooltip-rarity rarity-${perk.tier}">${perk.tier ? perk.tier.toUpperCase() : 'COMMON'}</span>
+                            </div>
+                            <div class="tooltip-desc">${perk.description}</div>
+                            <div class="tooltip-status">${isOwned ? '✓ Owned' : '🔒 Missing'}</div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Children (Ingredients)
+            let childrenHtml = '';
+            if (hasRecipe) {
+                const children = [];
+                
+                // Perk ingredients
+                if (Array.isArray(recipe.perks)) {
+                    recipe.perks.forEach(reqId => {
+                        children.push(buildTree(reqId, id));
+                    });
+                }
+                
+                // Cash ingredient
+                if (recipe.cash) {
+                    const hasCash = this.gameState.cash >= recipe.cash;
+                    const cashClass = hasCash ? 'status-owned' : 'status-missing';
+                    // Render Cash as a simplified node
+                    children.push(`
+                        <div class="tree-node-wrapper">
+                            <div class="ingredient-node-simple ${cashClass} rarity-common">
+                                <div class="ing-icon">💵</div>
+                                <div class="ing-info">
+                                    <div class="ing-name">${recipe.cash}$</div>
+                                </div>
+                            </div>
+                        </div>
+                    `);
+                }
+                
+                if (children.length > 0) {
+                    childrenHtml = `
+                        <div class="node-children">
+                            ${children.map(c => `<div class="tree-branch">${c}</div>`).join('')}
+                        </div>
+                    `;
+                }
+            }
+
+            return `
+                <div class="tree-node-wrapper">
+                    ${nodeHtml}
+                    ${childrenHtml}
+                </div>
+            `;
+        };
+
+        const treeHtml = buildTree(perkId);
+
+        return `
+            <div class="forge-tree-container">
+                ${treeHtml}
+            </div>
+        `;
+    }
+
+    _injectForgeStyles() {
+        if (document.getElementById('new-forging-styles')) return;
+        const style = document.createElement('style');
+        style.id = 'new-forging-styles';
+        style.textContent = `
+            /* Forge Screen Layout Override */
+            .forge-screen-content {
+                display: flex !important; /* Override grid */
+                flex-direction: row;
+                gap: 20px;
+                align-items: stretch !important; /* Full height */
+                position: relative;
+            }
+
+            /* Full Screen Grid Background */
+            .forge-grid-bg {
+                position: absolute;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background-image:
+                    linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+                    linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+                background-size: 50px 50px;
+                pointer-events: none;
+                z-index: 0;
+            }
+
+            /* Sidebar Section */
+            .forge-sidebar-section {
+                width: 420px;
+                flex-shrink: 0;
+                display: flex;
+                flex-direction: column;
+                z-index: 1; /* Above grid */
+                background: var(--bg-section, #111); /* Ensure opacity */
+            }
+            
+            .forge-sidebar-list {
+                flex: 1;
+                overflow-y: auto;
+                display: flex;
+                flex-direction: column;
+                gap: 10px; /* Spacing between cards */
+                padding-right: 5px;
+            }
+
+            /* Main Section */
+            .forge-main-section {
+                flex: 1;
+                padding: 0;
+                background: #111;
+                overflow: hidden !important; /* Ensure content doesn't spill */
+                position: relative;
+                z-index: 1; /* Above grid */
+                display: flex;
+                flex-direction: column;
+                cursor: grab; /* Pan cursor */
+            }
+            .forge-main-section:active {
+                cursor: grabbing;
+            }
+            
+            .forge-content-layer {
+                position: relative;
+                z-index: 2;
+                flex: 1; /* Fill main section */
+                padding: 40px;
+                display: flex;
+                justify-content: center;
+                align-items: flex-start;
+                transform-origin: center top;
+            }
+            .forge-content-layer.animate-reset {
+                transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            }
+            
+            /* Controls Overlay */
+            .forge-overlay-controls {
+                position: absolute;
+                inset: 0;
+                pointer-events: none;
+                z-index: 100;
+                display: flex;
+                justify-content: space-between;
+                align-items: flex-start;
+                padding: 20px;
+            }
+            .control-group-left, .control-group-right {
+                pointer-events: auto;
+                display: flex;
+                flex-direction: column;
+                gap: 10px;
+            }
+            
+            /* Modern Reset Button */
+            .forge-reset-btn {
+                background: rgba(20, 20, 20, 0.6);
+                backdrop-filter: blur(8px);
+                color: #ccc;
+                border: 1px solid rgba(255, 255, 255, 0.1);
+                padding: 8px 16px;
+                border-radius: 8px;
+                cursor: pointer;
+                transition: all 0.2s ease;
+                font-family: inherit;
+                font-size: 0.9em;
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            }
+            .forge-reset-btn:hover {
+                background: rgba(40, 40, 40, 0.8);
+                color: #fff;
+                border-color: rgba(255, 255, 255, 0.3);
+                transform: translateY(-1px);
+                box-shadow: 0 6px 12px rgba(0,0,0,0.2);
+            }
+
+            /* Modern Forge Action Button */
+            .forge-action-container {
+                display: flex;
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 8px;
+            }
+            .forge-btn-modern {
+                background: rgba(251, 191, 36, 0.1); /* Gold tint */
+                backdrop-filter: blur(8px);
+                color: #fbbf24;
+                border: 1px solid rgba(251, 191, 36, 0.3);
+                padding: 10px 20px;
+                border-radius: 8px;
+                cursor: pointer;
+                transition: all 0.2s ease;
+                font-family: inherit;
+                font-size: 1em;
+                font-weight: 600;
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                box-shadow: 0 4px 12px rgba(251, 191, 36, 0.1);
+            }
+            .forge-btn-modern:hover {
+                background: rgba(251, 191, 36, 0.2);
+                border-color: rgba(251, 191, 36, 0.6);
+                transform: translateY(-2px);
+                box-shadow: 0 8px 20px rgba(251, 191, 36, 0.2);
+            }
+            .forge-btn-modern.locked {
+                background: rgba(30, 30, 30, 0.8);
+                color: #666;
+                border-color: #444;
+                cursor: not-allowed;
+                box-shadow: none;
+            }
+            .forge-btn-modern.locked:hover {
+                transform: none;
+            }
+            .forge-reason-pill {
+                font-size: 0.8em;
+                color: #ef4444;
+                background: rgba(20, 20, 20, 0.9);
+                padding: 6px 10px;
+                border-radius: 6px;
+                border: 1px solid rgba(239, 68, 68, 0.3);
+                max-width: 250px;
+            }
+
+            /* Horizontal Card Layout for Sidebar */
+            .perk-card-forge {
+                width: 100% !important; 
+                min-height: 90px;
+                height: auto !important;
+                margin: 0;
+                flex-shrink: 0;
+                flex-direction: row !important;
+                align-items: stretch !important;
+                padding: 0 !important;
+                position: relative;
+                transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+            }
+            
+            .perk-card-forge:hover {
+                transform: scale(0.95);
+                z-index: 10;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+            }
+            
+            .perk-card-forge.perk-selected {
+                border-color: #fff;
+                box-shadow: 0 0 0 2px rgba(255,255,255,0.3), 0 4px 12px rgba(0,0,0,0.5);
+                transform: scale(0.95);
+            }
+            
+            .perk-card-forge .perk-card-art {
+                width: 80px;
+                height: auto !important; /* Allow it to stretch */
+                flex-shrink: 0;
+                border-bottom: none !important;
+                border-right: 1px solid rgba(255,255,255,0.1);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                background: rgba(0,0,0,0.2);
+            }
+            
+            .perk-card-forge .perk-card-icon {
+                font-size: 2.5em !important;
+                transform: none !important;
+            }
+            
+            .perk-card-forge .perk-card-info {
+                flex: 1;
+                height: 100%;
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                padding: 8px 12px !important;
+                align-items: flex-start !important;
+                min-width: 0; /* Fix flex text overflow */
+            }
+
+            .perk-card-forge .perk-card-name {
+                font-size: 0.9em !important;
+                margin-bottom: 4px;
+                text-align: left !important;
+                width: 100%;
+                white-space: normal;
+                overflow: visible;
+                padding-right: 60px;
+                line-height: 1.2;
+            }
+
+            .perk-card-forge .perk-card-footer {
+                margin-top: 0 !important;
+                width: 100%;
+            }
+
+            .perk-card-forge .perk-rarity-badge {
+                font-size: 0.6em !important;
+                padding: 2px 6px !important;
+                top: 4px !important;
+                right: 4px !important;
+                left: auto !important;
+            }
+
+            .forge-status-text {
+                text-align: left !important;
+                font-size: 0.75em !important;
+            }
+            
+            .forge-ready-overlay {
+                position: absolute;
+                inset: 0;
+                border: 2px solid #4ade80;
+                border-radius: 16px;
+                pointer-events: none;
+                box-shadow: inset 0 0 20px rgba(74, 222, 128, 0.2);
+                animation: pulse-ready 2s infinite;
+                z-index: 5;
+            }
+            
+            @keyframes pulse-ready {
+                0% { opacity: 0.5; }
+                50% { opacity: 1; }
+                100% { opacity: 0.5; }
+            }
+
+            /* Particles (keep existing) */
+            .forge-particles {
+                position: absolute;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                pointer-events: none;
+                z-index: 0; /* Behind content layer */
+                background: radial-gradient(circle at 50% 50%, rgba(251, 191, 36, 0.05) 0%, transparent 60%);
+                animation: pulse-glow 8s infinite alternate;
+            }
+            .forge-particles::before {
+                content: '';
+                position: absolute;
+                width: 100%;
+                height: 100%;
+                background-image: radial-gradient(#fff 1px, transparent 1px);
+                background-size: 60px 60px;
+                opacity: 0.1;
+                animation: float-particles 20s linear infinite;
+            }
+            @keyframes pulse-glow {
+                0% { opacity: 0.5; transform: scale(1); }
+                100% { opacity: 1; transform: scale(1.1); }
+            }
+            @keyframes float-particles {
+                0% { background-position: 0 0; }
+                100% { background-position: 60px 60px; }
+            }
+            
+            .forge-empty-state {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                height: 100%;
+                color: #555;
+            }
+            .forge-tree-container {
+                display: flex;
+                justify-content: center;
+                padding-bottom: 50px;
+            }
+            .tree-node-wrapper {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+            }
+            /* Tree Override for Cards */
+            .perk-card-tree {
+                width: 140px !important;
+                height: 200px !important;
+                flex-direction: column !important;
+                margin-bottom: 0 !important;
+                position: relative;
+                z-index: 2;
+                transition: transform 0.2s;
+            }
+            /* Simplified Ingredient Node */
+            .ingredient-node-simple {
+                display: flex;
+                flex-direction: row;
+                align-items: center;
+                background: rgba(0, 0, 0, 0.8);
+                border: 1px solid #333;
+                border-radius: 8px;
+                padding: 10px 15px;
+                width: 180px;
+                margin-bottom: 0 !important;
+                position: relative;
+                z-index: 2;
+                transition: all 0.2s;
+                box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            }
+            .ingredient-node-simple:hover {
+                transform: scale(1.05);
+                border-color: #666;
+                z-index: 10;
+            }
+            .ingredient-node-simple.status-owned {
+                border-color: #4ade80;
+                background: rgba(74, 222, 128, 0.1);
+                box-shadow: 0 0 10px rgba(74, 222, 128, 0.1);
+            }
+            .ingredient-node-simple.status-missing {
+                border-color: #ef4444;
+                opacity: 0.8;
+            }
+            .ing-icon {
+                font-size: 1.8em;
+                margin-right: 12px;
+                width: 40px;
+                height: 40px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                background: rgba(255,255,255,0.05);
+                border-radius: 6px;
+            }
+            .ing-info {
+                flex: 1;
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                text-align: left;
+                overflow: hidden;
+            }
+            .ing-name {
+                font-size: 1.1em;
+                font-weight: bold;
+                margin-bottom: 2px;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                color: #eee;
+            }
+            .ing-status {
+                font-size: 0.75em;
+                font-weight: 600;
+            }
+            .status-owned .ing-status { color: #4ade80; }
+            .status-missing .ing-status { color: #ef4444; }
+
+            /* Tooltip Styles */
+            .ingredient-tooltip {
+                position: absolute;
+                bottom: 120%;
+                left: 50%;
+                transform: translateX(-50%);
+                background: rgba(10, 10, 10, 0.95);
+                border: 1px solid #555;
+                border-radius: 8px;
+                padding: 12px;
+                width: 240px;
+                box-shadow: 0 4px 20px rgba(0,0,0,0.8);
+                z-index: 100;
+                pointer-events: none;
+                opacity: 0;
+                transition: opacity 0.2s, transform 0.2s;
+                visibility: hidden;
+                text-align: center;
+            }
+            .ingredient-node-simple:hover .ingredient-tooltip {
+                opacity: 1;
+                visibility: visible;
+                transform: translateX(-50%) translateY(-5px);
+            }
+            .tooltip-header {
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                gap: 8px;
+                margin-bottom: 8px;
+                border-bottom: 1px solid rgba(255,255,255,0.2);
+                padding-bottom: 6px;
+            }
+            .tooltip-name { font-weight: bold; color: #fff; font-size: 1.1em; }
+            .tooltip-rarity { font-size: 0.7em; margin-bottom: 4px; font-weight: bold; }
+            .tooltip-desc { font-size: 0.9em; color: #ccc; margin-bottom: 8px; line-height: 1.4; }
+            .tooltip-status { font-size: 0.85em; font-weight: bold; }
+
+            /* Target Node Enhancement */
+            .target-node-card {
+                width: 200px !important;
+                height: 280px !important;
+                border-width: 2px;
+                box-shadow: 0 0 40px rgba(251, 191, 36, 0.3) !important;
+                margin-bottom: 40px;
+            }
+            .target-node-card .perk-card-icon {
+                font-size: 4em !important;
+            }
+            .target-node-card .perk-card-name {
+                font-size: 1.4em !important;
+                margin-bottom: 10px;
+            }
+            .perk-card-tree:hover {
+                transform: scale(1.05);
+                z-index: 10;
+            }
+            .perk-card-tree .perk-card-art {
+                height: 80px !important;
+                border-right: none !important;
+                border-bottom: 1px solid rgba(255,255,255,0.1) !important;
+            }
+            .perk-card-tree .perk-card-icon {
+                font-size: 2em !important;
+            }
+            .perk-card-tree .perk-card-info {
+                padding: 10px 5px !important;
+                justify-content: flex-start;
+                align-items: center !important;
+            }
+            .perk-card-tree .perk-card-name {
+                font-size: 1.1em !important;
+                text-align: center !important;
+                white-space: normal;
+                margin-bottom: 8px;
+                padding-right: 0 !important;
+                width: 100%;
+                line-height: 1.2;
+            }
+            .perk-card-tree .perk-rarity-badge {
+                font-size: 0.6em !important;
+                padding: 2px 4px !important;
+            }
+
+            .node-status-area {
+                width: 100%;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+            }
+
+            .node-req {
+                font-size: 0.75em;
+                font-weight: bold;
+                padding: 2px 6px;
+                border-radius: 4px;
+                background: rgba(0,0,0,0.5);
+                margin-top: 4px;
+            }
+            .req-met { color: #4ade80; }
+            .req-missing { color: #ef4444; }
+
+            .forge-action-btn {
+                background: #fbbf24;
+                color: #000;
+                border: none;
+                padding: 6px 12px;
+                border-radius: 4px;
+                font-weight: bold;
+                cursor: pointer;
+                font-size: 0.8em;
+                width: 100%;
+            }
+            .forge-action-btn:disabled {
+                background: #444;
+                color: #888;
+                cursor: not-allowed;
+            }
+
+            /* Status Styling on Card */
+            .perk-card-tree.status-missing {
+                filter: grayscale(0.6);
+                opacity: 0.8;
+                border-color: #ef4444;
+            }
+            .perk-card-tree.status-owned {
+                /* border-color: #4ade80; */
+            }
+            .perk-card-tree.target-node {
+                transform: scale(1.1);
+                box-shadow: 0 0 20px rgba(251, 191, 36, 0.4);
+                z-index: 5;
+            }
+
+            /* Tree Connectors - Improved (Obsidian Style) */
+            .node-children {
+                display: flex;
+                flex-direction: row;
+                justify-content: center;
+                position: relative;
+                padding-top: 30px;
+            }
+            /* Vertical line from parent */
+            .node-children::before {
+                content: '';
+                position: absolute;
+                top: 0;
+                left: 50%;
+                transform: translateX(-50%);
+                width: 1px;
+                height: 30px;
+                background: rgba(255, 255, 255, 0.15);
+            }
+            
+            .tree-branch {
+                padding: 30px 15px 0 15px;
+                position: relative;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+            }
+            /* Vertical line to child */
+            .tree-branch::before {
+                content: '';
+                position: absolute;
+                top: 0;
+                left: 50%;
+                transform: translateX(-50%);
+                width: 1px;
+                height: 30px;
+                background: rgba(255, 255, 255, 0.15);
+            }
+            /* Horizontal connecting line */
+            .tree-branch::after {
+                content: '';
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 1px;
+                background: rgba(255, 255, 255, 0.15);
+            }
+            
+            /* First child: line starts from center to right */
+            .tree-branch:first-child::after {
+                left: 50%;
+                width: 50%;
+            }
+            /* Last child: line starts from left to center */
+            .tree-branch:last-child::after {
+                width: 50%;
+            }
+            /* Only child: no horizontal line */
+            .tree-branch:only-child::after {
+                display: none;
+            }
+            .tree-branch:only-child {
+                padding-top: 0;
+            }
+            /* Connect vertical line directly to parent for only child */
+            .tree-branch:only-child::before {
+                height: 30px;
+                top: 0;
+            }
+
+        `;
+        document.head.appendChild(style);
     }
 
     /**
@@ -1434,6 +2556,10 @@ class UI {
                         <p>Roll items. Sell for chips. Survive.</p>
                         <p>Every 5th wave is a <span class="text-danger">BOSS</span>.</p>
                         <p>Build your engine. Break the bank.</p>
+                    </div>
+
+                    <div style="margin-bottom: 20px;">
+                        <input type="text" id="seed-input" placeholder="Seed (Optional)" style="background: rgba(0, 0, 0, 0.4); border: 1px solid #444; color: #fff; padding: 8px 12px; border-radius: 4px; font-family: monospace; width: 200px; text-align: center;">
                     </div>
 
                     <button class="btn-launch" onclick="game.handleStartTransition(this)">

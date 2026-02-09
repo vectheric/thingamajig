@@ -8,42 +8,42 @@ const ATTRIBUTE = {
     NORMAL: {
         id: 'normal',
         name: 'Normal',
-        priceMultiplier: 1.0,
-        chance: 0.5  // 50% chance to stay normal
+        modValue: 1.0,
+        rarity: 10  // 50% chance (Base)
     },
     TINY: {
         id: 'tiny',
         name: 'Tiny',
-        priceMultiplier: 0.4,
-        chance: 0.15,
+        modValue: 0.4,
+        rarity: 33, // ~15% chance
         emoji: '🤏'
     },
     MICROSCOPIC: {
         id: 'microscopic',
         name: 'Microscopic',
-        priceMultiplier: 0.15,
-        chance: 0.05,
+        modValue: 0.2,
+        rarity: 100, // ~5% chance
         emoji: '🔬'
     },
     BIG: {
         id: 'big',
         name: 'Big',
-        priceMultiplier: 1.3,
-        chance: 0.15,
+        modValue: 1.3,
+        rarity: 33, // ~15% chance
         emoji: '📏'
     },
     HUGE: {
         id: 'huge',
         name: 'Huge',
-        priceMultiplier: 1.65,
-        chance: 0.1,
+        modValue: 1.65,
+        rarity: 50, // ~10% chance
         emoji: '🏔️'
     },
     GARGANTUAN: {
         id: 'gargantuan',
         name: 'Gargantuan',
-        priceMultiplier: 2.0,
-        chance: 0.05,
+        modValue: 2.0,
+        rarity: 100, // ~5% chance
         emoji: '🌍'
     }
 };
@@ -54,7 +54,7 @@ const MODS = {
     GLOSSY: {
         id: 'glossy',
         name: 'Glossy',
-        priceMultiplier: 1.2,
+        modValue: 1.2,
         rarity: 10,
         emoji: '✨',
         description: '+20% value'
@@ -62,7 +62,7 @@ const MODS = {
     ALIEN: {
         id: 'alien',
         name: 'Alien',
-        priceMultiplier: 1.5,
+        modValue: 1.5,
         rarity: 15,
         emoji: '👽',
         description: '+50% value'
@@ -70,15 +70,15 @@ const MODS = {
     GOLDEN: {
         id: 'golden',
         name: 'Golden',
-        priceMultiplier: 1.8,
+        modValue: 2,
         rarity: 25,
         emoji: '⭐',
-        description: '+80% value'
+        description: '+200% value'
     },
     ANCIENT: {
         id: 'ancient',
         name: 'Ancient',
-        priceMultiplier: 1.4,
+        modValue: 1.4,
         rarity: 12,
         emoji: '🏺',
         description: '+40% value'
@@ -86,15 +86,15 @@ const MODS = {
     CURSED: {
         id: 'cursed',
         name: 'Cursed',
-        priceMultiplier: 0.7,
+        modValue: 0.7,
         rarity: 15,
         emoji: '💀',
-        description: '-30% value (unlucky!)'
+        description: '-30% value (unlucky)'
     },
     HOLOGRAPHIC: {
         id: 'holographic',
         name: 'Holographic',
-        priceMultiplier: 1.35,
+        modValue: 0.35,
         rarity: 11,
         emoji: '🌈',
         description: '+35% value'
@@ -102,39 +102,41 @@ const MODS = {
     RADIOACTIVE: {
         id: 'radioactive',
         name: 'Radioactive',
-        priceMultiplier: 1.25,
+        modValue: 0.25,
         rarity: 18,
         emoji: '☢️',
-        description: '+25% value (risky!)'
+        description: '+25% value (risky)',
+        requiresPerk: 'hazmat_suit'
     },
     PRISMATIC: {
         id: 'prismatic',
         name: 'Prismatic',
-        priceMultiplier: 2.0,
+        modValue: 1.0,
         rarity: 40,
         emoji: '🎆',
-        description: '+100% value (rare!)'
+        description: '+100% value (rare)'
     },
     CORRUPTED: {
         id: 'corrupted',
         name: 'Corrupted',
-        priceMultiplier: 0.5,
+        modValue: -0.5,
         rarity: 20,
         emoji: '⚫',
         description: '-50% value'
     },
-    ETHEREAL: {
-        id: 'ethereal',
-        name: 'Ethereal',
-        priceMultiplier: 1.6,
+    ECTOPLASMIC: {
+        id: 'ectoplasmic',
+        name: 'Ectoplasmic',
+        modValue: 1.6,
         rarity: 18,
         emoji: '👻',
-        description: '+60% value'
+        description: '+20% value',
+        requiresPerk: 'spirit_sight'
     },
     BLESSED: {
         id: 'blessed',
         name: 'Blessed',
-        priceMultiplier: 1.7,
+        modValue: 0.7,
         rarity: 16,
         emoji: '✨',
         description: '+70% value'
@@ -142,11 +144,20 @@ const MODS = {
     SHADOWY: {
         id: 'shadowy',
         name: 'Shadowy',
-        priceMultiplier: 0.85,
+        modValue: -0.15,
         rarity: 12,
         emoji: '🌑',
         description: '-15% value'
-    }
+    },
+    ENCHANTED: {
+        id: 'enchanted',
+        name: 'enchanted',
+        modValue: 10, // +1000% value -> 11x multiplier (10 bonus)
+        rarity: 0, // High rarity, but controlled by perk requirement
+        emoji: '✨',
+        description: '1000% value',
+        requiresPerk: 'enchanted_table'
+    },
 };
 
 /**
@@ -160,19 +171,25 @@ function getRandomAttribute(rng = Math.random, luck = 0) {
     
     // Calculate total chance with luck adjustments
     const weightedMods = mods.map(mod => {
-        let weight = mod.chance;
+        let rarity = mod.rarity || 10;
         
-        // Luck affects size selection
+        // Luck affects size selection (modifying rarity)
         if (luck > 0) {
-            if (mod.priceMultiplier > 1.0) {
-                // Good size: boost chance
-                weight *= (1 + luck * 0.1);
-            } else if (mod.priceMultiplier < 1.0) {
-                // Bad size: reduce chance
-                weight *= Math.max(0.1, 1 - (luck * 0.05));
+            if (mod.modValue > 1.0) {
+                // Good size: Reduce rarity (more common)
+                const luckFactor = 1 + (luck * 0.1);
+                rarity /= luckFactor;
+            } else if (mod.modValue < 1.0) {
+                // Bad size: Increase rarity (rarer)
+                const luckProtection = 1 + (luck * 0.05);
+                rarity *= luckProtection;
             }
         }
-        return { mod, weight };
+
+        // Calculate probability weight from rarity
+        const probabilityWeight = 100 / Math.max(1, rarity);
+        
+        return { mod, weight: probabilityWeight };
     });
 
     const totalChance = weightedMods.reduce((sum, item) => sum + item.weight, 0);
@@ -200,7 +217,7 @@ function getRandomMods(options = {}) {
         };
     }
 
-    const { modChanceBoost = 1.0, rng = Math.random, guaranteedMods = [], luck = 0, rarityMultipliers = {} } = options;
+    const { modChanceBoost = 1.0, rng = Math.random, guaranteedMods = [], luck = 0, rarityMultipliers = {}, ownedPerks = {} } = options;
     const modArray = Object.values(MODS);
     const selectedMods = [];
     
@@ -223,42 +240,60 @@ function getRandomMods(options = {}) {
     
     let targetModCount = baseChance < modChance1 ? 1 : baseChance < (modChance1 + modChance2) ? 2 : 0;
     
-    // If we already have guaranteed mods, ensure we respect that but maybe add more if lucky
-    targetModCount = Math.max(targetModCount, selectedMods.length);
-    
-    const needed = targetModCount - selectedMods.length;
+    // Fix: Make random mods additive to guaranteed mods (allow stacking)
+    // Random mods are now IN ADDITION to guaranteed ones
+    const needed = targetModCount;
 
     // Select random mods based on their individual chances
-    let availableMods = [...modArray].filter(m => !selectedMods.some(sm => sm.id === m.id));
+    let availableMods = [...modArray].filter(m => {
+        // Prevent spawning if rarity is 0 (disabled)
+        if (m.rarity === 0) return false;
+
+        // Check for required perk to unlock this mod
+        if (m.requiresPerk && !ownedPerks[m.requiresPerk]) return false;
+
+        // Legacy special case: Enchanted requires Enchanted Table perk
+        // (Can be refactored to use requiresPerk in definition)
+        return !selectedMods.some(sm => sm.id === m.id);
+    });
     
     for (let i = 0; i < needed && availableMods.length > 0; i++) {
-        // Calculate weights from rarity (Higher rarity = Lower weight)
+        // Calculate probability weights from rarity (Higher rarity = Lower weight)
         // weight = 100 / rarity
         const weightedMods = availableMods.map(mod => {
-            // Base weight from rarity (default to 10 if missing)
+            // Base rarity (higher = rarer)
             let rarity = mod.rarity || 10;
             
-            // Apply rarity multipliers from perks
+            // Apply rarity multipliers from perks (e.g. Hex Breaker increases rarity of Cursed items)
             if (rarityMultipliers[mod.id]) {
                 rarity *= rarityMultipliers[mod.id];
             }
             
-            let weight = 100 / rarity;
-            
-            // Apply modChanceBoost
-            weight *= modChanceBoost;
-            
-            // Luck affects specific mod selection
+            // Luck Mitigation: Apply luck to Rarity directly
+            // Higher luck = Lower rarity for good items (making them more common)
+            // Higher luck = Higher rarity for bad items (making them rarer)
             if (luck > 0) {
-                if (mod.priceMultiplier > 1.0) {
-                    // Good mod: boost weight
-                    weight *= (1 + luck * 0.1);
-                } else if (mod.priceMultiplier < 1.0) {
-                    // Bad mod: reduce weight
-                    weight *= Math.max(0.1, 1 - (luck * 0.05));
+                if (mod.modValue > 1.0) {
+                    // Good mod: Reduce rarity to make it more common
+                    // e.g. Luck 10 -> 2x boost -> Rarity / 2
+                    const luckFactor = 1 + (luck * 0.1);
+                    rarity /= luckFactor;
+                } else if (mod.modValue < 1.0) {
+                    // Bad mod: Increase rarity to make it rarer
+                    // e.g. Luck 10 -> 1.5x boost -> Rarity * 1.5
+                    const luckProtection = 1 + (luck * 0.05);
+                    rarity *= luckProtection;
                 }
             }
-            return { mod, weight };
+            
+            // Calculate final probability weight
+            // Inverse of Rarity
+            let probabilityWeight = 100 / Math.max(0.1, rarity);
+            
+            // Apply modChanceBoost (Global multiplier)
+            probabilityWeight *= modChanceBoost;
+            
+            return { mod, weight: probabilityWeight };
         });
 
         const totalWeight = weightedMods.reduce((sum, item) => sum + item.weight, 0);
@@ -297,25 +332,30 @@ function applyModifications(item, options = {}) {
     const attribute = getRandomAttribute(rng, luck);
     const mods = getRandomMods(options);
     
-    // Calculate price multiplier from all mods using additive formula
-    // Formula: attribute * (1 + sum(mod_bonuses))
+    // Calculate price multiplier from all mods using additive options
+    // options: attribute * (1 + sum(mod_bonuses) + sum(perk_bonuses))
     let modBonusSum = 0;
     mods.forEach(mod => {
-        modBonusSum += (mod.priceMultiplier - 1);
+        modBonusSum += mod.modValue ;
     });
     
+    // Add global value bonus from perks
+    if (options.valueBonus) {
+        modBonusSum += options.valueBonus;
+    }
+
     // Safety clamp to prevent negative multipliers if many bad mods stack
-    const modMultiplier = Math.max(0.01, 1 + modBonusSum);
+    const modMultiplier = Math.max(1, 1 + modBonusSum);
     
-    let priceMultiplier = attribute.priceMultiplier * modMultiplier;
+    let modValue = attribute.modValue * modMultiplier;
     
     return {
         ...item,
         baseValue: item.value,
-        value: Math.round(item.value * priceMultiplier),
+        value: Math.round(item.value * modValue),
         attribute: attribute,
         mods: mods,
-        priceMultiplier: priceMultiplier
+        modValue: modValue
     };
 }
 

@@ -31,125 +31,110 @@ const ITEM_TIER = {
 // Rarity weights for rolling (higher = more likely)
 
 // Base values for each rarity
-const TIER_VALUES = {
-    [ITEM_TIER.COMMON]: 5,
-    [ITEM_TIER.SIGNIFICANT]: 15,
-    [ITEM_TIER.RARE]: 40,
-    [ITEM_TIER.MASTER]: 100,
-    [ITEM_TIER.SURREAL]: 250,
-    [ITEM_TIER.MYTHIC]: 1000,
-    [ITEM_TIER.EXOTIC]: 2500,
-    [ITEM_TIER.EXQUISITE]: 5000,
-    [ITEM_TIER.TRANSCENDENT]: 10000,
-    [ITEM_TIER.ENIGMATIC]: 25000,
-    [ITEM_TIER.UNFATHOMABLE]: 100000,
-    [ITEM_TIER.OTHERWORLDLY]: 250000,
-    [ITEM_TIER.IMAGINARY]: 1000000,
-    [ITEM_TIER.ZENITH]: 10000000
-};
+//--
+
+//-
 
 // Thing templates - easily extensible
 const THING_TEMPLATES = {
     STONE: {
         name: 'Stone',
-        baseValue: 1,
+        baseValue: 5,
         rarityMultiplier: 1.0,
         tier: ITEM_TIER.COMMON,
-        weight: 14,
+        rarityScore: 5,
         color: '#9ca3af'
     },
-    COPPER_ORE: {
-        name: 'Copper Ore',
-        baseValue: 3,
+    COPPER_ROD: {
+        name: 'Copper Rod',
+        baseValue: 8,
         rarityMultiplier: 1.1,
-        tier: ITEM_TIER.COMMON,      
-        weight: 10,
+        tier: ITEM_TIER.SIGNIFICANT,      
+        rarityScore: 10,
         color: '#f97316'
     },
     SILVER_ORE: {
         name: 'Silver Ore',
-        baseValue: 5,
+        baseValue: 10,
         rarityMultiplier: 1.2,
         tier: ITEM_TIER.SIGNIFICANT,
-        weight: 8,
+        rarityScore: 28,
         color: '#e5e7eb'
     },
-    GOLD_ORE: {
-        name: 'Gold Ore',
-        baseValue: 10,
+    GOLD_NUGGET: {
+        name: 'Gold Nugget',
+        baseValue: 15,
         rarityMultiplier: 1.4,
         tier: ITEM_TIER.RARE,
-        weight: 6,
+        rarityScore: 56,
         color: '#fbbf24'
     },
     DIAMOND: {
         name: 'Diamond',
-        baseValue: 20,
+        baseValue: 25,
         rarityMultiplier: 1.6,
         tier: ITEM_TIER.MASTER,
-        weight: 4,
+        rarityScore: 34,
         color: '#a5f3fc'
     },
-    MYSTIC_CRYSTAL: {
-        name: 'Mystic Crystal',
+    AMETHYST_GEODE: {
+        name: 'Amethyst Geode',
         baseValue: 15,
         rarityMultiplier: 1.5,
         tier: ITEM_TIER.RARE,
-        weight: 5,
-        color: '#22d3ee'
+        rarityScore: 45,
+        color: '#c200e9ff'
     },
     ANCIENT_RELIC: {
         name: 'Ancient Relic',
         baseValue: 25,
         rarityMultiplier: 2.0,
-        tier: ITEM_TIER.MASTER,
-        weight: 3,
+        tier: ITEM_TIER.SURREAL,
+        rarityScore: 83,
         color: '#a78bfa'
-    },
-    CURSED_ITEM: {
-        name: 'Cursed Item',
-        baseValue: 0,
-        rarityMultiplier: 0.5,
-        tier: ITEM_TIER.SIGNIFICANT,
-        weight: 6,
-        color: '#22c55e'
     },
     BLESSED_ARTIFACT: {
         name: 'Blessed Artifact',
         baseValue: 30,
         rarityMultiplier: 2.2,
         tier: ITEM_TIER.SURREAL,
-        weight: 2,
+        rarityScore: 92,
         color: '#f59e0b'
     },
     VOID_ESSENCE: {
         name: 'Void Essence',
         baseValue: 40,
         rarityMultiplier: 1.8,
-        tier: ITEM_TIER.SURREAL,
-        weight: 1,
+        tier: ITEM_TIER.MYTHIC,
+        rarityScore: 1001,
         color: '#8b5cf6'
     },
-    VOID_ESSENCE: {
-        name: 'Void Essence',
-        baseValue: 40,
+    EXODAL: {
+        name: 'Exodal',
+        baseValue: 80,
         rarityMultiplier: 1.8,
-        tier: ITEM_TIER.SURREAL,
-        weight: 1,
-        color: '#8b5cf6'
-    }
-};
+        tier: ITEM_TIER.EXOTIC,
+        rarityScore: 5001,
+        color: '#5eff01ff'
+    },
+    EXODAL: {
+        name: 'EXODAL',
+        baseValue: 80,
+        rarityMultiplier: 1.8,
+        tier: ITEM_TIER.EXOTIC,
+        rarityScore: 5001,
+        color: '#5eff01ff'
+    },
+    MAMMOTH: {
+        name: 'Mammoth',
+        baseValue: 80,
+        rarityMultiplier: 1.8,
+        tier: ITEM_TIER.Enigmatic,
+        rarityScore: 10000,
+        color: '#5eff01ff'
+    },
 
-function createSeededRng(seed) {
-    let a = seed >>> 0;
-    return function () {
-        a |= 0;
-        a = (a + 0x6D2B79F5) | 0;
-        let t = Math.imul(a ^ (a >>> 15), 1 | a);
-        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-    };
-}
+};
 
 /**
  * Roll a random thing
@@ -158,13 +143,15 @@ function createSeededRng(seed) {
  * @returns {Object} { name, value, rarity }
  */
 function rollThing(wave = 1, rng = Math.random, rarityWeightsOverride) {
-    const template = selectByWeight(getWaveBasedTemplateWeights(wave, rarityWeightsOverride), rng);
+    const selection = selectByWeight(getWaveBasedTemplateWeights(wave, rarityWeightsOverride), rng);
+    const template = selection.template;
     const tier = template.tier;
 
-    const baseValue = TIER_VALUES[tier] + template.baseValue;
-    const finalValue = Math.round(baseValue * template.rarityMultiplier);
+    const baseValue = template.baseValue;
+    const finalValue = Math.round(baseValue);
 
     return {
+        id: selection.id,
         name: template.name,
         value: finalValue,
         tier: tier,
@@ -172,125 +159,135 @@ function rollThing(wave = 1, rng = Math.random, rarityWeightsOverride) {
         nameStyle: template.color ? { color: template.color } : undefined
     };
 }
-function getWaveBasedTemplateWeights(wave, rarityWeightsOverride) {
-    const rarityWeights = rarityWeightsOverride || getWaveBasedRarityWeights(wave);
-    const templates = Object.values(THING_TEMPLATES);
+
+function getWaveBasedTemplateWeights(wave, tierRarityOverride) {
+    const tierRarity = tierRarityOverride || getWaveBasedRarityWeights(wave);
+    const entries = Object.entries(THING_TEMPLATES);
     const weights = [];
 
-    for (const template of templates) {
+    for (const [id, template] of entries) {
         const tier = template.tier;
-        const rarityWeight = rarityWeights[tier] ?? 0;
-        const templateWeight = typeof template.weight === 'number' ? template.weight : 1;
-        const weight = rarityWeight * Math.max(0, templateWeight);
-        if (weight > 0) weights.push({ item: template, weight });
+        const tierRarityVal = tierRarity[tier] ?? 100; // Default to high rarity if missing
+        
+        // Rarity: Higher number = Rarer (Probability ~ 1/Score)
+        // Use template.rarity as rarity score (default to 10 if missing)
+        const itemRarity = typeof template.rarity === 'number' ? template.rarity : 10;
+        
+        // Calculate probability weight: 
+        // 1. Inverse of Tier Rarity (Higher score = Lower probability)
+        // 2. Inverse of Item Rarity
+        const probabilityWeight = (100 / Math.max(1, tierRarityVal)) * (100 / Math.max(1, itemRarity));
+        
+        if (probabilityWeight > 0) weights.push({ item: { template, id }, weight: probabilityWeight });
     }
 
     return weights;
 }
 
 /**
- * Get rarity weights adjusted by wave number
- * Early waves: heavily weighted to common/uncommon for easy dopamine
- * Mid waves: begins introducing rare items
- * Late waves: legendary becomes more common
+ * Get tier rarity adjusted by wave number
+ * Higher rarity = Rarer tier
+ * Early waves: Common/Uncommon have low rarity (common)
+ * Mid waves: Rare rarity drops
+ * Late waves: Legendary rarity drops
  * @param {number} wave - current wave
- * @returns {Object} adjusted rarity weights
+ * @returns {Object} adjusted tier rarity
  */
 function getWaveBasedRarityWeights(wave) {
-    // Base chance for supernatural tiers (Exotic+) to appear in ANY wave
-    // These are very small chances, but possible from Wave 1
+    // Base rarity for supernatural tiers (Exotic+)
+    // These are very high (very rare)
     const supernaturalBase = {
-        [ITEM_TIER.EXOTIC]: 0.005,
-        [ITEM_TIER.EXQUISITE]: 0.002,
-        [ITEM_TIER.TRANSCENDENT]: 0.001,
-        [ITEM_TIER.ENIGMATIC]: 0.0005,
-        [ITEM_TIER.UNFATHOMABLE]: 0.0002,
-        [ITEM_TIER.OTHERWORLDLY]: 0.0001,
-        [ITEM_TIER.IMAGINARY]: 0.00005,
-        [ITEM_TIER.ZENITH]: 0.00001
+        [ITEM_TIER.EXOTIC]: 20000,      // ~0.005%
+        [ITEM_TIER.EXQUISITE]: 50000,   // ~0.002%
+        [ITEM_TIER.TRANSCENDENT]: 100000, // ~0.001%
+        [ITEM_TIER.ENIGMATIC]: 200000,
+        [ITEM_TIER.UNFATHOMABLE]: 500000,
+        [ITEM_TIER.OTHERWORLDLY]: 1000000,
+        [ITEM_TIER.IMAGINARY]: 2000000,
+        [ITEM_TIER.ZENITH]: 10000000
     };
 
-    // Default weights (Waves 11+)
-    let weights = {
-        [ITEM_TIER.COMMON]: 30,
-        [ITEM_TIER.SIGNIFICANT]: 25,
-        [ITEM_TIER.RARE]: 20,
-        [ITEM_TIER.MASTER]: 18,
-        [ITEM_TIER.SURREAL]: 7,
-        [ITEM_TIER.MYTHIC]: 0,
+    // Default rarity (Waves 11+)
+    let rarity = {
+        [ITEM_TIER.COMMON]: 3,       // ~33%
+        [ITEM_TIER.SIGNIFICANT]: 4,  // ~25%
+        [ITEM_TIER.RARE]: 5,         // ~20%
+        [ITEM_TIER.MASTER]: 6,       // ~16%
+        [ITEM_TIER.SURREAL]: 15,     // ~6%
+        [ITEM_TIER.MYTHIC]: 100000,  // Very rare default
         ...supernaturalBase
     };
 
     // Waves 1-3: Easy early game
     if (wave <= 3) {
-        weights = {
-            [ITEM_TIER.COMMON]: 60,
-            [ITEM_TIER.SIGNIFICANT]: 35,
-            [ITEM_TIER.RARE]: 4,
-            [ITEM_TIER.MASTER]: 1,
-            [ITEM_TIER.SURREAL]: 0,
-            [ITEM_TIER.MYTHIC]: 0,
+        rarity = {
+            [ITEM_TIER.COMMON]: 1,       // Very common
+            [ITEM_TIER.SIGNIFICANT]: 3,
+            [ITEM_TIER.RARE]: 25,        // Rare
+            [ITEM_TIER.MASTER]: 100,     // Very Rare
+            [ITEM_TIER.SURREAL]: 10000,  // Impossible-ish
+            [ITEM_TIER.MYTHIC]: 100000,
             ...supernaturalBase
         };
     }
     // Waves 4-6: Introduce rare items
     else if (wave <= 6) {
-        weights = {
-            [ITEM_TIER.COMMON]: 45,
-            [ITEM_TIER.SIGNIFICANT]: 35,
-            [ITEM_TIER.RARE]: 15,
-            [ITEM_TIER.MASTER]: 5,
-            [ITEM_TIER.SURREAL]: 0,
-            [ITEM_TIER.MYTHIC]: 0,
+        rarity = {
+            [ITEM_TIER.COMMON]: 2,
+            [ITEM_TIER.SIGNIFICANT]: 3,
+            [ITEM_TIER.RARE]: 7,
+            [ITEM_TIER.MASTER]: 20,
+            [ITEM_TIER.SURREAL]: 10000,
+            [ITEM_TIER.MYTHIC]: 100000,
             ...supernaturalBase
         };
     }
     // Waves 7-10: Legendary/Surreal possible
     else if (wave <= 10) {
-        weights = {
-            [ITEM_TIER.COMMON]: 40,
-            [ITEM_TIER.SIGNIFICANT]: 30,
-            [ITEM_TIER.RARE]: 18,
+        rarity = {
+            [ITEM_TIER.COMMON]: 2.5,
+            [ITEM_TIER.SIGNIFICANT]: 3.5,
+            [ITEM_TIER.RARE]: 6,
             [ITEM_TIER.MASTER]: 10,
-            [ITEM_TIER.SURREAL]: 2,
-            [ITEM_TIER.MYTHIC]: 0,
+            [ITEM_TIER.SURREAL]: 50,
+            [ITEM_TIER.MYTHIC]: 100000,
             ...supernaturalBase
         };
     }
     // Waves 11-20: Higher chance for Master/Surreal
     else if (wave <= 20) {
-        weights = {
-            [ITEM_TIER.COMMON]: 30,
-            [ITEM_TIER.SIGNIFICANT]: 25,
-            [ITEM_TIER.RARE]: 20,
-            [ITEM_TIER.MASTER]: 18,
-            [ITEM_TIER.SURREAL]: 7,
-            [ITEM_TIER.MYTHIC]: 0.1,
+        rarity = {
+            [ITEM_TIER.COMMON]: 3,
+            [ITEM_TIER.SIGNIFICANT]: 4,
+            [ITEM_TIER.RARE]: 5,
+            [ITEM_TIER.MASTER]: 6,
+            [ITEM_TIER.SURREAL]: 15,
+            [ITEM_TIER.MYTHIC]: 1000,
             ...supernaturalBase
         };
     }
-    // Waves 21+: Unlock higher tiers slowly (Increase supernatural chances slightly)
+    // Waves 21+: Unlock higher tiers slowly
     else {
-        weights = {
-            [ITEM_TIER.COMMON]: 20,
-            [ITEM_TIER.SIGNIFICANT]: 20,
-            [ITEM_TIER.RARE]: 20,
-            [ITEM_TIER.MASTER]: 20,
-            [ITEM_TIER.SURREAL]: 15,
-            [ITEM_TIER.MYTHIC]: 5,
-            // Boost supernatural chances slightly in late game
-            [ITEM_TIER.EXOTIC]: 0.1,
-            [ITEM_TIER.EXQUISITE]: 0.05,
-            [ITEM_TIER.TRANSCENDENT]: 0.02,
-            [ITEM_TIER.ENIGMATIC]: 0.01,
-            [ITEM_TIER.UNFATHOMABLE]: 0.005,
-            [ITEM_TIER.OTHERWORLDLY]: 0.002,
-            [ITEM_TIER.IMAGINARY]: 0.001,
-            [ITEM_TIER.ZENITH]: 0.0001
+        rarity = {
+            [ITEM_TIER.COMMON]: 5,
+            [ITEM_TIER.SIGNIFICANT]: 5,
+            [ITEM_TIER.RARE]: 5,
+            [ITEM_TIER.MASTER]: 5,
+            [ITEM_TIER.SURREAL]: 7,
+            [ITEM_TIER.MYTHIC]: 20,
+            // Boost supernatural chances slightly in late game (lower rarity)
+            [ITEM_TIER.EXOTIC]: 1000,
+            [ITEM_TIER.EXQUISITE]: 2000,
+            [ITEM_TIER.TRANSCENDENT]: 5000,
+            [ITEM_TIER.ENIGMATIC]: 10000,
+            [ITEM_TIER.UNFATHOMABLE]: 20000,
+            [ITEM_TIER.OTHERWORLDLY]: 50000,
+            [ITEM_TIER.IMAGINARY]: 100000,
+            [ITEM_TIER.ZENITH]: 1000000
         };
     }
 
-    return weights;
+    return rarity;
 }
 
 /**

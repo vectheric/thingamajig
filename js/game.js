@@ -126,7 +126,24 @@ class Game {
      * Handle start game button
      */
     handleStartGame() {
-        this.gameState.resetGame();
+        const seedInput = document.getElementById('seed-input');
+        let seedString;
+        
+        if (seedInput && seedInput.value.trim()) {
+            seedString = seedInput.value.trim();
+        } else {
+            // Generate complex random seed if not provided
+            seedString = Math.generateRandomSeed ? Math.generateRandomSeed() : String(Date.now());
+        }
+        
+        const seedHash = Math.seed(seedString);
+        
+        if (this.gameState.setSeed) {
+            this.gameState.setSeed(seedHash, seedString);
+        } else {
+            this.gameState.resetGame();
+        }
+
         this.gameRunning = true;
         this.handleStartWave();
     }
@@ -173,11 +190,12 @@ class Game {
         if (targetWave != null) {
             const entryCost = this.gameState.getWaveEntryCost();
             if (this.gameState.chips < entryCost) {
+                this.ui.showMessage('Game Over: Insufficient Chips!', 'error');
                 this.ui.renderBreakdownScreen({
                     type: 'game_over',
-                    reason: `You didn't earn enough chips!<br>` +
-                            `Needed ${entryCost} C for wave ${targetWave}<br>` +
-                            `Had ${this.gameState.chips} C`
+                    reason: `You didn't earn enough Ȼ!<br>` +
+                            `Needed ${entryCost}Ȼ for wave ${targetWave}<br>` +
+                            `Had ${this.gameState.chips}Ȼ`
                 });
                 return;
             }
@@ -203,6 +221,9 @@ class Game {
     handleRoll() {
         if (!this.gameRunning) return;
         if (!this.ui || this.ui.currentScreen !== 'game') return;
+        
+        // Fix: Cooldown to prevent freeze when spamming Space
+        if (this._nextRollTime && Date.now() < this._nextRollTime) return;
         
         // Lock if goal reached
         if (this.gameState.hasReachedWaveGoal()) {
@@ -292,7 +313,7 @@ class Game {
             if (thing === null) {
                 if (lastRolledDiv) lastRolledDiv.innerHTML = '<span class="last-roll-placeholder">—</span>';
                 if (rollBtn) rollBtn.disabled = false;
-                this.ui.showMessage('No rolls remaining!', 'error');
+                this.ui.showMessage('No rolls remaining', 'error');
                 return;
             }
 
@@ -303,8 +324,8 @@ class Game {
             const streakMessage = this.gameState.getRareStreakMessage();
             if (thing.rarity === 'epic' || thing.rarity === 'legendary') {
                 this.celebrateRareItem(thing);
-                if (streakMessage) this.ui.showMessage(streakMessage, 'epic');
             }
+            if (streakMessage) this.ui.showMessage(streakMessage, 'epic');
 
             const displayName = typeof getModifiedItemName === 'function' ? getModifiedItemName(thing) : thing.name;
             const allMods = typeof getAllModifications === 'function' ? getAllModifications(thing) : [];
@@ -323,7 +344,7 @@ class Game {
                         <div class="${wrapClass}">${nameHtml}</div>
                         <div class="rolled-thing-rarity">${thing.rarity.toUpperCase()}</div>
                         ${modBadges ? `<div class="rolled-thing-mods">${modBadges}</div>` : ''}
-                        <div class="rolled-thing-value">+${thing.value} C</div>
+                        <div class="rolled-thing-value">+${thing.value}Ȼ</div>
                     </div>
                 `;
             }
@@ -347,7 +368,7 @@ class Game {
             const inventory = new Inventory(this.gameState);
             const invDisplay = inventory.getDisplay();
             const totalValue = document.querySelector('.total-value');
-            if (totalValue) totalValue.textContent = `${invDisplay.totalValue} C`;
+            if (totalValue) totalValue.textContent = `${invDisplay.totalValue}Ȼ`;
 
             const goalReached = this.gameState.hasReachedWaveGoal();
             if ((this.gameState.getRemainingRolls() <= 0 || goalReached) && rollBtn) {
@@ -356,14 +377,52 @@ class Game {
                 rollBtn.disabled = false;
             }
 
-            this.ui.showMessage(`Rolled ${thing.name}!`, 'success');
+            this.ui.showMessage(`Rolled [${thing.name}]`, 'success');
 
             // If player already has enough chips for next wave, end the wave immediately
             // so remaining rolls can convert to cash and the shop opens automatically.
             if (goalReached) {
-                setTimeout(() => {
-                    if (this.gameRunning) this.handleEndWave();
-                }, 250);
+                // Prevent multiple countdowns if triggered rapidly
+                if (document.getElementById('goal-countdown-notification')) return;
+
+                if (rollBtn) rollBtn.disabled = true;
+
+                // Create countdown notification
+                let secondsLeft = 2;
+                
+                // Use existing notification container
+                let container = document.getElementById('notification-container');
+                if (!container) {
+                    container = document.createElement('div');
+                    container.id = 'notification-container';
+                    container.setAttribute('aria-live', 'polite');
+                    document.body.appendChild(container);
+                }
+                
+                const notif = document.createElement('div');
+                notif.id = 'goal-countdown-notification';
+                notif.className = 'notification notification-success';
+                // Add specific styling if needed, but we rely on CSS for the "traditional" look
+                
+                container.appendChild(notif);
+
+                const updateMessage = () => {
+                    notif.innerHTML = `Finished the goal return to the reward screen in ${secondsLeft}s`;
+                };
+                
+                updateMessage();
+
+                const intervalId = setInterval(() => {
+                    secondsLeft--;
+                    if (secondsLeft <= 0) {
+                        clearInterval(intervalId);
+                        if (notif && notif.parentNode) notif.remove();
+                        if (this.gameRunning) this.handleEndWave();
+                    } else {
+                        updateMessage();
+                    }
+                }, 1000);
+
                 return;
             }
 
@@ -372,6 +431,9 @@ class Game {
                     if (this.gameRunning) this.handleEndWave();
                 }, 200);
             }
+            
+            // Set cooldown for next roll
+            this._nextRollTime = Date.now() + 100;
         };
 
         this._rollTimeoutId = setTimeout(() => {
@@ -407,10 +469,10 @@ class Game {
         let emoji = '';
         
         if (rarity === 'legendary') {
-            message = `🌟 LEGENDARY! ${thing.name}! 🌟`;
+            message = `🌟 LEGENDARY ${thing.name} 🌟`;
             emoji = '✨';
         } else if (rarity === 'epic') {
-            message = `⭐ EPIC! ${thing.name}!`;
+            message = `⭐ EPIC ${thing.name}`;
             emoji = '⭐';
         }
 
@@ -450,7 +512,7 @@ class Game {
         if (this.gameState.inventory.length === 0) {
             this.ui.showMessage('No items to sell.', 'info');
         } else {
-            this.ui.showMessage(`Sold items for ${earnedChips} C!`, 'success');
+            this.ui.showMessage(`Sold items for ${earnedChips}Ȼ`, 'success');
         }
 
         setTimeout(() => {
@@ -469,9 +531,9 @@ class Game {
             // If player cannot advance, it's game over.
             const type = canAdvance ? 'wave_complete' : 'game_over';
             const reason = canAdvance ? '' : 
-                `You didn't earn enough chips!<br>` +
-                `Needed ${nextCost} C for wave ${this.gameState.wave + 1}<br>` +
-                `Had ${this.gameState.chips} C (earned ${earnedChips} C this wave)`;
+                `You didn't earn enough Ȼ<br>` +
+                `Needed ${nextCost}Ȼ for wave ${this.gameState.wave + 1}<br>` +
+                `Had ${this.gameState.chips}Ȼ (earned ${earnedChips}Ȼ this wave)`;
 
             this.ui.renderBreakdownScreen({
                 type,
@@ -483,6 +545,7 @@ class Game {
                 baseReward: rewards.baseReward,
                 interestReward: rewards.interestReward,
                 cashBonus: rewards.cashBonus,
+                chipsBonus: rewards.chipsBonus, // Pass chips bonus
                 totalReward: rewards.totalReward + rollsToCash,
                 totalCash: this.gameState.cash,
                 canAdvance,
@@ -526,7 +589,7 @@ class Game {
                 selector = `.perk-card[data-perk-instance-id="${instanceId}"]`;
             }
             const card = shopGrid ? shopGrid.querySelector(selector) : null;
-            const isSubperk = card && (card.querySelector('.rarity-special') || card.querySelector('.rarity-subperk') || perkId === 'solar_power');
+            const isSubperk = card && (card.querySelector('.rarity-special') || card.querySelector('.rarity-subperk') || perkId === 'VIRUS');
 
             // Use shop.purchasePerk to ensure it gets removed from the shop list if it's a subperk
             const result = this.shop.purchasePerk(perkId, instanceId);
@@ -547,7 +610,7 @@ class Game {
             }
         } catch (error) {
             console.error('Error purchasing perk:', error);
-            this.ui.showMessage('Failed to purchase perk. Please try again.', 'error');
+            this.ui.showMessage('Failed to purchase perk. Please try again', 'error');
         }
     }
 
@@ -601,9 +664,6 @@ class Game {
             this.createSubperkParticles(card);
             
             // Create fire particles if it's Solar Power
-            if (perkId === 'solar_power') {
-                this.createFireParticles(card);
-            }
 
             // Remove after animation
             setTimeout(() => {
@@ -649,14 +709,36 @@ class Game {
         
         const card = shopGrid.querySelector(`.perk-card[data-perk-id="${perkId}"]`);
         if (card) {
-            card.classList.add('perk-purchased-anim');
+            // Enhanced Animation: Expand then Fade
+            // 1. Remove tilt effect to prevent interference
+            card.style.transform = 'none';
+            card.classList.remove('tilt-effect');
+            
+            // 2. Initial state setup for smooth transition
+            card.style.transition = 'all 0.5s cubic-bezier(0.19, 1, 0.22, 1)';
+            card.style.zIndex = '100'; // Bring to front
+            card.style.position = 'relative'; // Ensure z-index works
+
+            // 3. Trigger expansion
+            requestAnimationFrame(() => {
+                card.style.transform = 'scale(1.2)'; // Expand
+                card.style.boxShadow = '0 0 30px rgba(251, 191, 36, 0.6)'; // Gold glow
+                card.style.borderRadius = '16px'; // More rounded
+                
+                // 4. Fade out after expansion starts
+                setTimeout(() => {
+                    card.style.opacity = '0';
+                    card.style.transform = 'scale(1.4)'; // Continue expanding while fading
+                }, 200);
+            });
+
             this.createPurchaseSparkles(card);
             
             setTimeout(() => {
                 shopGrid.innerHTML = this.ui.renderShop();
                 this.ui.attachPerkTooltips();
                 this.attachTiltEffect();
-            }, 500);
+            }, 600); // Increased delay slightly to allow animation to finish
         }
     }
 
@@ -674,6 +756,47 @@ class Game {
         const topbar = document.querySelector('.topbar-perks');
         if (topbar) {
             topbar.innerHTML = this.ui.renderTopbarPerks();
+        }
+    }
+
+    handleOpenForging() {
+        if (!this.ui) return;
+        this.ui.renderForgingScreen();
+    }
+
+    handleReturnToShop() {
+        if (!this.ui) return;
+        this.ui.renderShopScreen();
+    }
+
+    handleForgeSelect(perkId) {
+        if (!this.ui || this.ui.currentScreen !== 'forging') return;
+        this.ui.renderForgingScreen(perkId);
+    }
+
+    handleForgePerk(perkId) {
+        if (!this.ui) return;
+        if (!perkId) return;
+        try {
+            const result = this.gameState.forgePerk(perkId);
+            if (result.success) {
+                this.ui.showMessage(result.message, 'success');
+                const stats = document.querySelector('.game-stats');
+                if (stats) {
+                    stats.innerHTML = this.generateStatsHTML();
+                }
+                const topbar = document.querySelector('.topbar-perks');
+                if (topbar) {
+                    topbar.innerHTML = this.ui.renderTopbarPerks();
+                }
+                this.ui.renderForgingScreen();
+            } else {
+                this.ui.showMessage(result.message, 'error');
+                this.ui.renderForgingScreen();
+            }
+        } catch (error) {
+            console.error('Error forging perk:', error);
+            this.ui.showMessage('Failed to forge perk. Please try again', 'error');
         }
     }
 
@@ -725,7 +848,7 @@ class Game {
         try {
             const cost = this.shopRerollCost;
             if (this.gameState.cash < cost) {
-                this.ui.showMessage(`Need ${cost}$ to reroll!`, 'error');
+                this.ui.showMessage(`Need ${cost}$ to reroll`, 'error');
                 return;
             }
             
@@ -743,11 +866,11 @@ class Game {
             // Trigger text rolling for subperks
             this.ui.startTextRollingAnimation();
             
-            this.ui.showMessage('Shop rerolled!', 'success');
+            this.ui.showMessage('Shop rerolled', 'success');
             
         } catch (error) {
             console.error('Error rerolling shop:', error);
-            this.ui.showMessage('Failed to reroll shop. Please try again.', 'error');
+            this.ui.showMessage('Failed to reroll shop. Please try again', 'error');
         }
     }
 
@@ -814,6 +937,7 @@ class Game {
      */
     handleContinueFromRewards() {
         this.gameState.pendingNextWave = this.gameState.wave + 1;
+        this.shop.generateShopPerks();
         this.ui.renderShopScreen();
         // Trigger text rolling for subperks
         this.ui.startTextRollingAnimation();
@@ -833,7 +957,7 @@ class Game {
     handleBossPerkSelect(perkId) {
         const result = this.gameState.chooseBossPerk(perkId);
         if (result) {
-            this.ui.showMessage('Perk acquired!', 'success');
+            this.ui.showMessage('Perk acquired', 'success');
             this.ui.updateBossRewardScreen();
         }
     }
@@ -841,11 +965,12 @@ class Game {
     /** Boss reward: confirm after picking 3 perks */
     handleConfirmBossReward() {
         if (this.gameState.getBossPerksPickedCount() < CONFIG.BOSS_PERK_PICK_COUNT) {
-            this.ui.showMessage(`Pick ${CONFIG.BOSS_PERK_PICK_COUNT} perks first!`, 'error');
+            this.ui.showMessage(`Pick ${CONFIG.BOSS_PERK_PICK_COUNT} perks first`, 'error');
             return;
         }
         this.gameState.confirmBossReward();
         this.resetRerollCost();
+        this.shop.generateShopPerks();
         this.ui.renderShopScreen();
     }
 

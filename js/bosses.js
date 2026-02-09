@@ -6,10 +6,10 @@ const BOSS_EXCLUSIVE_PERKS = {
     // Boss 1 - Chip Hoarder (Wave 5)
     boss1_chip_surge: {
         id: 'boss1_chip_surge',
-        name: 'Chip Surge',
-        description: '+25% Chip earnings (Boss 1)',
+        name: 'Ȼ Surge',
+        description: '+25% Ȼ earnings (Boss 1)',
         rarity: 'rare',
-        attributes: { chip_multiplier: 2 },
+        attributes: { multiChip: 2 },
         source: 'boss1'
     },
     boss1_extra_hand: {
@@ -33,7 +33,7 @@ const BOSS_EXCLUSIVE_PERKS = {
         name: 'Value Eye',
         description: '+20% Item value (Boss 1)',
         rarity: 'rare',
-        attributes: { value_multiplier: 2 },
+        attributes: { multiValue: 2 },
         source: 'boss1'
     },
     boss1_interest_seed: {
@@ -59,7 +59,7 @@ const BOSS_EXCLUSIVE_PERKS = {
         name: 'Golden Vein',
         description: '+35% Item value (Boss 2)',
         rarity: 'epic',
-        attributes: { value_multiplier: 4 },
+        attributes: { multiValue: 4 },
         source: 'boss2'
     },
     boss2_roll_master: {
@@ -72,10 +72,10 @@ const BOSS_EXCLUSIVE_PERKS = {
     },
     boss2_chip_hoard: {
         id: 'boss2_chip_hoard',
-        name: 'Chip Hoard',
-        description: '+30% Chips (Boss 2)',
+        name: 'Ȼ Hoard',
+        description: '+30% Ȼ (Boss 2)',
         rarity: 'epic',
-        attributes: { chip_multiplier: 3 },
+        attributes: { multiChip: 3 },
         source: 'boss2'
     },
     boss2_cash_rush: {
@@ -83,7 +83,7 @@ const BOSS_EXCLUSIVE_PERKS = {
         name: 'Cash Rush',
         description: '+75% wave cash (Boss 2)',
         rarity: 'epic',
-        attributes: { cash_multiplier: 0.75 },
+        attributes: { multiCash: 0.75 },
         source: 'boss2'
     },
     boss2_pristine_luck: {
@@ -109,15 +109,15 @@ const BOSS_EXCLUSIVE_PERKS = {
         name: 'Fortune Aura',
         description: '+4 Rolls, +20% Value (Boss 3)',
         rarity: 'epic',
-        attributes: { rolls: 4, value_multiplier: 2 },
+        attributes: { rolls: 4, multiValue: 2 },
         source: 'boss3'
     },
     boss3_mega_chips: {
         id: 'boss3_mega_chips',
-        name: 'Mega Chips',
-        description: '+45% Chips (Boss 3)',
+        name: 'Mega Ȼ',
+        description: '+45% Ȼ (Boss 3)',
         rarity: 'epic',
-        attributes: { chip_multiplier: 5 },
+        attributes: { multiChip: 5 },
         source: 'boss3'
     },
     boss3_interest_king: {
@@ -149,7 +149,7 @@ const BOSS_EXCLUSIVE_PERKS = {
         name: 'Cash Flow Master',
         description: '+100% wave cash (Boss 3)',
         rarity: 'epic',
-        attributes: { cash_multiplier: 1.0 },
+        attributes: { multiCash: 1.0 },
         source: 'boss3'
     },
 
@@ -159,7 +159,7 @@ const BOSS_EXCLUSIVE_PERKS = {
         name: 'Greed Embrace',
         description: '+5 Rolls, +30% Value, +40% Chips (Boss 4)',
         rarity: 'legendary',
-        attributes: { rolls: 5, value_multiplier: 3, chip_multiplier: 4 },
+        attributes: { rolls: 5, multiValue: 3, multiChip: 4 },
         source: 'boss4'
     },
     boss4_omnipotent_roll: {
@@ -175,15 +175,15 @@ const BOSS_EXCLUSIVE_PERKS = {
         name: 'Golden Rain',
         description: '+50% Value (Boss 4)',
         rarity: 'legendary',
-        attributes: { value_multiplier: 5 },
+        attributes: { multiValue: 5 },
         source: 'boss4'
     },
     boss4_chip_tycoon: {
         id: 'boss4_chip_tycoon',
-        name: 'Chip Tycoon',
-        description: '+60% Chips (Boss 4)',
+        name: 'Ȼ Tycoon',
+        description: '+60% Ȼ (Boss 4)',
         rarity: 'legendary',
-        attributes: { chip_multiplier: 6 },
+        attributes: { multiChip: 6 },
         source: 'boss4'
     },
     boss4_interest_emperor: {
@@ -217,15 +217,15 @@ const BOSS_EXCLUSIVE_PERKS = {
         name: 'Supreme Value',
         description: '+60% Value (Boss 5)',
         rarity: 'legendary',
-        attributes: { value_multiplier: 6 },
+        attributes: { multiValue: 6 },
         source: 'boss5'
     },
     boss5_supreme_chips: {
         id: 'boss5_supreme_chips',
-        name: 'Supreme Chips',
-        description: '+75% Chips (Boss 5)',
+        name: 'Supreme Ȼ',
+        description: '+75% Ȼ (Boss 5)',
         rarity: 'legendary',
-        attributes: { chip_multiplier: 8 },
+        attributes: { multiChip: 8 },
         source: 'boss5'
     },
     boss5_supreme_luck: {
@@ -258,8 +258,8 @@ const BOSSES = [
     {
         id: 'boss1',
         index: 0,
-        name: 'Chip Hoarder',
-        description: 'Collect enough chips to overwhelm the hoard.',
+        name: 'Ȼ Hoarder',
+        description: 'Collect enough Ȼ to overwhelm the hoard.',
         wave: 5,
         perkIds: Object.keys(BOSS_EXCLUSIVE_PERKS).filter(id => BOSS_EXCLUSIVE_PERKS[id].source === 'boss1'),
     },
@@ -267,7 +267,7 @@ const BOSSES = [
         id: 'boss2',
         index: 1,
         name: 'Value Guardian',
-        description: 'Prove your worth in chips.',
+        description: 'Prove your worth in Ȼ.',
         wave: 10,
         perkIds: Object.keys(BOSS_EXCLUSIVE_PERKS).filter(id => BOSS_EXCLUSIVE_PERKS[id].source === 'boss2'),
     },
@@ -291,7 +291,7 @@ const BOSSES = [
         id: 'boss5',
         index: 4,
         name: 'Supreme Collector',
-        description: 'The ultimate chip challenge.',
+        description: 'The ultimate Ȼ challenge.',
         wave: 25,
         perkIds: Object.keys(BOSS_EXCLUSIVE_PERKS).filter(id => BOSS_EXCLUSIVE_PERKS[id].source === 'boss5'),
     },

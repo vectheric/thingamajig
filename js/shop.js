@@ -17,8 +17,10 @@ class Shop {
         const attrs = this.gameState.getAttributes();
         const luck = attrs.luck || 0;
         
+        const targetWave = this.gameState.pendingNextWave || this.gameState.wave;
+
         this.currentShopPerks = getRandomShopPerks(
-            this.gameState.wave,
+            targetWave,
             4,
             this.gameState.perksPurchased,
             (this.gameState.rngStreams && this.gameState.rngStreams.perks) ? this.gameState.rngStreams.perks : Math.random,
@@ -75,7 +77,7 @@ class Shop {
         
         const consumable = consumables[index];
         if (this.gameState.cash < consumable.cost) {
-            return { success: false, message: `Not enough cash! Need ${consumable.cost}$` };
+            return { success: false, message: `Not enough cash... Need ${consumable.cost}$` };
         }
         
         // Try to add to inventory
@@ -90,7 +92,7 @@ class Shop {
         // Remove from shop
         this.currentShopConsumables.splice(index, 1);
         
-        return { success: true, message: `Purchased ${consumable.name}!` };
+        return { success: true, message: `Purchased [${consumable.name}]` };
     }
 
     /**

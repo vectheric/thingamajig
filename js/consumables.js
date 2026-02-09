@@ -70,8 +70,8 @@ const CONSUMABLES = {
     },
 
     // Value Multiplier - 2x value on next roll
-    value_multiplier: {
-        id: 'value_multiplier',
+    multiValue: {
+        id: 'multiValue',
         name: 'Value x2',
         description: 'Next item roll has double value',
         icon: '2️⃣',

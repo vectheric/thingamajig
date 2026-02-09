@@ -6,6 +6,14 @@
 class GameState {
     constructor(seed) {
         this.seed = (seed >>> 0) || (Date.now() >>> 0);
+        this.seedString = String(this.seed);
+        this.rngStreams = this._createRngStreams(this.seed);
+        this.resetGame();
+    }
+
+    setSeed(seed, seedString) {
+        this.seed = (seed >>> 0) || (Date.now() >>> 0);
+        this.seedString = seedString || String(this.seed);
         this.rngStreams = this._createRngStreams(this.seed);
         this.resetGame();
     }
@@ -52,11 +60,43 @@ class GameState {
             totalChipsEarned: 0,
             totalCashEarned: 0,
             totalItemsRolled: 0,
-            totalRollsUsed: 0
+            totalRollsUsed: 0,
+            maxChipsHeld: 0,
+            fastestWaveTime: null // ms
         };
         
+        // Wave timing
+        this.currentWaveStartTime = Date.now();
+        
+        // History tracking for unlock requirements
+        this.itemHistory = [];
+
         // Perk-specific tracking
         this.chipEaterStartValue = 0;
+        
+        // Track unlocked perks to show notifications only once per run
+        this.unlockedPerks = new Set();
+    }
+
+    /**
+     * Check for newly unlocked perks and notify
+     */
+    checkUnlockNotifications() {
+        if (typeof PERKS === 'undefined' || typeof checkPerkConditions !== 'function' || typeof game === 'undefined' || !game.ui) return;
+
+        for (const perkId in PERKS) {
+            const perk = PERKS[perkId];
+            // Only check if it has unlock conditions OR requirements (like Virus/Exodia) and we haven't unlocked it yet this run
+            const hasUnlock = perk.conditions && perk.conditions.some(c => c.type === 'unlock');
+            const hasRequirement = perk.conditions && perk.conditions.some(c => c.type === 'requires_perk');
+            
+            if ((hasUnlock || hasRequirement) && !this.unlockedPerks.has(perkId)) {
+                if (checkPerkConditions(perk, this, this.perksPurchased)) {
+                    this.unlockedPerks.add(perkId);
+                    game.ui.showMessage(`Unlocked [${perk.name}]`, 'success');
+                }
+            }
+        }
     }
 
     getGameTime() {
@@ -70,6 +110,13 @@ class GameState {
     addStat(key, value) {
         if (this.stats[key] !== undefined) {
             this.stats[key] += value;
+            this.checkUnlockNotifications();
+        }
+    }
+
+    updateMaxChips(currentChips) {
+        if (currentChips > this.stats.maxChipsHeld) {
+            this.stats.maxChipsHeld = currentChips;
         }
     }
 
@@ -98,7 +145,69 @@ class GameState {
      * Get interest stacks
      */
     get interestStacks() {
-        return this.currency.getInterestStacks();
+        const attrs = this.getAttributes();
+        return this.currency.getInterestStacks(attrs.max_interest_stacks);
+    }
+
+    /**
+     * Helper to apply attributes to the stats object
+     * @param {Object} targetAttributes - The accumulator object
+     * @param {Object} sourceAttributes - The attributes to apply
+     * @param {number} multiplier - Multiplier for the values (usually count)
+     */
+    _applyAttributeSet(targetAttributes, sourceAttributes, multiplier = 1) {
+        if (!sourceAttributes) return;
+
+        for (const attr in sourceAttributes) {
+            const value = sourceAttributes[attr];
+            
+            // Handle object definition (e.g. { add: 3 })
+            if (typeof value === 'object' && value !== null) {
+                if (value.add !== undefined) {
+                    targetAttributes[attr] = (targetAttributes[attr] || 0) + (value.add * multiplier);
+                }
+                if (value.subtract !== undefined) {
+                    targetAttributes[attr] = (targetAttributes[attr] || 0) - (value.subtract * multiplier);
+                }
+                // Multipliers are usually not scaled by count linearly like add, but powered? 
+                // Logic in original was: attributes[attr] = (attributes[attr] || 1) * value.multiply;
+                // If we have 2 stacks of x2 multiplier, is it x4? 
+                // The original code didn't handle 'count' for object-based multipliers explicitly in the generic loop 
+                // (it was inside the 'perk' loop where count=1).
+                // But for sets, multiplier is usually 1 (the bonus is applied once if threshold met).
+                if (value.multiply !== undefined) {
+                    // Apply multiply 'multiplier' times? Usually just once for the bonus object.
+                    // But if multiplier is 0 (inactive), we shouldn't apply.
+                    // Actually, let's assume multiplier is 1 for set bonuses and conditions.
+                    if (multiplier > 0) {
+                        targetAttributes[attr] = (targetAttributes[attr] || 1) * Math.pow(value.multiply, multiplier);
+                    }
+                }
+                if (value.divide !== undefined && value.divide !== 0) {
+                    if (multiplier > 0) {
+                        targetAttributes[attr] = (targetAttributes[attr] || 1) / Math.pow(value.divide, multiplier);
+                    }
+                }
+                if (value.set !== undefined) {
+                    if (multiplier > 0) targetAttributes[attr] = value.set;
+                }
+                // Modifiers
+                if (value.modifiers) {
+                    // Logic for modifiers if needed
+                }
+            } 
+            // Legacy direct number handling
+            else if (attr.startsWith('multi') || attr.startsWith('divide')) {
+                targetAttributes[attr] = (targetAttributes[attr] || 1) * Math.pow(value, multiplier);
+            } else if (attr.startsWith('set')) {
+                if (multiplier > 0) targetAttributes[attr] = value;
+            } else {
+                // Additive accumulation
+                if (typeof value === 'number') {
+                    targetAttributes[attr] = (targetAttributes[attr] || 0) + (value * multiplier);
+                }
+            }
+        }
     }
 
     /**
@@ -109,19 +218,28 @@ class GameState {
         const attributes = {
             rolls: 0,
             luck: 0,
-            value_multiplier: 0,
-            chip_multiplier: 0,
-            cash_multiplier: 0,
-            max_interest_stacks: 5, // Default max, can be increased by perks
-            modification_chance: 0
+            max_interest_stacks: 5, // Default max
+            modification_chance: 0,
+            
+            // Value modifiers
+            addValue: 0, subtractValue: 0, multiValue: 1, divideValue: 1, setValue: undefined,
+            
+            // Chip modifiers
+            addChip: 0, subtractChip: 0, multiChip: 1, divideChip: 1, setChip: undefined,
+            chipsEndWave: 0, // Added for Chippy integration
+            
+            // Cash modifiers
+            addCash: 0, subtractCash: 0, multiCash: 1, divideCash: 1, setCash: undefined
         };
 
+        const activeSets = {}; // { setName: { count: 0, bonuses: {} } }
+
         for (const perkId in this.perksPurchased) {
-            const count = this.perksPurchased[perkId];
+            let count = this.perksPurchased[perkId];
             let perk = typeof getPerkById === 'function' ? getPerkById(perkId) : Object.values(PERKS).find(p => p.id === perkId);
             if (!perk && typeof getBossPerkById === 'function') perk = getBossPerkById(perkId);
             
-            // Special handling for Nullification (dynamic scaling)
+            // Special handling for Nullification
             if (perkId === 'nullificati0n') {
                 const wavesActive = typeof count === 'number' ? count : 0;
                 attributes.luck = (attributes.luck || 0) + (0.404 * wavesActive);
@@ -129,22 +247,88 @@ class GameState {
                 continue; 
             }
 
-            // Special handling for Chip Eater (dynamic scaling)
+            // Special handling for Chip Eater
             if (perkId === 'chip_eater') {
-                const totalChips = this.stats.totalChipsEarned || 0;
-                const startValue = this.chipEaterStartValue || 0;
-                const earnedSincePurchase = Math.max(0, totalChips - startValue);
-                // 0.5 Value Multiplier per 1 Chip earned since purchase
-                attributes.value_multiplier = (attributes.value_multiplier || 0) + (0.5 * earnedSincePurchase);
                 continue;
             }
 
-            if (perk && perk.attributes) {
-                for (const attr in perk.attributes) {
-                    attributes[attr] = (attributes[attr] || 0) + (perk.attributes[attr] * count);
+            if (perk) {
+                // Standardize count
+                if (perk.maxStacks) {
+                    // It's a stackable perk, count is accurate
+                } else {
+                    count = 1; // Non-stackable owned = 1
+                }
+
+                // 1. Apply Base Attributes
+                if (perk.attributes) {
+                    this._applyAttributeSet(attributes, perk.attributes, count);
+                }
+
+                // 2. Track Sets
+                if (perk.set) {
+                    if (!activeSets[perk.set]) {
+                        activeSets[perk.set] = { count: 0, bonuses: null };
+                    }
+                    activeSets[perk.set].count += 1; // Count unique perks in set? Or stacks? Usually unique perks.
+                    // User asked for "Exodia", which implies unique pieces.
+                    // If I have 2 left arms, does it count as 2 pieces? Usually Exodia needs distinct pieces.
+                    // But for flexibility, let's say "count += 1" implies counting purchased instances.
+                    // Since Exodia parts are likely non-stackable, this is fine.
+                    
+                    if (perk.setBonuses) {
+                        activeSets[perk.set].bonuses = perk.setBonuses;
+                    }
+                }
+
+                // 3. Apply Conditions
+                if (perk.conditions) {
+                    for (const condition of perk.conditions) {
+                        if (condition.type === 'bonus_trigger' && condition.condition) {
+                            const cond = condition.condition;
+                            let met = false;
+                            
+                            if (cond.type === 'stat_threshold') {
+                                const statValue = cond.stat === 'wave' ? this.wave : (this.stats[cond.stat] || 0);
+                                const threshold = cond.threshold || 0;
+                                
+                                if (cond.compare === 'less') {
+                                    if (statValue < threshold) met = true;
+                                } else {
+                                    if (statValue >= threshold) met = true;
+                                }
+                            }
+                            
+                            if (met && cond.bonus) {
+                                this._applyAttributeSet(attributes, cond.bonus, 1);
+                            }
+                        }
+                    }
                 }
             }
         }
+
+        // 4. Apply Set Bonuses
+        for (const setName in activeSets) {
+            const set = activeSets[setName];
+            if (set.bonuses) {
+                // Sort keys to apply in order? Not strictly necessary for additive, but good for predictable results.
+                // Assuming bonuses are additive.
+                // Logic: "boost its power" - maybe cumulative?
+                // Exodia: 2 pieces -> +power, 3 pieces -> +more power.
+                // Usually these are thresholds. "If you have >= 2, get this". "If you have >= 3, get that".
+                // Should they stack? (e.g. get both 2-piece and 3-piece bonus?)
+                // Standard RPG sets often stack. Let's assume yes.
+                
+                for (const thresholdStr in set.bonuses) {
+                    const threshold = parseInt(thresholdStr);
+                    if (set.count >= threshold) {
+                        this._applyAttributeSet(attributes, set.bonuses[thresholdStr], 1);
+                    }
+                }
+            }
+        }
+
         return attributes;
     }
 
@@ -156,6 +340,7 @@ class GameState {
         this.inventory = [];
         this.rareItemStreak = 0; // Reset streak at wave start
         this.currency.resetWaveLocalCurrency(); // Reset chips for new wave
+        this.currentWaveStartTime = Date.now(); // Start timer
         // Bad luck streak persists across waves until a high tier item is found
 
         // Nullification Scaling: Increment active waves count
@@ -246,6 +431,17 @@ class GameState {
         }
 
         this.inventory.push(thing);
+        
+        // Add to history for unlock requirements
+        if (this.itemHistory) {
+            this.itemHistory.push({
+                id: thing.id,
+                attribute: thing.attribute ? thing.attribute.id : 'normal',
+                mods: thing.mods ? thing.mods.map(m => m.id) : []
+            });
+            this.checkUnlockNotifications();
+        }
+        
         return thing;
     }
 
@@ -294,9 +490,14 @@ class GameState {
                     guaranteedMods.push(modId);
                 }
                 
-                if (perk.mod_rarity_modifiers) {
-                    for (const [modId, multiplier] of Object.entries(perk.mod_rarity_modifiers)) {
-                        rarityMultipliers[modId] = (rarityMultipliers[modId] || 1) * multiplier;
+                if (perk.attributes && perk.attributes.modifiers) {
+                    for (const [modId, multiplier] of Object.entries(perk.attributes.modifiers)) {
+                        // Fix: If multiplier is 1 (like Midas Touch), treat it as guaranteed mod
+                        if (multiplier === 1) {
+                            guaranteedMods.push(modId);
+                        } else {
+                            rarityMultipliers[modId] = (rarityMultipliers[modId] || 1) * multiplier;
+                        }
                     }
                 }
             }
@@ -307,7 +508,9 @@ class GameState {
             rng: this.rngStreams.mods,
             guaranteedMods: guaranteedMods,
             luck: effectiveLuck,
-            rarityMultipliers: rarityMultipliers
+            rarityMultipliers: rarityMultipliers,
+            valueBonus: attrs.valueBonus || 0,
+            ownedPerks: this.perksPurchased
         };
 
         thing = applyModifications(thing, modOptions);
@@ -318,7 +521,14 @@ class GameState {
             thing = applyModifications(newThing, modOptions);
         }
         
-        thing.value = Math.round(thing.value * (1 + (attrs.value_multiplier || 0) * 0.1));
+        // Apply Value Modifiers
+        let val = thing.value;
+        if (attrs.setValue !== undefined && attrs.setValue !== null) {
+            val = attrs.setValue;
+        }
+        val = (val * attrs.multiValue) + attrs.addValue - attrs.subtractValue;
+        if (attrs.divideValue > 0) val /= attrs.divideValue;
+        thing.value = Math.max(0, Math.round(val));
 
         return thing;
     }
@@ -339,9 +549,9 @@ class GameState {
      * Get rare item streak message
      */
     getRareStreakMessage() {
-        if (this.rareItemStreak === 2) return 'Double Rare! 🔥';
-        if (this.rareItemStreak === 3) return 'Triple Rare! 🔥🔥';
-        if (this.rareItemStreak >= 5) return `${this.rareItemStreak}x Rare Combo! 🔥💥`;
+        if (this.rareItemStreak === 2) return 'Double Rare 🔥';
+        if (this.rareItemStreak === 3) return 'Triple Rare 🔥🔥';
+        if (this.rareItemStreak >= 5) return `${this.rareItemStreak}x Rare Combo 🔥💥`;
         return null;
     }
 
@@ -352,11 +562,13 @@ class GameState {
         return this.inventory.reduce((sum, thing) => sum + thing.value, 0);
     }
 
-    /** Calculate chips earned for a given inventory value (applies chip_multiplier attribute) */
+    /** Calculate chips earned for a given inventory value (applies chip modifiers) */
     calculateEarnedChipsForValue(value) {
         const attrs = this.getAttributes();
-        const multiplier = 1 + (attrs.chip_multiplier || 0) * 0.15;
-        return Math.round(Math.max(0, value) * multiplier);
+        let chips = value;
+        chips = (chips * attrs.multiChip) + attrs.addChip - attrs.subtractChip;
+        if (attrs.divideChip > 0) chips /= attrs.divideChip;
+        return Math.max(0, Math.round(chips));
     }
 
     /**
@@ -375,10 +587,36 @@ class GameState {
      * @returns {Object} rewards breakdown
      */
     completeWave() {
+        // Calculate Wave Time
+        const duration = Date.now() - (this.currentWaveStartTime || Date.now());
+        if (this.stats.fastestWaveTime === null || duration < this.stats.fastestWaveTime) {
+            this.stats.fastestWaveTime = duration;
+        }
+
         const attrs = this.getAttributes();
+        
+        // Chippy/End Wave Bonus (now integrated via attributes)
+        let chipsBonus = attrs.chipsEndWave || 0;
+        
+        if (chipsBonus > 0) {
+            this.currency.addChips(chipsBonus);
+        }
+
         const maxStacks = attrs.max_interest_stacks || 5;
-        const cashMultiplier = attrs.cash_multiplier || 0;
-        return this.currency.completeWave(maxStacks, cashMultiplier);
+        const modifiers = {
+            multiCash: attrs.multiCash,
+            addCash: attrs.addCash,
+            subtractCash: attrs.subtractCash,
+            divideCash: attrs.divideCash,
+            setCash: attrs.setCash
+        };
+        const rewards = this.currency.completeWave(maxStacks, modifiers);
+        
+        if (chipsBonus > 0) {
+            rewards.chipsBonus = chipsBonus;
+        }
+        
+        return rewards;
     }
 
     /**
@@ -387,7 +625,7 @@ class GameState {
     advanceWave() {
         const cost = this.getWaveEntryCost();
         if (!this.currency.spendChips(cost)) {
-            return { success: false, message: `Not enough chips! Need ${cost}, have ${this.chips}` };
+            return { success: false, message: `Not enough Ȼ... Need ${cost}Ȼ, have ${this.chips}Ȼ` };
         }
         this.wave += 1;
         const nowOnBoss = typeof isBossWave === 'function' && isBossWave(this.wave);
@@ -400,11 +638,11 @@ class GameState {
                     : [];
                 this.pendingBossReward = { bossId: boss.id, boss, perkOptions: options };
                 this.startWave();
-                return { success: true, message: 'Boss defeated!', isBossReward: true };
+                return { success: true, message: 'Boss defeated', isBossReward: true };
             }
         }
         this.startWave();
-        return { success: true, message: `Advanced to wave ${this.wave}!` };
+        return { success: true, message: `Advanced to wave ${this.wave}` };
     }
 
     /** After confirming 3 boss perks, advance to next wave and clear pending */
@@ -447,18 +685,28 @@ class GameState {
         const perk = typeof getPerkById === 'function' ? getPerkById(perkId) : Object.values(PERKS).find(p => p.id === perkId);
         if (!perk) return { success: false, message: 'Perk not found' };
 
-        // Check if already purchased / Max Stacks
+        // Check if already purchased (Stackable removed)
         if (this.perksPurchased[perkId]) {
-            if (!perk.maxStacks) {
+            // Exception for subperks/stackable perks (like VIRUS)
+            const isStackable = perk.type === 'subperk' || perk.maxStacks;
+            if (!isStackable) {
                 return { 
                     success: false, 
-                    message: 'You already own this perk!' 
+                    message: 'You already own this perk' 
                 };
             }
-            if (this.perksPurchased[perkId] >= perk.maxStacks) {
+            
+            // Check limits for stackable perks
+            const currentCount = (typeof this.perksPurchased[perkId] === 'number') 
+                ? this.perksPurchased[perkId] 
+                : 1; // Handle legacy 'true' as 1
+            
+            const limit = perk.maxStacks || perk.shopLimit || 1;
+            
+            if (currentCount >= limit) {
                 return {
                     success: false,
-                    message: 'Max stacks reached!'
+                    message: `Max stacks reached (${limit})`
                 };
             }
         }
@@ -467,7 +715,7 @@ class GameState {
         if (this.perksPurchased['nullificati0n']) {
             return {
                 success: false,
-                message: 'NULLIFICATI0N prevents further purchases!'
+                message: 'NULLIFICATI0N prevents further purchases'
             };
         }
 
@@ -479,7 +727,7 @@ class GameState {
             if (!this.perksPurchased[requiredPerkId]) {
                 return {
                     success: false,
-                    message: `Requires ${requiredPerk ? requiredPerk.name : 'Unknown Perk'}!`
+                    message: `Requires ${requiredPerk ? requiredPerk.name : 'Unknown Perk'}`
                 };
             }
         }
@@ -490,7 +738,7 @@ class GameState {
         if (this.cash < cost) {
             return {
                 success: false,
-                message: `Not enough cash! Need ${cost}$, have ${this.cash}$`
+                message: `Not enough cash... Need ${cost}$, have ${this.cash}$`
             };
         }
 
@@ -516,11 +764,21 @@ class GameState {
             this.perkOrder = [];
         }
 
-        // Add Perk
-        if (perk.maxStacks) {
-            this.perksPurchased[perkId] = (this.perksPurchased[perkId] || 0) + 1;
+        // Add Perk (Single ownership or increment)
+        if (this.perksPurchased[perkId]) {
+            // Must be stackable if we reached here
+            if (this.perksPurchased[perkId] === true) {
+                this.perksPurchased[perkId] = 2;
+            } else {
+                this.perksPurchased[perkId]++;
+            }
         } else {
-            this.perksPurchased[perkId] = true;
+            // First purchase
+            if (perk.type === 'subperk' || perk.maxStacks) {
+                this.perksPurchased[perkId] = 1;
+            } else {
+                this.perksPurchased[perkId] = true;
+            }
         }
 
         // Initialize Chip Eater tracking
@@ -528,14 +786,16 @@ class GameState {
             this.chipEaterStartValue = this.stats.totalChipsEarned || 0;
         }
 
-        // Add to order for UI (unless hidden or already there for stacks)
+        // Add to order for UI (unless hidden or already there)
         if (!perk.hidden && !this.perkOrder.includes(perkId)) {
             this.perkOrder.push(perkId);
         }
 
+        this.checkUnlockNotifications();
+
         return {
             success: true,
-            message: `Purchased ${perk.name}!`
+            message: `Purchased [${perk.name}]`
         };
     }
 
@@ -547,9 +807,9 @@ class GameState {
         const result = {
             'Rolls/Wave': this.getAvailableRolls(),
             'Luck': `${attrs.luck * 5}%`,
-            'Value +': `${attrs.value_multiplier * 10}%`,
-            'Chips +': `${attrs.chip_multiplier * 15}%`,
-            'Cash Bonus': `${attrs.cash_multiplier * 100}%`
+            'Value x': `${attrs.multiValue.toFixed(2)}x`,
+            'Ȼ x': `${attrs.multiChip.toFixed(2)}x`,
+            'Cash x': `${attrs.multiCash.toFixed(2)}x`
         };
         if (attrs.modification_chance && attrs.modification_chance > 0) {
             result['Mod Chance'] = `+${Math.round(attrs.modification_chance * 100)}%`;
@@ -557,18 +817,116 @@ class GameState {
         return result;
     }
 
+    canForgePerk(perkId) {
+        const perk = typeof getPerkById === 'function' ? getPerkById(perkId) : Object.values(PERKS).find(p => p.id === perkId);
+        if (!perk) {
+            return { canForge: false, reason: 'Perk not found' };
+        }
+        if (!perk.forgeable || !perk.forgeRecipe) {
+            return { canForge: false, reason: 'Perk cannot be forged' };
+        }
+        if (this.perksPurchased['nullificati0n']) {
+            return { canForge: false, reason: 'NULLIFICATI0N prevents forging' };
+        }
+        if (this.perksPurchased[perkId]) {
+            return { canForge: false, reason: 'Already owned' };
+        }
+        const recipe = perk.forgeRecipe;
+        if (recipe.cash && this.cash < recipe.cash) {
+            return { canForge: false, reason: 'Missing Recipes' };
+        }
+        if (Array.isArray(recipe.perks)) {
+            for (const requiredId of recipe.perks) {
+                if (!this.perksPurchased[requiredId]) {
+                    return { canForge: false, reason: 'Missing Recipes' };
+                }
+            }
+        }
+        return { canForge: true, reason: null };
+    }
+
+    getForgeableOptions() {
+        const forgeablePerks = Object.values(PERKS).filter(p => p.forgeable);
+        return forgeablePerks.map(perk => {
+            const check = this.canForgePerk(perk.id);
+            return {
+                id: perk.id,
+                name: perk.name,
+                description: perk.description,
+                rarity: perk.tier,
+                tier: perk.tier, // Explicitly pass tier for UI
+                icon: perk.icon, // Pass icon
+                nameStyle: perk.nameStyle, // Pass nameStyle
+                recipe: perk.forgeRecipe,
+                canForge: check.canForge,
+                reason: check.reason
+            };
+        });
+    }
+
+    forgePerk(perkId) {
+        const perk = typeof getPerkById === 'function' ? getPerkById(perkId) : Object.values(PERKS).find(p => p.id === perkId);
+        if (!perk) {
+            return { success: false, message: 'Perk not found' };
+        }
+        if (!perk.forgeable || !perk.forgeRecipe) {
+            return { success: false, message: 'Perk cannot be forged' };
+        }
+        const check = this.canForgePerk(perkId);
+        if (!check.canForge) {
+            return { success: false, message: check.reason || 'Cannot forge this perk' };
+        }
+        const recipe = perk.forgeRecipe;
+        if (recipe.cash) {
+            this.currency.spendCash(recipe.cash);
+        }
+        if (Array.isArray(recipe.perks)) {
+            for (const requiredId of recipe.perks) {
+                // Remove required perk (always remove entire perk since stacks are gone)
+                if (this.perksPurchased[requiredId]) {
+                    delete this.perksPurchased[requiredId];
+                    const index = this.perkOrder.indexOf(requiredId);
+                    if (index > -1) {
+                        this.perkOrder.splice(index, 1);
+                    }
+                }
+            }
+        }
+        
+        // Add Perk (Single ownership)
+        this.perksPurchased[perkId] = true;
+        
+        if (!perk.hidden && !this.perkOrder.includes(perkId)) {
+            this.perkOrder.push(perkId);
+        }
+        if (perkId === 'chip_eater') {
+            this.chipEaterStartValue = this.stats.totalChipsEarned || 0;
+        }
+        
+        this.checkUnlockNotifications();
+
+        return {
+            success: true,
+            message: `Forged [${perk.name}]`
+        };
+    }
+
     /**
      * Add a consumable item (max 6 slots)
      */
     addConsumable(consumable) {
         if (this.consumables.length >= 9) {
-            return { success: false, message: 'Consumable slots full!' };
+            return { success: false, message: 'Consumable slots full' };
         }
         this.consumables.push({
             ...consumable,
             id: Date.now() + Math.random()
         });
-        return { success: true, message: `Added ${consumable.name}!` };
+        
+        // Track stats
+        this.addStat('totalConsumablesBought', 1);
+        
+        return { success: true, message: `Added ${consumable.name}` };
     }
 
     /**
@@ -586,7 +944,7 @@ class GameState {
         } else if (consumable.effect === 'cash') {
             this.currency.addCash(consumable.value || 10);
         } else if (consumable.effect === 'interest') {
-            this.currency.addInterestStacks(consumable.value || 1);
+            this.currency.addBonusInterestStack(consumable.value || 1);
         }
         
         // Track potion usage
@@ -595,7 +953,7 @@ class GameState {
         // Remove the consumable
         const name = consumable.name;
         this.consumables.splice(index, 1);
-        return { success: true, message: `Used ${name}!`, effect: consumable.effect };
+        return { success: true, message: `Used ${name}`, effect: consumable.effect };
     }
 
     /**

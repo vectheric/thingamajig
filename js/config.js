@@ -7,16 +7,16 @@ const CONFIG = {
 
     /** Normal wave chip costs: [wave] => chips required to advance */
     getNormalWaveCost(wave) {
-        if (wave <= 3) return 30;
-        if (wave <= 6) return 50 + (wave - 4) * 10;
-        return 90 + (wave - 7) * 20;
+        if (wave <= 3) return 15;
+        if (wave <= 6) return 25 + (wave - 4) * 5;
+        return 40 + (wave - 7) * 10;
     },
 
     /** Boss wave chip cost = base for that route × multiplier (scales with route) */
     getBossChipCost(routeIndex) {
-        const base = 150;
-        const perRoute = 80;
-        return base + routeIndex * perRoute; // Route 1: 230, R2: 310, R3: 390, R4: 470, R5: 550
+        const base = 100;
+        const perRoute = 50;
+        return base + routeIndex * perRoute; // Route 1: 150, R2: 200, R3: 250, R4: 300, R5: 350
     },
 
     /** Number of exclusive perk choices offered after boss (player picks 3) */

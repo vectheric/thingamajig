@@ -15,7 +15,7 @@ class CurrencySystem {
     reset() {
         // PERSISTENT currency - carries between waves
         this.cash = 4;
-        this.interestStacks = 0; // 0-5, each stack = 1 bonus cash per wave completion
+        this.bonusInterestStacks = 0; // Stacks from consumables/bonuses
         
         // WAVE-LOCAL currency - resets each wave
         this.chips = 0;
@@ -38,6 +38,10 @@ class CurrencySystem {
             game.gameState.addStat('totalChipsEarned', amount);
         }
         this.chips = Math.max(0, this.chips + amount);
+        
+        if (typeof game !== 'undefined' && game.gameState && typeof game.gameState.updateMaxChips === 'function') {
+            game.gameState.updateMaxChips(this.chips);
+        }
     }
 
     /**
@@ -78,43 +82,61 @@ class CurrencySystem {
     }
 
     /**
-     * Get current interest stacks (0-maxStacks)
-     * Each stack provides 1 bonus cash per wave completion
+     * Get current interest stacks
+     * Dynamically calculated based on current cash (floor(cash/5)) + bonus stacks
+     * @param {number} maxStacks - maximum allowed stacks for cash-based interest
      * @returns {number} current stacks
      */
-    getInterestStacks() {
-        return this.interestStacks;
+    getInterestStacks(maxStacks = 5) {
+        const cashInterest = Math.floor(this.cash / 5);
+        return Math.min(cashInterest, maxStacks) + this.bonusInterestStacks;
     }
 
     /**
-     * Set interest stacks (clamped to 0-maxStacks)
-     * @param {number} stacks - new stack count
-     * @param {number} maxStacks - maximum allowed stacks
+     * Add bonus interest stacks (from consumables etc)
+     * @param {number} amount 
      */
-    setInterestStacks(stacks, maxStacks = 5) {
-        this.interestStacks = Math.max(0, Math.min(stacks, maxStacks));
+    addBonusInterestStack(amount) {
+        this.bonusInterestStacks += amount;
     }
 
     /**
      * Calculate and apply wave completion rewards
      * Called after successfully completing a wave
      * @param {number} maxInterestStacks - max interest stacks from perks
-     * @param {number} cashMultiplier - cash multiplier bonus from perks (0-based, e.g., 0.5 = +50%)
+     * @param {Object} modifiers - { multiCash, addCash, subtractCash, divideCash }
      * @returns {Object} rewards breakdown
      */
-    completeWave(maxInterestStacks = 5, cashMultiplier = 0) {
+    completeWave(maxInterestStacks = 5, modifiers = {}) {
         const baseReward = 5; // Base 5 dollars per wave
-        const interestReward = this.interestStacks; // 1 dollar per interest stack
-        const cashBonus = Math.round((baseReward + interestReward) * cashMultiplier);
-        const totalReward = baseReward + interestReward + cashBonus;
+        const interestReward = this.getInterestStacks(maxInterestStacks); // Dynamic interest based on current cash
+        
+        // Apply modifiers to calculate total cash
+        // Formula: ((base + interest) * multi) + add - sub / divide
+        // setCash overrides base + interest calculation if present
+        let cash = baseReward + interestReward;
+        
+        if (modifiers.setCash !== undefined && modifiers.setCash !== null) {
+            cash = modifiers.setCash;
+        }
+
+        const multi = modifiers.multiCash || 1;
+        const add = modifiers.addCash || 0;
+        const sub = modifiers.subtractCash || 0;
+        const divide = modifiers.divideCash || 1;
+        
+        cash = (cash * multi) + add - sub;
+        if (divide > 0) cash /= divide;
+        
+        const totalReward = Math.max(0, Math.round(cash));
+        
+        // Calculate bonus for display (total - base - interest)
+        const cashBonus = totalReward - baseReward - interestReward;
         
         // Award cash
         this.addCash(totalReward);
         
-        // Update interest stacks based on current cash
-        // Every 5 cash = 1 interest stack
-        const newStacks = Math.floor(this.cash / 5);
-        this.setInterestStacks(newStacks, maxInterestStacks);
+        // Interest is now fully dynamic, so no need to "set" stacks for next wave
         
         return {
             baseReward,
@@ -122,7 +144,7 @@ class CurrencySystem {
             cashBonus,
             totalReward,
             totalCash: this.cash,
-            interestStacks: this.interestStacks
+            interestStacks: interestReward
         };
     }
 
@@ -134,10 +156,10 @@ class CurrencySystem {
         return {
             cash: this.cash,
             chips: this.chips,
-            interestStacks: this.interestStacks,
-            interestLabel: `💰×${this.interestStacks}`,
+            interestStacks: this.getInterestStacks(),
+            interestLabel: `💰×${this.getInterestStacks()}`,
             cashLabel: `${this.cash}$`,
-            chipsLabel: `${this.chips}💰`
+            chipsLabel: `${this.chips}Ȼ`
         };
     }
 
@@ -148,12 +170,17 @@ class CurrencySystem {
      * @returns {number} chips required
      */
     static getWaveEntryCost(wave) {
+        // Use CONFIG if available
+        if (typeof CONFIG !== 'undefined' && typeof CONFIG.getNormalWaveCost === 'function') {
+            return CONFIG.getNormalWaveCost(wave);
+        }
+        // Fallback logic matching CONFIG
         // Early waves (1-3): Very cheap entry
-        if (wave <= 3) return 30;
+        if (wave <= 3) return 15;
         // Mid waves (4-6): Moderate increase
-        if (wave <= 6) return 50 + (wave - 4) * 10;
+        if (wave <= 6) return 25 + (wave - 4) * 5;
         // Late waves (7+): Progressive increase
-        return 90 + (wave - 7) * 20;
+        return 40 + (wave - 7) * 10;
     }
 
     /**
