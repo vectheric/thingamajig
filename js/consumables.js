@@ -8,7 +8,7 @@ const CONSUMABLES = {
     luck_potion: {
         id: 'luck_potion',
         name: 'Luck Potion',
-        description: 'Grants 2 additional rolls for the current wave',
+        description: 'Grants 2 additional rolls for the current round',
         icon: '🍀',
         cost: 5,
         effect: 'rolls',
@@ -115,12 +115,15 @@ const CONSUMABLES = {
  * @param {function} rng - Random number generator
  * @returns {Array} Array of consumable objects
  */
-function getRandomShopConsumables(count = 4, rng = Math.random) {
+function getRandomShopConsumables(count = 4, rng = Math.random, luck = 0, gameState = null) {
     const allConsumables = Object.values(CONSUMABLES);
+    if (!allConsumables.length) return [];
+    
     const selected = [];
+    const actualRng = typeof rng === 'function' ? rng : Math.random;
     
     for (let i = 0; i < count; i++) {
-        const randomIndex = Math.floor(rng() * allConsumables.length);
+        const randomIndex = Math.floor(actualRng() * allConsumables.length);
         // Allow duplicates by creating a copy with unique instance ID
         const consumable = {
             ...allConsumables[randomIndex],

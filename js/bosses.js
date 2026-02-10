@@ -1,9 +1,9 @@
 /**
- * Boss and Route system - every 5th wave is a boss; defeat to gain route and choose exclusive perks
+ * Boss and Route system - every 5th round is a boss; defeat to gain route and choose exclusive perks
  */
 
 const BOSS_EXCLUSIVE_PERKS = {
-    // Boss 1 - Chip Hoarder (Wave 5)
+    // Boss 1 - Chip Hoarder (Round 5)
     boss1_chip_surge: {
         id: 'boss1_chip_surge',
         name: 'Ȼ Surge',
@@ -53,7 +53,7 @@ const BOSS_EXCLUSIVE_PERKS = {
         source: 'boss1'
     },
 
-    // Boss 2 - Value Guardian (Wave 10)
+    // Boss 2 - Value Guardian (Round 10)
     boss2_golden_vein: {
         id: 'boss2_golden_vein',
         name: 'Golden Vein',
@@ -81,7 +81,7 @@ const BOSS_EXCLUSIVE_PERKS = {
     boss2_cash_rush: {
         id: 'boss2_cash_rush',
         name: 'Cash Rush',
-        description: '+75% wave cash (Boss 2)',
+        description: '+75% round cash (Boss 2)',
         rarity: 'epic',
         attributes: { multiCash: 0.75 },
         source: 'boss2'
@@ -103,7 +103,7 @@ const BOSS_EXCLUSIVE_PERKS = {
         source: 'boss2'
     },
 
-    // Boss 3 - Fortune Keeper (Wave 15)
+    // Boss 3 - Fortune Keeper (Round 15)
     boss3_fortune_aura: {
         id: 'boss3_fortune_aura',
         name: 'Fortune Aura',
@@ -147,13 +147,13 @@ const BOSS_EXCLUSIVE_PERKS = {
     boss3_cash_flow_master: {
         id: 'boss3_cash_flow_master',
         name: 'Cash Flow Master',
-        description: '+100% wave cash (Boss 3)',
+        description: '+100% round cash (Boss 3)',
         rarity: 'epic',
         attributes: { multiCash: 1.0 },
         source: 'boss3'
     },
 
-    // Boss 4 - Greed Lord (Wave 20)
+    // Boss 4 - Greed Lord (Round 20)
     boss4_greed_embrace: {
         id: 'boss4_greed_embrace',
         name: 'Greed Embrace',
@@ -203,7 +203,7 @@ const BOSS_EXCLUSIVE_PERKS = {
         source: 'boss4'
     },
 
-    // Boss 5 - Supreme Collector (Wave 25)
+    // Boss 5 - Supreme Collector (Round 25)
     boss5_supreme_roll: {
         id: 'boss5_supreme_roll',
         name: 'Supreme Roll',
@@ -260,7 +260,7 @@ const BOSSES = [
         index: 0,
         name: 'Ȼ Hoarder',
         description: 'Collect enough Ȼ to overwhelm the hoard.',
-        wave: 5,
+        round: 5,
         perkIds: Object.keys(BOSS_EXCLUSIVE_PERKS).filter(id => BOSS_EXCLUSIVE_PERKS[id].source === 'boss1'),
     },
     {
@@ -268,7 +268,7 @@ const BOSSES = [
         index: 1,
         name: 'Value Guardian',
         description: 'Prove your worth in Ȼ.',
-        wave: 10,
+        round: 10,
         perkIds: Object.keys(BOSS_EXCLUSIVE_PERKS).filter(id => BOSS_EXCLUSIVE_PERKS[id].source === 'boss2'),
     },
     {
@@ -276,7 +276,7 @@ const BOSSES = [
         index: 2,
         name: 'Fortune Keeper',
         description: 'Fortune demands a tribute.',
-        wave: 15,
+        round: 15,
         perkIds: Object.keys(BOSS_EXCLUSIVE_PERKS).filter(id => BOSS_EXCLUSIVE_PERKS[id].source === 'boss3'),
     },
     {
@@ -284,7 +284,7 @@ const BOSSES = [
         index: 3,
         name: 'Greed Lord',
         description: 'Only immense wealth can satisfy.',
-        wave: 20,
+        round: 20,
         perkIds: Object.keys(BOSS_EXCLUSIVE_PERKS).filter(id => BOSS_EXCLUSIVE_PERKS[id].source === 'boss4'),
     },
     {
@@ -292,13 +292,13 @@ const BOSSES = [
         index: 4,
         name: 'Supreme Collector',
         description: 'The ultimate Ȼ challenge.',
-        wave: 25,
+        round: 25,
         perkIds: Object.keys(BOSS_EXCLUSIVE_PERKS).filter(id => BOSS_EXCLUSIVE_PERKS[id].source === 'boss5'),
     },
 ];
 
-function getBossByWave(wave) {
-    return BOSSES.find(b => b.wave === wave) || null;
+function getBossByRound(round) {
+    return BOSSES.find(b => b.round === round) || null;
 }
 
 function getBossById(bossId) {

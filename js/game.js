@@ -145,7 +145,7 @@ class Game {
         }
 
         this.gameRunning = true;
-        this.handleStartWave();
+        this.handleStartRound();
     }
 
     /**
@@ -183,27 +183,26 @@ class Game {
     }
 
     /**
-     * Start a new wave
+     * Start a new round
      */
-    handleStartWave() {
-        const targetWave = this.gameState.pendingNextWave;
-        if (targetWave != null) {
-            const entryCost = this.gameState.getWaveEntryCost();
+    handleStartRound() {
+        const targetRound = this.gameState.pendingNextRound;
+        if (targetRound != null) {
+            const entryCost = this.gameState.getRoundEntryCost();
             if (this.gameState.chips < entryCost) {
                 this.ui.showMessage('Game Over: Insufficient Chips!', 'error');
                 this.ui.renderBreakdownScreen({
                     type: 'game_over',
                     reason: `You didn't earn enough Ȼ!<br>` +
-                            `Needed ${entryCost}Ȼ for wave ${targetWave}<br>` +
-                            `Had ${this.gameState.chips}Ȼ`
+                            `Needed ${entryCost}Ȼ for round ${targetRound}<br>`
                 });
                 return;
             }
-            this.gameState.wave = targetWave;
-            this.gameState.pendingNextWave = null;
+            this.gameState.round = targetRound;
+            this.gameState.pendingNextRound = null;
         }
-        this.gameState.startWave();
-        this.gameState.resetLootPage(); // Reset loot pagination when starting new wave
+        this.gameState.startRound();
+        this.gameState.resetLootPage(); // Reset loot pagination when starting new round
         this.ui.renderGameScreen();
     }
 
@@ -213,7 +212,7 @@ class Game {
      * Features:
      * - Animated dice rolling with visual feedback
      * - Space key spamming skips animation for faster gameplay
-     * - Automatic wave completion when chip goal is met
+     * - Automatic round completion when chip goal is met
      * - Rare item celebration effects for epic/legendary items
      * 
      * @returns {void}
@@ -226,7 +225,7 @@ class Game {
         if (this._nextRollTime && Date.now() < this._nextRollTime) return;
         
         // Lock if goal reached
-        if (this.gameState.hasReachedWaveGoal()) {
+        if (this.gameState.hasReachedRoundGoal()) {
             return;
         }
 
@@ -278,9 +277,9 @@ class Game {
                 if (nameEl) {
                     try {
                         // Use rollThing(1) to get a random name safely
-                        // Pass current wave to get relevant items if possible, or random 1-10 for variety
-                        const wave = this.gameState ? Math.max(1, this.gameState.wave) : 1;
-                        const tempThing = typeof rollThing === 'function' ? rollThing(wave) : { name: '...', rarity: 'common' };
+                        // Pass current round to get relevant items if possible, or random 1-10 for variety
+                        const round = this.gameState ? Math.max(1, this.gameState.round) : 1;
+                        const tempThing = typeof rollThing === 'function' ? rollThing(round) : { name: '...', rarity: 'common' };
                         
                         nameEl.textContent = tempThing.name;
                         
@@ -327,14 +326,20 @@ class Game {
             }
             if (streakMessage) this.ui.showMessage(streakMessage, 'epic');
 
-            const displayName = typeof getModifiedItemName === 'function' ? getModifiedItemName(thing) : thing.name;
             const allMods = typeof getAllModifications === 'function' ? getAllModifications(thing) : [];
             const modBadges = allMods.length > 0
-                ? allMods.map(m => `<span class="mod-badge" title="${m.description || ''}">${m.emoji || ''} ${m.name}</span>`).join('')
+                ? allMods.map(m => typeof getModBadgeHtml === 'function' ? getModBadgeHtml(m) : `<span class="mod-badge" title="${m.description || ''}">${m.name}</span>`).join('')
                 : '';
             const nameStyle = typeof getItemNameStyle === 'function' ? getItemNameStyle(thing) : {};
             const nameCss = typeof nameStyleToCss === 'function' ? nameStyleToCss(nameStyle) : '';
-            const safeName = typeof escapeHtml === 'function' ? escapeHtml(displayName) : displayName;
+            
+            let safeName;
+            if (typeof getModifiedItemNameHtml === 'function') {
+                safeName = getModifiedItemNameHtml(thing);
+            } else {
+                const displayName = typeof getModifiedItemName === 'function' ? getModifiedItemName(thing) : thing.name;
+                safeName = typeof escapeHtml === 'function' ? escapeHtml(displayName) : displayName;
+            }
             const nameHtml = `<span class="rolled-thing-name"${nameCss}>${safeName}</span>`;
             
             const wrapClass = thing.rarity === 'legendary' ? 'rolled-thing-name-wrap legendary-particle-wrap' : 'rolled-thing-name-wrap';
@@ -344,7 +349,7 @@ class Game {
                         <div class="${wrapClass}">${nameHtml}</div>
                         <div class="rolled-thing-rarity">${thing.rarity.toUpperCase()}</div>
                         ${modBadges ? `<div class="rolled-thing-mods">${modBadges}</div>` : ''}
-                        <div class="rolled-thing-value">+${thing.value}Ȼ</div>
+                        <div class="rolled-thing-value"><span style="color: #60a5fa">+${thing.value}Ȼ</span></div>
                     </div>
                 `;
             }
@@ -370,7 +375,7 @@ class Game {
             const totalValue = document.querySelector('.total-value');
             if (totalValue) totalValue.textContent = `${invDisplay.totalValue}Ȼ`;
 
-            const goalReached = this.gameState.hasReachedWaveGoal();
+            const goalReached = this.gameState.hasReachedRoundGoal();
             if ((this.gameState.getRemainingRolls() <= 0 || goalReached) && rollBtn) {
                 rollBtn.disabled = true;
             } else if (rollBtn) {
@@ -379,7 +384,7 @@ class Game {
 
             this.ui.showMessage(`Rolled [${thing.name}]`, 'success');
 
-            // If player already has enough chips for next wave, end the wave immediately
+            // If player already has enough chips for next round, end the round immediately
             // so remaining rolls can convert to cash and the shop opens automatically.
             if (goalReached) {
                 // Prevent multiple countdowns if triggered rapidly
@@ -407,17 +412,21 @@ class Game {
                 container.appendChild(notif);
 
                 const updateMessage = () => {
-                    notif.innerHTML = `Finished the goal return to the reward screen in ${secondsLeft}s`;
+                    const textSpan = notif.querySelector('.goal-text');
+                    if (textSpan) {
+                        textSpan.textContent = `Finished the goal return to the reward screen in ${secondsLeft}s`;
+                    }
                 };
                 
-                updateMessage();
+                notif.innerHTML = `<span class="goal-text">Finished the goal return to the reward screen in ${secondsLeft}s</span><div class="notification-progress" style="animation-duration: 2000ms"></div>`;
+                // updateMessage(); // Initial text is already set
 
                 const intervalId = setInterval(() => {
                     secondsLeft--;
                     if (secondsLeft <= 0) {
                         clearInterval(intervalId);
                         if (notif && notif.parentNode) notif.remove();
-                        if (this.gameRunning) this.handleEndWave();
+                        if (this.gameRunning) this.handleEndRound();
                     } else {
                         updateMessage();
                     }
@@ -428,7 +437,7 @@ class Game {
 
             if (this.gameState.getRemainingRolls() <= 0) {
                 setTimeout(() => {
-                    if (this.gameRunning) this.handleEndWave();
+                    if (this.gameRunning) this.handleEndRound();
                 }, 200);
             }
             
@@ -468,7 +477,13 @@ class Game {
         let message = '';
         let emoji = '';
         
-        if (rarity === 'legendary') {
+        if (rarity === 'ultimate') {
+        message = `🌌 ULTIMATE ${thing.name} 🌌`;
+        emoji = '🌌';
+    } else if (rarity === 'godlike') {
+        message = `⚡ GODLIKE ${thing.name} ⚡`;
+        emoji = '⚡';
+    } else if (rarity === 'legendary') {
             message = `🌟 LEGENDARY ${thing.name} 🌟`;
             emoji = '✨';
         } else if (rarity === 'epic') {
@@ -499,46 +514,46 @@ class Game {
         }
     }
     /**
-     * Handle end of wave - sell inventory, earn rewards, advance
+     * Handle end of round - sell inventory, earn rewards, advance
      */
-    handleEndWave() {
+    handleEndRound() {
         const rollsRemaining = this.gameState.getRemainingRolls();
         const rollsToCash = Math.max(0, rollsRemaining);
 
-        // Convert remaining rolls to cash before selling/finishing wave.
+        // Convert remaining rolls to cash before selling/finishing round.
         if (rollsToCash > 0) this.gameState.currency.addCash(rollsToCash);
 
         const earnedChips = this.gameState.inventory.length === 0 ? 0 : this.gameState.sellInventory();
         if (this.gameState.inventory.length === 0) {
             this.ui.showMessage('No items to sell.', 'info');
         } else {
-            this.ui.showMessage(`Sold items for ${earnedChips}Ȼ`, 'success');
+            this.ui.showMessage(`Sold items for ${earnedChips}Ȼ`, 'sold');
         }
 
         setTimeout(() => {
-            // Complete the wave and earn cash rewards + interest
-            const rewards = this.gameState.completeWave();
+            // Complete the round and earn cash rewards + interest
+            const rewards = this.gameState.completeRound();
             
-            // Check if can afford next wave
-            const nextWave = this.gameState.wave + 1;
+            // Check if can afford next round
+            const nextRound = this.gameState.round + 1;
 
-            const cost = this.gameState.getWaveEntryCost();
+            const cost = this.gameState.getRoundEntryCost();
             const canAdvance = this.gameState.chips >= cost;
 
             const nextCost = cost;
-            const isBossNext = typeof isBossWave === 'function' && isBossWave(nextWave);
+            const isBossNext = typeof isBossRound === 'function' && isBossRound(nextRound);
 
             // If player cannot advance, it's game over.
-            const type = canAdvance ? 'wave_complete' : 'game_over';
+            const type = canAdvance ? 'round_complete' : 'game_over';
             const reason = canAdvance ? '' : 
-                `You didn't earn enough Ȼ<br>` +
-                `Needed ${nextCost}Ȼ for wave ${this.gameState.wave + 1}<br>` +
-                `Had ${this.gameState.chips}Ȼ (earned ${earnedChips}Ȼ this wave)`;
+                `You didn't earn enough Ȼ!<br>` +
+                `Needed ${nextCost}Ȼ for round ${this.gameState.round + 1}<br>` +
+                `Had ${this.gameState.chips}Ȼ (earned ${earnedChips}Ȼ this round)`;
 
             this.ui.renderBreakdownScreen({
                 type,
                 reason,
-                wave: this.gameState.wave,
+                round: this.gameState.round,
                 chipsEarned: earnedChips,
                 rollsRemaining,
                 rollsToCash,
@@ -660,8 +675,8 @@ class Game {
             card.style.transform = 'scale(0) rotate(10deg)';
             card.style.opacity = '0';
             
-            // Create particles
-            this.createSubperkParticles(card);
+9            // Create particles
+            this.createSquareBurst(card, 25);
             
             // Create fire particles if it's Solar Power
 
@@ -721,7 +736,10 @@ class Game {
 
             // 3. Trigger expansion
             requestAnimationFrame(() => {
+                const rarity = card.dataset.perkRarity || 'common';
+                
                 card.style.transform = 'scale(1.2)'; // Expand
+                // Glow color based on rarity would be nice here too, but gold is fine for "purchase" event
                 card.style.boxShadow = '0 0 30px rgba(251, 191, 36, 0.6)'; // Gold glow
                 card.style.borderRadius = '16px'; // More rounded
                 
@@ -732,7 +750,7 @@ class Game {
                 }, 200);
             });
 
-            this.createPurchaseSparkles(card);
+            this.createSquareBurst(card);
             
             setTimeout(() => {
                 shopGrid.innerHTML = this.ui.renderShop();
@@ -806,8 +824,8 @@ class Game {
     generateStatsHTML() {
         return `
             <div class="stat-item">
-                <span class="stat-label">Wave</span>
-                <span class="stat-value">${this.gameState.wave}</span>
+                <span class="stat-label">Round</span>
+                <span class="stat-value">${this.gameState.round}</span>
             </div>
             <div class="stat-item cash-with-tooltip">
                 <span class="stat-label">Cash</span>
@@ -824,18 +842,67 @@ class Game {
     /**
      * Create sparkle effects for purchase animation
      */
-    createPurchaseSparkles(element) {
+    createSquareBurst(element, particleCount = 20) {
         const rect = element.getBoundingClientRect();
-        const colors = ['#fbbf24', '#f59e0b', '#fcd34d', '#fbbf24'];
-        for (let i = 0; i < 8; i++) {
-            const sparkle = document.createElement('div');
-            sparkle.className = 'purchase-sparkle';
-            sparkle.style.left = `${Math.random() * rect.width}px`;
-            sparkle.style.top = `${Math.random() * rect.height}px`;
-            sparkle.style.background = colors[Math.floor(Math.random() * colors.length)];
-            sparkle.style.animationDelay = `${Math.random() * 0.2}s`;
-            element.appendChild(sparkle);
-            setTimeout(() => sparkle.remove(), 600);
+        const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
+        
+        // Get rarity color
+        const rarity = element.dataset.perkRarity ? element.dataset.perkRarity.toLowerCase() : 'common';
+        const colors = {
+            'common': '#71717a',
+            'uncommon': '#22c55e',
+            'rare': '#3b82f6',
+            'epic': '#a78bfa',
+            'legendary': '#f59e0b',
+            'mythical': '#d946ef',
+            'godlike': '#ef4444',
+            'special': '#fbbf24',
+            'subperk': '#210041ff' // Treat subperk as special/gold
+        };
+        const color = colors[rarity] || colors['common'];
+
+        // 1. Circle Pulse
+        const circle = document.createElement('div');
+        circle.className = 'purchase-particle-circle';
+        circle.style.left = `${centerX}px`;
+        circle.style.top = `${centerY}px`;
+        circle.style.borderColor = color;
+        circle.style.boxShadow = `0 0 15px ${color}`;
+        document.body.appendChild(circle);
+        setTimeout(() => circle.remove(), 600);
+
+        // 2. Square Spread
+        for (let i = 0; i < particleCount; i++) {
+            const square = document.createElement('div');
+            square.className = 'purchase-particle-square';
+            square.style.left = `${centerX}px`;
+            square.style.top = `${centerY}px`;
+            square.style.background = color; // Filled square
+            square.style.border = `1px solid ${color}`;
+            square.style.boxShadow = `0 0 5px ${color}`;
+            
+            // Random direction and distance
+            const angle = Math.random() * Math.PI * 2;
+            const distance = 50 + Math.random() * 100;
+            const tx = Math.cos(angle) * distance;
+            const ty = Math.sin(angle) * distance;
+            
+            // Random rotation
+            const rotStart = Math.random() * 360;
+            const rotEnd = rotStart + (Math.random() * 180 - 90); // Spin between -90 and +90 degrees relative to start
+
+            square.style.setProperty('--tx', `${tx}px`);
+            square.style.setProperty('--ty', `${ty}px`);
+            square.style.setProperty('--rot-start', `${rotStart}deg`);
+            square.style.setProperty('--rot-end', `${rotEnd}deg`);
+            square.style.animation = `square-spread 0.6s ease-out forwards`;
+            
+            // Random delay for a bit of variation
+            square.style.animationDelay = `${Math.random() * 0.1}s`;
+            
+            document.body.appendChild(square);
+            setTimeout(() => square.remove(), 700);
         }
     }
 
@@ -926,21 +993,21 @@ class Game {
     }
 
     /**
-     * Handle continue after wave transition
+     * Handle continue after round transition
      */
-    handleContinueWave() {
-        this.handleStartWave();
+    handleContinueRound() {
+        this.handleStartRound();
     }
 
     /**
-     * Continue from rewards screen to shop, charging next-wave entry cost
+     * Continue from rewards screen to shop, charging next-round entry cost
      */
     handleContinueFromRewards() {
-        this.gameState.pendingNextWave = this.gameState.wave + 1;
-        this.shop.generateShopPerks();
-        this.ui.renderShopScreen();
-        // Trigger text rolling for subperks
-        this.ui.startTextRollingAnimation();
+            this.gameState.pendingNextRound = this.gameState.round + 1;
+            this.shop.generateShopPerks();
+            this.ui.renderShopScreen();
+            // Trigger text rolling for subperks
+            this.ui.startTextRollingAnimation();
     }
     
 
@@ -1018,8 +1085,8 @@ class Game {
             if (stats) {
                 stats.innerHTML = `
                     <div class="stat-item">
-                        <span class="stat-label">Wave</span>
-                        <span class="stat-value">${this.gameState.wave}</span>
+                        <span class="stat-label">Round</span>
+                        <span class="stat-value">${this.gameState.round}</span>
                     </div>
                     <div class="stat-item cash-with-tooltip">
                         <span class="stat-label">Cash</span>

@@ -24,7 +24,7 @@
      */
     Math.generateRandomSeed = function() {
         const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789@#!$%$%^&*';
-        const length = 16;
+        const length = Math.floor(Math.random() * 8) + 14;;
         let result = '';
         // Use crypto.getRandomValues if available for better entropy, otherwise Math.random (before seed override)
         // Since we are setting the seed, we want true randomness here if possible, but we might have already overridden Math.random.

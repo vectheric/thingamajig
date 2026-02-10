@@ -9,8 +9,8 @@ const PERKS = {
         id: 'ice_affinity',
         name: 'Ice Affinity',
         description: 'You are cold as ice. Prevents Fire Affinity from spawning.',
-        cost: 20,
-        tier: 'uncommon',
+        cost: 1,
+        tier: 'common',
         attributes: {},
         conditions: [
             { type: 'conflicts_perk', perkId: 'fire_affinity' }
@@ -22,8 +22,8 @@ const PERKS = {
         id: 'fire_affinity',
         name: 'Fire Affinity',
         description: 'You are hot as fire. Prevents Ice Affinity from spawning.',
-        cost: 20,
-        tier: 'uncommon',
+        cost: 1,
+        tier: 'common',
         attributes: {},
         conditions: [
             { type: 'conflicts_perk', perkId: 'ice_affinity' }
@@ -52,18 +52,19 @@ const PERKS = {
         attributes: { rolls: { add: 1 } },
         icon: '',
     },
+
     NAZAR: {
         id: 'nazar',
         name: 'Nazar',
-        description: 'Nazar Lag Gayi!!, +5% item rarity boost',
+        description: 'Nazar Lag Gayi!!, +1 luck',
         cost: 2,
         tier: 'common',
         attributes: { luck: { add: 1 } },
         icon: '🧿',
     },
     // FORGEABLE PERKS
-    FINAL_CLOVER: {
-        id: 'final_clover',
+    FIFTY_FIVE_LEAF_CLOVER: {
+        id: '57_leaf_clover',
         name: '57 Leaf Clover',
         description: 'The ultimate symbol of luck. Massive boost to all stats. Can only be forged.',
         cost: 0,
@@ -85,13 +86,12 @@ const PERKS = {
             // Let's stick to explicit keys compatible with new getAttributes.
             valueBonus: { add: 1.0 },
             chipBonus: { add: 1.0 },
-            chipsEndWave: { add: 57 }
+            chipsEndRound: { add: 57 }
         },
         forgeable: true,
         forgeRecipe: {
             perks: ['lucky_clover', 'nazar', 'chip_eater', 'thunder_strike','hex_breaker']
         },
-        bossExclusive: true,
         icon: '💠',
         nameStyle: { color: '#06f71aff', textStroke: '1px rgba(0,0,0,0.5)' },
     },
@@ -109,6 +109,36 @@ const PERKS = {
         },
         icon: '🍀',
         nameStyle: { color: '#3b82f6', textStroke: '1px rgba(0,0,0,0.5)' },
+    },
+    CAR: {
+        id: 'car',
+        name: 'car',
+        description: 'weeeeeeeeeeeee, +4 rolls, Can only be forged.',
+        cost: 0,
+        tier: 'uncommon',
+        attributes: { rolls: { add: 4 } },
+        forgeable: true,
+        forgeRecipe: {
+            cash: 60,
+            perks: ['old_tire', 'electrolyte']
+        },
+        icon: '🚗',
+        nameStyle: { color: '#ff0000ff', textStroke: '1px rgba(0,0,0,0.5)' },
+    },
+     FORMULA_ONE: {
+        id: 'formula_1',
+        name: 'Formula 1',
+        description: 'Fast and Furious, +40 rolls, -100 lucks. Can only be forged.',
+        cost: 0,
+        tier: 'mythical',
+        attributes: { rolls: { add: 40 }, luck: { sub: 100 } },
+        forgeable: true,
+        forgeRecipe: {
+            cash: 120,
+            perks: ['car','thunder_strike','electrolyte','old_tire','chip_vision','fire_affinity']
+        },
+        icon: '🏎',
+        nameStyle: { color: '#ff0000ff', textStroke: '1px rgba(0,0,0,0.5)' },
     },
     MIDAS_TOUCH: {
         id: 'midas_touch',
@@ -131,16 +161,16 @@ const PERKS = {
                 }
             }
         ],
-        
     },
+
     CHIPPY: {
         id: 'chippy',
         name: 'Chippy',
-        description: '+3Ȼ at the end of each wave. Requires earning 80Ȼ in a run',
+        description: '+3Ȼ at the end of each round. Requires earning over 120Ȼ in a run',
         cost: 20,
         tier: 'common',
         attributes: {
-            chipsEndWave: { add: 3 }
+            chipsEndRound: { add: 3 }
         },
         icon: '🍟',
         conditions: [
@@ -149,16 +179,16 @@ const PERKS = {
                 condition: {
                     type: 'stat_threshold',
                     stat: 'totalChipsEarned',
-                    threshold: 80
+                    threshold: 120
                 }
             },
             {
                 type: 'bonus_trigger',
                 condition: {
                     type: 'stat_threshold',
-                    stat: 'wave',
+                    stat: 'round',
                     threshold: 5,
-                    bonus: { chipsEndWave: { add: 3 } }
+                    bonus: { chipsEndRound: { add: 3 } }
                 }
             }
         ],
@@ -166,22 +196,36 @@ const PERKS = {
     SPEED_RUNNER: {
         id: 'speed_runner',
         name: 'Speed Runner',
-        description: '+1 Rolls. Requires finishing a wave in under 15 seconds',
+        description: '+2 Rolls. Requires finishing a round in under 5 seconds',
         cost: 25,
         tier: 'common',
-        attributes: { rolls: { add: 1 } },
+        attributes: { rolls: { add: 2 } },
         icon: '⚡',
         conditions: [
             {
                 type: 'unlock',
                 condition: {
                     type: 'stat_threshold',
-                    stat: 'fastestWaveTime',
-                    threshold: 15000, // 15 seconds
+                    stat: 'fastestRoundTime',
+                    threshold: 5000, // 15 seconds
                     compare: 'less'
                 }
             }
         ],
+    },
+    ELECTROLYTE: {
+        id: 'electrolyte',
+        name: 'Electrolyte',
+        description: 'thunderstriked a potato, + 0.5 luck, +2 rolls. Can only be crafted',
+        cost: 25,
+        tier: 'rare',
+        attributes: { rolls: { add: 2 }, luck: { add: 0.5 } },
+        icon: '⚡',
+        forgeable: true,
+        forgeRecipe: {
+        cash: 44,
+            perks: ['thunder_strike', 'potato'],
+        },
     },
     SHREWD_MERCHANT: {
         id: 'shrewd_merchant',
@@ -195,7 +239,7 @@ const PERKS = {
     PROFIT_MARGIN: {
         id: 'profit_margin',
         name: 'Profit Margin',
-        description: '+10% wave reward cash',
+        description: '+10% round reward cash',
         cost: 2,
         tier: 'common',
         attributes: { cashBonus: { add: 0.1 } },
@@ -203,6 +247,18 @@ const PERKS = {
     },
 
     // UNCOMMON PERKS (35-65$ - accessible early)
+    INTEREST_RATE_2: {
+        id: 'interest_rate_2',
+        name: 'Interest Rate 2',
+        tier: 'uncommon',
+        description: 'Gain +3Ȼ at end of round.',
+        attributes: {
+            chipsEndRound: { add: 3 }
+        },
+        cost: 15,
+        maxStacks: 5,
+        icon: '📈',
+    },
     CRYSTAL_BALL: {
         id: 'crystall_ball',
         name: 'Crystal Ball',
@@ -245,7 +301,7 @@ const PERKS = {
     CASH_FLOW: {
         id: 'cash_flow',
         name: 'Cash Flow',
-        description: '+50% wave reward cash',
+        description: '+50% round reward cash',
         cost: 5,
         tier: 'uncommon',
         attributes: { cashBonus: { add: 0.5 } },
@@ -277,7 +333,7 @@ const PERKS = {
     ROLLER_DELUXE: {
         id: 'roller_deluxe',
         name: 'Roller Deluxe',
-        description: '+3 Rolls per wave',
+        description: '+3 Rolls per round',
         cost: 8,
         tier: 'rare',
         attributes: { rolls: { add: 3 } },
@@ -304,7 +360,7 @@ const PERKS = {
     REVENUE_STREAM: {
         id: 'revenue_stream',
         name: 'Revenue Stream',
-        description: '+50% wave reward cash, +1Ȼ multiplier',
+        description: '+50% round reward cash, +1Ȼ multiplier',
         cost: 40,
         tier: 'rare',
         attributes: { cashBonus: { add: 0.5 }, chipBonus: { add: 1.0 } },
@@ -342,7 +398,7 @@ const PERKS = {
     WEALTH_ACCUMULATOR: {
         id: 'wealth_accumulator',
         name: 'Wealth Accumulator',
-        description: '+100% wave cash reward, +2 Interest stacks',
+        description: '+100% round cash reward, +2 Interest stacks',
         cost: 190,
         tier: 'epic',
         attributes: { cashBonus: { add: 1.0 }, max_interest_stacks: { add: 2 } },
@@ -366,7 +422,7 @@ const PERKS = {
     NULLIFICATI0N: {
         id: 'nullificati0n',
         name: 'NULLIFICATI0N',
-        description: 'REMOVES all owned perks. PREVENTS buying new perks. Scaling: +0.404 Luck and +4 Rolls for every wave active.',
+        description: 'REMOVES all owned perks. PREVENTS buying new perks. Scaling: +0.404 Luck and +4 Rolls for every round active.',
         cost: 404,
         tier: 'mythical',
         attributes: {}, // Dynamic attributes
@@ -378,7 +434,7 @@ const PERKS = {
         id: 'M4LW4R3_ZER01',
         name: "m4Lw4r3_zer01",
         description: "A virus generator. Enables VIRUS upgrades. ",
-        cost: 300,
+        cost: 101,
         tier: 'mythical',
         attributes: { luck: { mult: 2 }, valueBonus: { add: 1.0 } },
         nameStyle: { color: 'rgba(202, 2, 2, 1)ff', textStroke: '1px rgba(255,255,255,0.7)' },
@@ -393,7 +449,7 @@ const PERKS = {
         description: "Increases VIRUS luck by 6.66. Appears after purchasing m4lw4r3_zer01.",
         cost: 0,
         tier: 'special',
-        rarity: 5,
+        rarity: 'special',
         type: 'subperk',
         attributes: { luck: { add: 0.66 } },
         conditions: [
@@ -418,7 +474,7 @@ const PERKS = {
     COMMON_REROLLER: {
         id: 'common_reroller',
         name: 'Common Reroller',
-        description: 'Reroll common items once per wave',
+        description: 'Reroll common items once per round',
         cost: 40,
         tier: 'uncommon',
         attributes: { rolls: { add: 1 } },
@@ -522,7 +578,7 @@ const PERKS = {
         description: 'Left arm of the forbidden one.',
         cost: 100,
         tier: 'special',
-        rarity: 500,
+        rarity: 'special',
         attributes: { rolls: { add: 1 } },
         set: 'exodia',
         dynamicTooltip: 'set_collection',
@@ -537,7 +593,7 @@ const PERKS = {
         description: 'Right arm of the forbidden one.',
         cost: 100,
         tier: 'special',
-        rarity: 500,
+        rarity: 'special',
         attributes: { rolls: { add: 1 } },
         set: 'exodia',
         dynamicTooltip: 'set_collection',
@@ -552,7 +608,7 @@ const PERKS = {
         description: 'Left leg of the forbidden one.',
         cost: 100,
         tier: 'special',
-        rarity: 500,
+        rarity: 'special',
         attributes: { luck: { add: 1 } },
         set: 'exodia',
         dynamicTooltip: 'set_collection',
@@ -567,7 +623,7 @@ const PERKS = {
         description: 'Right leg of the forbidden one.',
         cost: 100,
         tier: 'special',
-        rarity: 500,
+        rarity: 'special',
         attributes: { luck: { add: 1 } },
         set: 'exodia',
         dynamicTooltip: 'set_collection',
@@ -684,14 +740,14 @@ function checkPerkConditions(perk, gameState, ownedPerks = {}) {
 }
 
 /**
- * Get random perks based on wave
- * Higher waves have better chance at rare/epic/legendary perks
- * @param {number} wave - current wave
+ * Get random perks based on round
+ * Higher rounds have better chance at rare/epic/legendary perks
+ * @param {number} round - current round
  * @param {number} count - number of perks to return
  * @param {Object} owned - owned perks object
- * @returns {Array} random perks filtered by wave
+ * @returns {Array} random perks filtered by round
  */
-function getRandomShopPerks(wave, count = 4, owned = {}, rng = Math.random, luck = 0, gameState = null) {
+function getRandomShopPerks(round, count = 4, owned = {}, rng = Math.random, luck = 0, gameState = null) {
     const allPerks = getShopPerks().filter(p => {
         // Standard check: filter if owned (unless stackable and under limit)
         const ownedCount = (typeof owned[p.id] === 'number') ? owned[p.id] : (owned[p.id] ? 1 : 0);
@@ -720,15 +776,17 @@ function getRandomShopPerks(wave, count = 4, owned = {}, rng = Math.random, luck
         return true;
     });
     
-    // Weight perks by tier and wave (Higher Rarity = Rarer)
+    // Weight perks by tier and round (Higher Rarity = Rarer)
     const TIER_RARITY = {
         'common': 12,
         'uncommon': 25,
         'rare': 60,
         'epic': 200,
-        'legendary': 500,
-        'mythical': 1200,
-        'special': null // Special handling
+    'legendary': 500,
+    'mythical': 1200,
+    'godlike': 2500,
+    'ultimate': 5000,
+    'special': null // Special handling
     };
 
     const weighted = allPerks.map(perk => {
@@ -736,30 +794,30 @@ function getRandomShopPerks(wave, count = 4, owned = {}, rng = Math.random, luck
         
         
         
-        // Wave-based Rarity Adjustment (Simulates "Base Tier Weight" from things.js)
-        // Adjust rarity based on wave (Lower score = More common)
-        let waveMultiplier = 1.0;
+        // Round-based Rarity Adjustment (Simulates "Base Tier Weight" from things.js)
+        // Adjust rarity based on round (Lower score = More common)
+        let roundMultiplier = 1.0;
 
-        if (wave <= 3) {
+        if (round <= 3) {
             // Early: Common is normal, others rare
-            if (perk.tier === 'common') waveMultiplier = 0.5; // More common
-            if (perk.tier === 'uncommon') waveMultiplier = 1.5;
-            if (perk.tier === 'rare') waveMultiplier = 3.0;
+            if (perk.tier === 'common') roundMultiplier = 0.5; // More common
+            if (perk.tier === 'uncommon') roundMultiplier = 1.5;
+            if (perk.tier === 'rare') roundMultiplier = 3.0;
         }
-        else if (wave <= 6) {
+        else if (round <= 6) {
             // Mid: Uncommon common
-            if (perk.tier === 'uncommon') waveMultiplier = 0.8;
-            if (perk.tier === 'rare') waveMultiplier = 1.2;
+            if (perk.tier === 'uncommon') roundMultiplier = 0.8;
+            if (perk.tier === 'rare') roundMultiplier = 1.2;
         }
         else {
             // Late: Higher tiers accessible
-            if (perk.tier === 'rare') waveMultiplier = 0.9;
-            if (perk.tier === 'epic') waveMultiplier = 1.0;
-            if (perk.tier === 'legendary') waveMultiplier = 1.0;
+            if (perk.tier === 'rare') roundMultiplier = 0.9;
+            if (perk.tier === 'epic') roundMultiplier = 1.0;
+            if (perk.tier === 'legendary') roundMultiplier = 1.0;
         }
         
-        // Apply Wave Multiplier to Score
-        rarity *= waveMultiplier;
+        // Apply Round Multiplier to Score
+        rarity *= roundMultiplier;
 
         // Luck Mitigation: Reduce effective rarity (making it more common)
         if (luck > 0) {

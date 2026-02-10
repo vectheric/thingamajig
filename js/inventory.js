@@ -22,6 +22,7 @@ class Inventory {
 
         const items = this.gameState.inventory.map((thing, index) => ({
             id: index,
+            templateId: thing.id,
             name: thing.name,
             value: thing.value,
             rarity: thing.rarity,

@@ -39,7 +39,7 @@ class GameState {
     }
 
     resetGame() {
-        this.wave = 1;
+        this.round = 1;
         this.currency = new CurrencySystem();
         this.inventory = [];
         this.perksPurchased = {};
@@ -47,7 +47,7 @@ class GameState {
         this.rollsUsed = 0;
         this.rareItemStreak = 0;
         this.pendingBossReward = null;
-        this.pendingNextWave = null;
+        this.pendingNextRound = null;
         this._badLuckStreak = 0;
         this.consumables = []; // Array of consumable items (max 9)
         this.lootPage = 0; // Current loot page for pagination (formerly inventoryPage)
@@ -62,11 +62,11 @@ class GameState {
             totalItemsRolled: 0,
             totalRollsUsed: 0,
             maxChipsHeld: 0,
-            fastestWaveTime: null // ms
+            fastestRoundTime: null // ms
         };
         
-        // Wave timing
-        this.currentWaveStartTime = Date.now();
+        // Round timing
+        this.currentRoundStartTime = Date.now();
         
         // History tracking for unlock requirements
         this.itemHistory = [];
@@ -93,7 +93,7 @@ class GameState {
             if ((hasUnlock || hasRequirement) && !this.unlockedPerks.has(perkId)) {
                 if (checkPerkConditions(perk, this, this.perksPurchased)) {
                     this.unlockedPerks.add(perkId);
-                    game.ui.showMessage(`Unlocked [${perk.name}]`, 'success');
+                    game.ui.showMessage(`Unlocked [${perk.name}]`, 'unlock');
                 }
             }
         }
@@ -128,7 +128,7 @@ class GameState {
     }
 
     /**
-     * Get chips (wave-local currency)
+     * Get chips (round-local currency)
      */
     get chips() {
         return this.currency.chips;
@@ -166,26 +166,25 @@ class GameState {
                 if (value.add !== undefined) {
                     targetAttributes[attr] = (targetAttributes[attr] || 0) + (value.add * multiplier);
                 }
-                if (value.subtract !== undefined) {
-                    targetAttributes[attr] = (targetAttributes[attr] || 0) - (value.subtract * multiplier);
+                // Handle subtract and sub alias
+                const subVal = value.subtract !== undefined ? value.subtract : value.sub;
+                if (subVal !== undefined) {
+                    targetAttributes[attr] = (targetAttributes[attr] || 0) - (subVal * multiplier);
                 }
-                // Multipliers are usually not scaled by count linearly like add, but powered? 
-                // Logic in original was: attributes[attr] = (attributes[attr] || 1) * value.multiply;
-                // If we have 2 stacks of x2 multiplier, is it x4? 
-                // The original code didn't handle 'count' for object-based multipliers explicitly in the generic loop 
-                // (it was inside the 'perk' loop where count=1).
-                // But for sets, multiplier is usually 1 (the bonus is applied once if threshold met).
-                if (value.multiply !== undefined) {
-                    // Apply multiply 'multiplier' times? Usually just once for the bonus object.
-                    // But if multiplier is 0 (inactive), we shouldn't apply.
-                    // Actually, let's assume multiplier is 1 for set bonuses and conditions.
+                
+                // Handle multiply and mult alias
+                const multVal = value.multiply !== undefined ? value.multiply : value.mult;
+                if (multVal !== undefined) {
                     if (multiplier > 0) {
-                        targetAttributes[attr] = (targetAttributes[attr] || 1) * Math.pow(value.multiply, multiplier);
+                        targetAttributes[attr] = (targetAttributes[attr] || 1) * Math.pow(multVal, multiplier);
                     }
                 }
-                if (value.divide !== undefined && value.divide !== 0) {
+                
+                // Handle divide and div alias
+                const divVal = value.divide !== undefined ? value.divide : value.div;
+                if (divVal !== undefined && divVal !== 0) {
                     if (multiplier > 0) {
-                        targetAttributes[attr] = (targetAttributes[attr] || 1) / Math.pow(value.divide, multiplier);
+                        targetAttributes[attr] = (targetAttributes[attr] || 1) / Math.pow(divVal, multiplier);
                     }
                 }
                 if (value.set !== undefined) {
@@ -222,11 +221,12 @@ class GameState {
             modification_chance: 0,
             
             // Value modifiers
+            valueBonus: 0,
             addValue: 0, subtractValue: 0, multiValue: 1, divideValue: 1, setValue: undefined,
             
             // Chip modifiers
             addChip: 0, subtractChip: 0, multiChip: 1, divideChip: 1, setChip: undefined,
-            chipsEndWave: 0, // Added for Chippy integration
+            chipsEndRound: 0, // Added for Chippy integration
             
             // Cash modifiers
             addCash: 0, subtractCash: 0, multiCash: 1, divideCash: 1, setCash: undefined
@@ -241,9 +241,9 @@ class GameState {
             
             // Special handling for Nullification
             if (perkId === 'nullificati0n') {
-                const wavesActive = typeof count === 'number' ? count : 0;
-                attributes.luck = (attributes.luck || 0) + (0.404 * wavesActive);
-                attributes.rolls = (attributes.rolls || 0) + (4 * wavesActive);
+                const roundsActive = typeof count === 'number' ? count : 0;
+                attributes.luck = (attributes.luck || 0) + (0.404 * roundsActive);
+                attributes.rolls = (attributes.rolls || 0) + (4 * roundsActive);
                 continue; 
             }
 
@@ -289,7 +289,7 @@ class GameState {
                             let met = false;
                             
                             if (cond.type === 'stat_threshold') {
-                                const statValue = cond.stat === 'wave' ? this.wave : (this.stats[cond.stat] || 0);
+                                const statValue = cond.stat === 'round' ? this.round : (this.stats[cond.stat] || 0);
                                 const threshold = cond.threshold || 0;
                                 
                                 if (cond.compare === 'less') {
@@ -333,26 +333,26 @@ class GameState {
     }
 
     /**
-     * Start a new wave
+     * Start a new round
      */
-    startWave() {
+    startRound() {
         this.rollsUsed = 0;
         this.inventory = [];
-        this.rareItemStreak = 0; // Reset streak at wave start
-        this.currency.resetWaveLocalCurrency(); // Reset chips for new wave
-        this.currentWaveStartTime = Date.now(); // Start timer
-        // Bad luck streak persists across waves until a high tier item is found
+        this.rareItemStreak = 0; // Reset streak at round start
+        this.currency.resetRoundLocalCurrency(); // Reset chips for new round
+        this.currentRoundStartTime = Date.now(); // Start timer
+        // Bad luck streak persists across rounds until a high tier item is found
 
-        // Nullification Scaling: Increment active waves count
+        // Nullification Scaling: Increment active rounds count
         if (this.perksPurchased['nullificati0n']) {
-             // Store start wave if not present (legacy support or first run)
-             // But actually, we need to track how many waves passed.
+             // Store start round if not present (legacy support or first run)
+             // But actually, we need to track how many rounds passed.
              // Let's use a specific counter for Nullification stacks.
              // We can store it in perksPurchased as a value? No, perksPurchased is usually boolean or stack count.
-             // For Nullification, it's not "stacks" of the perk, it's "waves active".
+             // For Nullification, it's not "stacks" of the perk, it's "rounds active".
              // Let's create a separate counter in stats or just use perksPurchased value if it's not boolean.
              // Actually, for Nullification, we can use perksPurchased['nullificati0n'] as the counter.
-             // Initial purchase sets it to 1 (or 0). Each wave start increments it.
+             // Initial purchase sets it to 1 (or 0). Each round start increments it.
              // Wait, purchasePerk sets it to true. Let's change purchase logic for this specific perk or check here.
              
              if (this.perksPurchased['nullificati0n'] === true) {
@@ -363,30 +363,30 @@ class GameState {
     }
 
     /**
-     * Get wave entry cost in chips (next wave: normal or boss)
+     * Get round entry cost in chips (next round: normal or boss)
      */
-    getWaveEntryCost() {
-        const nextWave = this.wave + 1;
-        if (typeof isBossWave === 'function' && isBossWave(nextWave)) {
-            const routeIndex = typeof getRouteIndex === 'function' ? getRouteIndex(nextWave) : 0;
+    getRoundEntryCost() {
+        const nextRound = this.round + 1;
+        if (typeof isBossRound === 'function' && isBossRound(nextRound)) {
+            const routeIndex = typeof getRouteIndex === 'function' ? getRouteIndex(nextRound) : 0;
             return CONFIG.getBossChipCost(routeIndex);
         }
-        return CONFIG.getNormalWaveCost(nextWave);
+        return CONFIG.getNormalRoundCost(nextRound);
     }
 
-    /** True if current wave is a boss wave */
-    isBossWave() {
-        return typeof isBossWave === 'function' && isBossWave(this.wave);
+    /** True if current round is a boss round */
+    isBossRound() {
+        return typeof isBossRound === 'function' && isBossRound(this.round);
     }
 
     /** Current route index (0-based) */
     getRouteIndex() {
-        return typeof getRouteIndex === 'function' ? getRouteIndex(this.wave) : 0;
+        return typeof getRouteIndex === 'function' ? getRouteIndex(this.round) : 0;
     }
 
-    /** Boss for current wave, or null */
+    /** Boss for current round, or null */
     getCurrentBoss() {
-        return typeof getBossByWave === 'function' ? getBossByWave(this.wave) : null;
+        return typeof getBossByRound === 'function' ? getBossByRound(this.round) : null;
     }
 
     /** True if player has auto-roll common perk */
@@ -395,7 +395,7 @@ class GameState {
     }
 
     /**
-     * Get available rolls for this wave
+     * Get available rolls for this round
      */
     getAvailableRolls() {
         const baseRolls = 3;
@@ -447,7 +447,7 @@ class GameState {
 
     _doOneRoll(modChanceBoost) {
         // Calculate adjusted weights based on Luck and Bad Luck Streak
-        const baseWeights = typeof getWaveBasedRarityWeights === 'function' ? getWaveBasedRarityWeights(this.wave) : {};
+        const baseWeights = typeof getRoundBasedRarityWeights === 'function' ? getRoundBasedRarityWeights(this.round) : {};
         const attrs = this.getAttributes();
         const luck = attrs.luck || 0;
         const badLuck = this._badLuckStreak || 0;
@@ -458,14 +458,38 @@ class GameState {
         
         const adjustedWeights = { ...baseWeights };
         
-        if (effectiveLuck > 0) {
-            // Boost Rare, Epic, Legendary based on effective luck
-            if (adjustedWeights['rare']) adjustedWeights['rare'] *= (1 + effectiveLuck * 0.15);
-            if (adjustedWeights['epic']) adjustedWeights['epic'] *= (1 + effectiveLuck * 0.20);
-            if (adjustedWeights['legendary']) adjustedWeights['legendary'] *= (1 + effectiveLuck * 0.25);
+        if (effectiveLuck !== 0) {
+            // Boost Tiers based on effective luck
+            // We DIVIDE the rarity score to make them MORE common (lower score = higher probability)
+            // Tiers: significant, rare, master, surreal, mythic, etc.
+            
+            const tiers = [
+                { id: 'significant', boost: 0.10 },
+                { id: 'rare', boost: 0.15 },
+                { id: 'master', boost: 0.20 },
+                { id: 'surreal', boost: 0.25 },
+                { id: 'mythic', boost: 0.30 },
+                { id: 'exotic', boost: 0.35 },
+                { id: 'exquisite', boost: 0.40 },
+                { id: 'transcendent', boost: 0.45 },
+                { id: 'enigmatic', boost: 0.50 },
+                { id: 'unfathomable', boost: 0.55 },
+                { id: 'otherworldly', boost: 0.60 },
+                { id: 'imaginary', boost: 0.65 },
+                { id: 'zenith', boost: 0.70 }
+            ];
+
+            tiers.forEach(({ id, boost }) => {
+                if (adjustedWeights[id]) {
+                    // Divide rarity score by luck factor to increase probability
+                    // Ensure factor doesn't go below 0.1 (10x rarity penalty max)
+                    const factor = Math.max(0.1, 1 + effectiveLuck * boost);
+                    adjustedWeights[id] /= factor;
+                }
+            });
         }
 
-        let thing = rollThing(this.wave, this.rngStreams.loot, adjustedWeights);
+        let thing = rollThing(this.round, this.rngStreams.loot, adjustedWeights);
         
         // Update Bad Luck Streak
         // Reset on Rare or better
@@ -517,8 +541,13 @@ class GameState {
         
         // Luck-based extra roll (chance to reroll entirely if lucky)
         if (this.rngStreams.luck() < (attrs.luck || 0) * 0.05) {
-            const newThing = rollThing(this.wave, this.rngStreams.loot, adjustedWeights);
-            thing = applyModifications(newThing, modOptions);
+            let newThing = rollThing(this.round, this.rngStreams.loot, adjustedWeights);
+            newThing = applyModifications(newThing, modOptions);
+            
+            // Keep the one with higher value
+            if (newThing.value > thing.value) {
+                thing = newThing;
+            }
         }
         
         // Apply Value Modifiers
@@ -572,7 +601,7 @@ class GameState {
     }
 
     /**
-     * Sell inventory and earn chips for this wave
+     * Sell inventory and earn chips for this round
      */
     sellInventory() {
         const value = this.getInventoryValue();
@@ -582,21 +611,21 @@ class GameState {
     }
 
     /**
-     * Complete a wave and earn rewards
+     * Complete a round and earn rewards
      * Awards cash and applies interest, including cash bonuses from perks
      * @returns {Object} rewards breakdown
      */
-    completeWave() {
-        // Calculate Wave Time
-        const duration = Date.now() - (this.currentWaveStartTime || Date.now());
-        if (this.stats.fastestWaveTime === null || duration < this.stats.fastestWaveTime) {
-            this.stats.fastestWaveTime = duration;
+    completeRound() {
+        // Calculate Round Time
+        const duration = Date.now() - (this.currentRoundStartTime || Date.now());
+        if (this.stats.fastestRoundTime === null || duration < this.stats.fastestRoundTime) {
+            this.stats.fastestRoundTime = duration;
         }
 
         const attrs = this.getAttributes();
         
-        // Chippy/End Wave Bonus (now integrated via attributes)
-        let chipsBonus = attrs.chipsEndWave || 0;
+        // Chippy/End Round Bonus (now integrated via attributes)
+        let chipsBonus = attrs.chipsEndRound || 0;
         
         if (chipsBonus > 0) {
             this.currency.addChips(chipsBonus);
@@ -610,7 +639,7 @@ class GameState {
             divideCash: attrs.divideCash,
             setCash: attrs.setCash
         };
-        const rewards = this.currency.completeWave(maxStacks, modifiers);
+        const rewards = this.currency.completeRound(maxStacks, modifiers);
         
         if (chipsBonus > 0) {
             rewards.chipsBonus = chipsBonus;
@@ -620,37 +649,37 @@ class GameState {
     }
 
     /**
-     * Advance to next wave (pay chip cost). On boss wave completion, sets pendingBossReward instead.
+     * Advance to next round (pay chip cost). On boss round completion, sets pendingBossReward instead.
      */
-    advanceWave() {
-        const cost = this.getWaveEntryCost();
+    advanceRound() {
+        const cost = this.getRoundEntryCost();
         if (!this.currency.spendChips(cost)) {
             return { success: false, message: `Not enough Ȼ... Need ${cost}Ȼ, have ${this.chips}Ȼ` };
         }
-        this.wave += 1;
-        const nowOnBoss = typeof isBossWave === 'function' && isBossWave(this.wave);
+        this.round += 1;
+        const nowOnBoss = typeof isBossRound === 'function' && isBossRound(this.round);
         if (nowOnBoss) {
-            const boss = typeof getBossByWave === 'function' ? getBossByWave(this.wave) : null;
+            const boss = typeof getBossByRound === 'function' ? getBossByRound(this.round) : null;
             if (boss) {
                 const owned = Object.keys(this.perksPurchased).filter(id => this.perksPurchased[id]);
                 const options = typeof getBossPerkOptions === 'function'
                     ? getBossPerkOptions(boss.id, CONFIG.BOSS_PERK_OFFER_COUNT, owned)
                     : [];
                 this.pendingBossReward = { bossId: boss.id, boss, perkOptions: options };
-                this.startWave();
+                this.startRound();
                 return { success: true, message: 'Boss defeated', isBossReward: true };
             }
         }
-        this.startWave();
-        return { success: true, message: `Advanced to wave ${this.wave}` };
+        this.startRound();
+        return { success: true, message: `Advanced to round ${this.round}` };
     }
 
-    /** After confirming 3 boss perks, advance to next wave and clear pending */
+    /** After confirming 3 boss perks, advance to next round and clear pending */
     confirmBossReward() {
         if (!this.pendingBossReward) return;
         this.pendingBossReward = null;
-        this.wave += 1;
-        this.startWave();
+        this.round += 1;
+        this.startRound();
     }
 
     /** After defeating boss: pick a perk from boss reward (call 3 times). Returns false if already picked 3 or invalid. */
@@ -805,10 +834,10 @@ class GameState {
     getFormattedAttributes() {
         const attrs = this.getAttributes();
         const result = {
-            'Rolls/Wave': this.getAvailableRolls(),
-            'Luck': `${attrs.luck * 5}%`,
+            'Rolls/Round': this.getAvailableRolls(),
+            'Luck': `${parseFloat(attrs.luck.toFixed(2))}`,
             'Value x': `${attrs.multiValue.toFixed(2)}x`,
-            'Ȼ x': `${attrs.multiChip.toFixed(2)}x`,
+            'Ȼ+': `${parseFloat(attrs.multiChip.toFixed(2))}`,
             'Cash x': `${attrs.multiCash.toFixed(2)}x`
         };
         if (attrs.modification_chance && attrs.modification_chance > 0) {
@@ -959,10 +988,10 @@ class GameState {
     /**
      * Check if player has enough chips (potential) to advance
      */
-    hasReachedWaveGoal() {
+    hasReachedRoundGoal() {
         const value = this.getInventoryValue();
         const earned = this.calculateEarnedChipsForValue(value);
-        const cost = this.getWaveEntryCost();
+        const cost = this.getRoundEntryCost();
         return earned >= cost;
     }
 
@@ -1002,7 +1031,7 @@ class GameState {
     }
 
     /**
-     * Reset loot page when starting new wave
+     * Reset loot page when starting new round
      */
     resetLootPage() {
         this.lootPage = 0;

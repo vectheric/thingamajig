@@ -11,31 +11,42 @@ class Shop {
     }
 
     /**
-     * Get random shop perks for current wave (4 perks, unowned only)
+     * Get random shop perks for current round (starts at 4 perks, unowned only)
      */
     generateShopPerks() {
         const attrs = this.gameState.getAttributes();
         const luck = attrs.luck || 0;
         
-        const targetWave = this.gameState.pendingNextWave || this.gameState.wave;
+        const targetRound = this.gameState.pendingNextRound || this.gameState.round;
+
+        // Calculate shop size based on round
+        let shopSize = 4;
+        
+
+        const rng = (this.gameState.rngStreams && typeof this.gameState.rngStreams.perks === 'function') 
+            ? this.gameState.rngStreams.perks 
+            : Math.random;
 
         this.currentShopPerks = getRandomShopPerks(
-            targetWave,
-            4,
+            targetRound,
+            shopSize,
             this.gameState.perksPurchased,
-            (this.gameState.rngStreams && this.gameState.rngStreams.perks) ? this.gameState.rngStreams.perks : Math.random,
-            luck
+            rng,
+            luck,
+            this.gameState
         );
         // Generate 3 random consumables for the shop (can have duplicates)
         this.currentShopConsumables = getRandomShopConsumables(
             3,
-            (this.gameState.rngStreams && this.gameState.rngStreams.perks) ? this.gameState.rngStreams.perks : Math.random
+            rng,
+            luck,
+            this.gameState
         );
         return this.currentShopPerks;
     }
 
     /**
-     * Get all available shop items for purchase (only random perks from current wave)
+     * Get all available shop items for purchase (only random perks from current round)
      */
     getAvailableItems() {
         // If no shop perks generated, generate them
@@ -134,7 +145,7 @@ class Shop {
     }
 
     /**
-     * Get current chip count (for wave progress)
+     * Get current chip count (for round progress)
      */
     getChips() {
         return this.gameState.chips;

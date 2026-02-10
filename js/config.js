@@ -2,17 +2,17 @@
  * Game configuration - single source of truth for tuning
  */
 const CONFIG = {
-    /** Waves between bosses (boss on wave 5, 10, 15, 20, 25) */
-    BOSS_WAVE_INTERVAL: 5,
+    /** Rounds between bosses (boss on round 5, 10, 15, 20, 25) */
+    BOSS_ROUND_INTERVAL: 5,
 
-    /** Normal wave chip costs: [wave] => chips required to advance */
-    getNormalWaveCost(wave) {
-        if (wave <= 3) return 15;
-        if (wave <= 6) return 25 + (wave - 4) * 5;
-        return 40 + (wave - 7) * 10;
+    /** Normal round chip costs: [round] => chips required to advance */
+    getNormalRoundCost(round) {
+        if (round <= 3) return 15;
+        if (round <= 6) return 25 + (round - 4) * 5;
+        return 40 + (round - 7) * 10;
     },
 
-    /** Boss wave chip cost = base for that route × multiplier (scales with route) */
+    /** Boss round chip cost = base for that route × multiplier (scales with route) */
     getBossChipCost(routeIndex) {
         const base = 100;
         const perRoute = 50;
@@ -31,25 +31,25 @@ const CONFIG = {
 };
 
 /**
- * @param {number} wave - 1-based wave number
- * @returns {boolean} true if this wave is a boss wave
+ * @param {number} round - 1-based round number
+ * @returns {boolean} true if this round is a boss round
  */
-function isBossWave(wave) {
-    return wave > 0 && wave % CONFIG.BOSS_WAVE_INTERVAL === 0;
+function isBossRound(round) {
+    return round > 0 && round % CONFIG.BOSS_ROUND_INTERVAL === 0;
 }
 
 /**
- * @param {number} wave - 1-based wave number
- * @returns {number} route index (0-based). Wave 1-4 = 0, 5 = boss 0, 6-9 = 1, 10 = boss 1, ...
+ * @param {number} round - 1-based round number
+ * @returns {number} route index (0-based). Round 1-4 = 0, 5 = boss 0, 6-9 = 1, 10 = boss 1, ...
  */
-function getRouteIndex(wave) {
-    return Math.floor((wave - 1) / CONFIG.BOSS_WAVE_INTERVAL);
+function getRouteIndex(round) {
+    return Math.floor((round - 1) / CONFIG.BOSS_ROUND_INTERVAL);
 }
 
 /**
- * Boss index 0..4 for wave 5,10,15,20,25
+ * Boss index 0..4 for round 5,10,15,20,25
  */
-function getBossIndex(wave) {
-    if (!isBossWave(wave)) return -1;
-    return (wave / CONFIG.BOSS_WAVE_INTERVAL) - 1;
+function getBossIndex(round) {
+    if (!isBossRound(round)) return -1;
+    return (round / CONFIG.BOSS_ROUND_INTERVAL) - 1;
 }

@@ -44,6 +44,14 @@ const TIER_NAME_STYLES = {
         textStroke: '1px rgba(0,0,0,0.4)',
         fontFamily: 'inherit',
     },
+    mythical: {
+        color: '#d946ef',
+        fontWeight: 'bold',
+        fontStyle: 'italic',
+        textDecoration: 'none',
+        textStroke: '1px rgba(0,0,0,0.4)',
+        fontFamily: 'inherit',
+    },
 };
 
 /** Perk name styles by rarity (same structure) */
@@ -53,6 +61,7 @@ const PERK_NAME_STYLES = {
     rare: { ...TIER_NAME_STYLES.rare },
     epic: { ...TIER_NAME_STYLES.epic },
     legendary: { ...TIER_NAME_STYLES.legendary },
+    mythical: { ...TIER_NAME_STYLES.mythical },
 };
 
 /**
@@ -81,7 +90,22 @@ function nameStyleToCss(style) {
 function getItemNameStyle(item) {
     const rarity = (item && item.rarity) || 'common';
     const base = TIER_NAME_STYLES[rarity] || TIER_NAME_STYLES.common;
-    return item && item.nameStyle ? { ...base, ...item.nameStyle } : base;
+    let style = item && item.nameStyle ? { ...base, ...item.nameStyle } : base;
+
+    // Fallback: Check THING_TEMPLATES for color if not present in style
+    // This handles retroactively adding colors to existing items
+    const templateId = item && (item.templateId || item.id);
+    if (templateId && typeof THING_TEMPLATES !== 'undefined') {
+        const template = THING_TEMPLATES[templateId];
+        if (template && template.color) {
+            // Only apply if we don't already have a custom color from nameStyle
+            if (!item || !item.nameStyle || !item.nameStyle.color) {
+                style = { ...style, color: template.color };
+            }
+        }
+    }
+
+    return style;
 }
 
 /**

@@ -13,24 +13,24 @@ class CurrencySystem {
      * Reset all currencies to starting values
      */
     reset() {
-        // PERSISTENT currency - carries between waves
+        // PERSISTENT currency - carries between rounds
         this.cash = 4;
         this.bonusInterestStacks = 0; // Stacks from consumables/bonuses
         
-        // WAVE-LOCAL currency - resets each wave
+        // ROUND-LOCAL currency - resets each round
         this.chips = 0;
     }
 
     /**
-     * Reset only wave-local currency (chips)
-     * Called at start of each wave
+     * Reset only round-local currency (chips)
+     * Called at start of each round
      */
-    resetWaveLocalCurrency() {
+    resetRoundLocalCurrency() {
         this.chips = 0;
     }
 
     /**
-     * Add chips to current wave's budget
+     * Add chips to current round's budget
      * @param {number} amount - chips to add
      */
     addChips(amount) {
@@ -45,7 +45,7 @@ class CurrencySystem {
     }
 
     /**
-     * Spend chips from current wave's budget
+     * Spend chips from current round's budget
      * @param {number} amount - chips to spend
      * @returns {boolean} true if successful, false if insufficient chips
      */
@@ -101,14 +101,14 @@ class CurrencySystem {
     }
 
     /**
-     * Calculate and apply wave completion rewards
-     * Called after successfully completing a wave
+     * Calculate and apply round completion rewards
+     * Called after successfully completing a round
      * @param {number} maxInterestStacks - max interest stacks from perks
      * @param {Object} modifiers - { multiCash, addCash, subtractCash, divideCash }
      * @returns {Object} rewards breakdown
      */
-    completeWave(maxInterestStacks = 5, modifiers = {}) {
-        const baseReward = 5; // Base 5 dollars per wave
+    completeRound(maxInterestStacks = 5, modifiers = {}) {
+        const baseReward = 5; // Base 5 dollars per round
         const interestReward = this.getInterestStacks(maxInterestStacks); // Dynamic interest based on current cash
         
         // Apply modifiers to calculate total cash
@@ -136,7 +136,7 @@ class CurrencySystem {
         // Award cash
         this.addCash(totalReward);
         
-        // Interest is now fully dynamic, so no need to "set" stacks for next wave
+        // Interest is now fully dynamic, so no need to "set" stacks for next round
         
         return {
             baseReward,
@@ -164,42 +164,42 @@ class CurrencySystem {
     }
 
     /**
-     * Get wave entry cost (chips needed to continue wave)
+     * Get round entry cost (chips needed to continue round)
      * Costs are much lower at the beginning to ease new players
-     * @param {number} wave - current wave number
+     * @param {number} round - current round number
      * @returns {number} chips required
      */
-    static getWaveEntryCost(wave) {
+    static getRoundEntryCost(round) {
         // Use CONFIG if available
-        if (typeof CONFIG !== 'undefined' && typeof CONFIG.getNormalWaveCost === 'function') {
-            return CONFIG.getNormalWaveCost(wave);
+        if (typeof CONFIG !== 'undefined' && typeof CONFIG.getNormalRoundCost === 'function') {
+            return CONFIG.getNormalRoundCost(round);
         }
         // Fallback logic matching CONFIG
-        // Early waves (1-3): Very cheap entry
-        if (wave <= 3) return 15;
-        // Mid waves (4-6): Moderate increase
-        if (wave <= 6) return 25 + (wave - 4) * 5;
-        // Late waves (7+): Progressive increase
-        return 40 + (wave - 7) * 10;
+        // Early rounds (1-3): Very cheap entry
+        if (round <= 3) return 15;
+        // Mid rounds (4-6): Moderate increase
+        if (round <= 6) return 25 + (round - 4) * 5;
+        // Late rounds (7+): Progressive increase
+        return 40 + (round - 7) * 10;
     }
 
     /**
-     * Check if player can afford wave entry
-     * @param {number} wave - current wave
+     * Check if player can afford round entry
+     * @param {number} round - current round
      * @returns {boolean} true if enough chips
      */
-    canAffordWaveEntry(wave) {
-        const cost = CurrencySystem.getWaveEntryCost(wave);
+    canAffordRoundEntry(round) {
+        const cost = CurrencySystem.getRoundEntryCost(round);
         return this.chips >= cost;
     }
 
     /**
-     * Pay for wave entry
-     * @param {number} wave - current wave
+     * Pay for round entry
+     * @param {number} round - current round
      * @returns {boolean} true if payment successful
      */
-    payWaveEntry(wave) {
-        const cost = CurrencySystem.getWaveEntryCost(wave);
+    payRoundEntry(round) {
+        const cost = CurrencySystem.getRoundEntryCost(round);
         return this.spendChips(cost);
     }
 }

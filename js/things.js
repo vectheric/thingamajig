@@ -36,7 +36,7 @@ const ITEM_TIER = {
 //-
 
 // Thing templates - easily extensible
-const THING_TEMPLATES = {
+const ITEMS = {
     STONE: {
         name: 'Stone',
         baseValue: 5,
@@ -117,8 +117,8 @@ const THING_TEMPLATES = {
         rarityScore: 5001,
         color: '#5eff01ff'
     },
-    EXODAL: {
-        name: 'EXODAL',
+    TOILET: {
+        name: '🚽',
         baseValue: 80,
         rarityMultiplier: 1.8,
         tier: ITEM_TIER.EXOTIC,
@@ -129,7 +129,7 @@ const THING_TEMPLATES = {
         name: 'Mammoth',
         baseValue: 80,
         rarityMultiplier: 1.8,
-        tier: ITEM_TIER.Enigmatic,
+        tier: ITEM_TIER.ENIGMATIC,
         rarityScore: 10000,
         color: '#5eff01ff'
     },
@@ -138,12 +138,12 @@ const THING_TEMPLATES = {
 
 /**
  * Roll a random thing
- * Uses wave-based rarity scaling to make early game easier and more rewarding
- * @param {number} wave - current wave (optional, defaults to 1)
+ * Uses round-based rarity scaling to make early game easier and more rewarding
+ * @param {number} round - current round (optional, defaults to 1)
  * @returns {Object} { name, value, rarity }
  */
-function rollThing(wave = 1, rng = Math.random, rarityWeightsOverride) {
-    const selection = selectByWeight(getWaveBasedTemplateWeights(wave, rarityWeightsOverride), rng);
+function rollThing(round = 1, rng = Math.random, rarityWeightsOverride) {
+    const selection = selectByWeight(getRoundBasedTemplateWeights(round, rarityWeightsOverride), rng);
     const template = selection.template;
     const tier = template.tier;
 
@@ -160,9 +160,9 @@ function rollThing(wave = 1, rng = Math.random, rarityWeightsOverride) {
     };
 }
 
-function getWaveBasedTemplateWeights(wave, tierRarityOverride) {
-    const tierRarity = tierRarityOverride || getWaveBasedRarityWeights(wave);
-    const entries = Object.entries(THING_TEMPLATES);
+function getRoundBasedTemplateWeights(round, tierRarityOverride) {
+    const tierRarity = tierRarityOverride || getRoundBasedRarityWeights(round);
+    const entries = Object.entries(ITEMS);
     const weights = [];
 
     for (const [id, template] of entries) {
@@ -185,15 +185,15 @@ function getWaveBasedTemplateWeights(wave, tierRarityOverride) {
 }
 
 /**
- * Get tier rarity adjusted by wave number
+ * Get tier rarity adjusted by round number
  * Higher rarity = Rarer tier
- * Early waves: Common/Uncommon have low rarity (common)
- * Mid waves: Rare rarity drops
- * Late waves: Legendary rarity drops
- * @param {number} wave - current wave
+ * Early rounds: Common/Uncommon have low rarity (common)
+ * Mid rounds: Rare rarity drops
+ * Late rounds: Legendary rarity drops
+ * @param {number} round - current round
  * @returns {Object} adjusted tier rarity
  */
-function getWaveBasedRarityWeights(wave) {
+function getRoundBasedRarityWeights(round) {
     // Base rarity for supernatural tiers (Exotic+)
     // These are very high (very rare)
     const supernaturalBase = {
@@ -207,7 +207,7 @@ function getWaveBasedRarityWeights(wave) {
         [ITEM_TIER.ZENITH]: 10000000
     };
 
-    // Default rarity (Waves 11+)
+    // Default rarity (Rounds 11+)
     let rarity = {
         [ITEM_TIER.COMMON]: 3,       // ~33%
         [ITEM_TIER.SIGNIFICANT]: 4,  // ~25%
@@ -218,8 +218,8 @@ function getWaveBasedRarityWeights(wave) {
         ...supernaturalBase
     };
 
-    // Waves 1-3: Easy early game
-    if (wave <= 3) {
+    // Rounds 1-3: Easy early game
+    if (round <= 3) {
         rarity = {
             [ITEM_TIER.COMMON]: 1,       // Very common
             [ITEM_TIER.SIGNIFICANT]: 3,
@@ -230,8 +230,8 @@ function getWaveBasedRarityWeights(wave) {
             ...supernaturalBase
         };
     }
-    // Waves 4-6: Introduce rare items
-    else if (wave <= 6) {
+    // Rounds 4-6: Introduce rare items
+    else if (round <= 6) {
         rarity = {
             [ITEM_TIER.COMMON]: 2,
             [ITEM_TIER.SIGNIFICANT]: 3,
@@ -242,8 +242,8 @@ function getWaveBasedRarityWeights(wave) {
             ...supernaturalBase
         };
     }
-    // Waves 7-10: Legendary/Surreal possible
-    else if (wave <= 10) {
+    // Rounds 7-10: Legendary/Surreal possible
+    else if (round <= 10) {
         rarity = {
             [ITEM_TIER.COMMON]: 2.5,
             [ITEM_TIER.SIGNIFICANT]: 3.5,
@@ -254,8 +254,8 @@ function getWaveBasedRarityWeights(wave) {
             ...supernaturalBase
         };
     }
-    // Waves 11-20: Higher chance for Master/Surreal
-    else if (wave <= 20) {
+    // Rounds 11-20: Higher chance for Master/Surreal
+    else if (round <= 20) {
         rarity = {
             [ITEM_TIER.COMMON]: 3,
             [ITEM_TIER.SIGNIFICANT]: 4,
@@ -266,7 +266,7 @@ function getWaveBasedRarityWeights(wave) {
             ...supernaturalBase
         };
     }
-    // Waves 21+: Unlock higher tiers slowly
+    // Rounds 21+: Unlock higher tiers slowly
     else {
         rarity = {
             [ITEM_TIER.COMMON]: 5,

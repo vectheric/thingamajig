@@ -82,16 +82,16 @@ class UI {
     renderGameScreen() {
         this.currentScreen = 'game';
         const loot = this.inventory.getDisplay();
-        const isNextWaveBoss = typeof isBossWave === 'function' && isBossWave(this.gameState.wave + 1);
+        const isNextRoundBoss = typeof isBossRound === 'function' && isBossRound(this.gameState.round + 1);
         
         const html = `
             <div class="perk-topbar">
-                <div class="topbar-title">Perks Owned:</div>
+
                 <div class="topbar-perks" id="topbar-perks">
                     ${this.renderTopbarPerks()}
                 </div>
-                <button class="stats-button" onclick="game.toggleStats()">📊 Stats</button>
-                <button class="index-button" onclick="game.toggleIndex()">📖 Index</button>
+                <button class="stats-button" onclick="game.toggleStats()">Stats</button>
+                <button class="index-button" onclick="game.toggleIndex()">Index</button>
             </div>
 
             <div id="stats-modal" class="stats-modal" style="display: none;">
@@ -104,7 +104,7 @@ class UI {
             <div id="index-modal" class="index-modal" style="display: none;">
                 <div class="index-content">
                     <button class="index-close" onclick="game.toggleIndex()">✕</button>
-                    <div class="index-title">📖 Knowledge Index</div>
+                    <div class="index-title">Knowledge Index</div>
                     ${this.renderIndex()}
                 </div>
             </div>
@@ -113,12 +113,12 @@ class UI {
                 <div class="game-title">Thingamajig <span class="route-badge">Route ${this.gameState.getRouteIndex() + 1}</span></div>
                 <div class="game-stats">
                     <div class="stat-item">
-                        <span class="stat-label">Wave</span>
-                        <span class="stat-value">${this.gameState.wave}</span>
+                        <span class="stat-label">Round</span>
+                        <span class="stat-value">${this.gameState.round}</span>
                     </div>
                     <div class="stat-item">
-                        <span class="stat-label">${isNextWaveBoss ? 'Boss (Ȼ)' : 'CHIPS NEEDED'}</span>
-                        <span class="stat-value stat-chips">${this.gameState.getWaveEntryCost()}${this.renderChipIcon()}</span>
+                        <span class="stat-label">${isNextRoundBoss ? 'Boss (Ȼ)' : 'CHIPS NEEDED'}</span>
+                        <span class="stat-value stat-chips">${this.gameState.getRoundEntryCost()}${this.renderChipIcon()}</span>
                     </div>
                     <div class="stat-item cash-with-tooltip">
                         <span class="stat-label">Cash</span>
@@ -143,7 +143,7 @@ class UI {
 
                 <div class="section roll-section">
                     <div class="section-title">Rolling</div>
-                    <button class="roll-button" onclick="game.handleRoll()" ${(this.gameState.getRemainingRolls() <= 0 || this.gameState.hasReachedWaveGoal()) ? 'disabled' : ''}>
+                    <button class="roll-button" onclick="game.handleRoll()" ${(this.gameState.getRemainingRolls() <= 0 || this.gameState.hasReachedRoundGoal()) ? 'disabled' : ''}>
                         ROLL (SPACE)
                     </button>
                     <div class="rolls-remaining">
@@ -623,7 +623,11 @@ class UI {
             const p = full || (PERKS[Object.keys(PERKS).find(k => PERKS[k].id === perk.id)]);
             const desc = (p && p.description) || '';
             const special = (p && p.special) ? p.special.replace(/_/g, ' ') : '';
-            const rarity = (p && (p.rarity || p.tier)) || 'common';
+            let rarity = (p && (p.rarity || p.tier)) || 'common';
+            // Safety check for non-string rarity
+            if (typeof rarity !== 'string') {
+                rarity = String(rarity);
+            }
             const nameStyle = typeof getPerkNameStyle === 'function' ? getPerkNameStyle(p) : {};
             const nameCss = typeof nameStyleToCss === 'function' ? nameStyleToCss(nameStyle) : '';
             
@@ -648,6 +652,7 @@ class UI {
      * Render shop consumables section
      */
     renderShopConsumables() {
+        if (!this.shop) return '';
         const consumables = this.shop.getShopConsumables();
         if (consumables.length === 0) {
             return '<div class="shop-consumables-empty">No consumables available</div>';
@@ -739,11 +744,17 @@ class UI {
         const itemsHtml = paginated.items.map((item, index) => {
             const actualIndex = (paginated.currentPage * this.gameState.itemsPerPage) + index;
             const allMods = typeof getAllModifications === 'function' ? getAllModifications(item) : [];
-            const modBadges = allMods.map(mod => `<span class="mod-badge" title="${mod.description || ''}">${mod.emoji || ''} ${mod.name}</span>`).join('');
-            const displayName = typeof getModifiedItemName === 'function' ? getModifiedItemName(item) : item.name;
+            const modBadges = allMods.map(mod => typeof getModBadgeHtml === 'function' ? getModBadgeHtml(mod) : `<span class="mod-badge" title="${mod.description || ''}">${mod.name}</span>`).join('');
             const nameStyle = typeof getItemNameStyle === 'function' ? getItemNameStyle(item) : {};
             const nameCss = typeof nameStyleToCss === 'function' ? nameStyleToCss(nameStyle) : '';
-            const safeName = typeof escapeHtml === 'function' ? escapeHtml(displayName) : displayName;
+            
+            let safeName;
+            if (typeof getModifiedItemNameHtml === 'function') {
+                safeName = getModifiedItemNameHtml(item);
+            } else {
+                const displayName = typeof getModifiedItemName === 'function' ? getModifiedItemName(item) : item.name;
+                safeName = typeof escapeHtml === 'function' ? escapeHtml(displayName) : displayName;
+            }
             
             // Particle wrappers for high tiers
             let legendWrap = '';
@@ -765,7 +776,7 @@ class UI {
                         <div class="tooltip-name"${nameCss}>${safeName}</div>
                         <div class="tooltip-rarity rarity-color rarity-${item.rarity}">${item.rarity.toUpperCase()}</div>
                         ${allMods.length > 0 ? `<div class="tooltip-mods">${modBadges}</div>` : ''}
-                        <div class="tooltip-value">Value: ${item.value}${this.renderChipIcon()}</div>
+                        <div class="tooltip-value"><span style="color: #60a5fa">${item.value}Ȼ</span></div>
                         ${item.baseValue != null && item.baseValue !== item.value && item.priceMultiplier != null ? `<div class="tooltip-base">Base: ${item.baseValue} (×${item.priceMultiplier.toFixed(2)})</div>` : ''}
                     </div>
                 </div>
@@ -832,6 +843,7 @@ class UI {
      * Render shop items (Balatro-style vertical cards with art area and animations)
      */
     renderShop() {
+        if (!this.shop) return '';
         const shopItems = this.shop.getAvailableItems();
         const cash = this.shop.getCash();
         const selectedId = (typeof game !== 'undefined' && game.selectedShopPerkId) ? game.selectedShopPerkId : null;
@@ -868,6 +880,8 @@ class UI {
             const icon = this.getPerkIcon(item);
             const isLegendary = item.rarity === 'legendary';
             const isMythical = item.rarity === 'mythical';
+            const isGodlike = item.rarity === 'godlike';
+            const isUltimate = item.rarity === 'ultimate';
             const isNullification = item.id === 'nullificati0n';
 
             // Check Requirement
@@ -932,12 +946,12 @@ class UI {
             return `
                 <div class="perk-card perk-card-shop perk-tooltip-anchor rarity-${item.rarity} ${showPurchased ? 'perk-purchased' : ''} ${isSelected ? 'perk-selected' : ''} ${locked || reqLocked || nullificationLocked ? 'perk-locked' : ''} ${isNullification ? 'perk-glitch' : ''}" data-perk-id="${item.id}" data-perk-instance-id="${item.instanceId || ''}" data-perk-name="${escapeAttr(item.name)}" data-perk-rarity="${escapeAttr(item.rarity)}" data-perk-desc="${escapeAttr(safeDesc)}" data-perk-special="${escapeAttr(item.special || '')}" data-perk-cost="${item.cost}" onclick="game.handleShopPerkClick('${item.id}', '${item.instanceId || ''}')" style="animation-delay: ${index * 0.1}s">
                     ${purchasedOverlay}
-                    ${lockedOverlay}
-                    ${isLegendary || isMythical ? `
-                        <div class="perk-card-particles">
-                            <span></span><span></span><span></span>
-                        </div>
-                    ` : ''}
+            ${lockedOverlay}
+            ${isLegendary || isMythical || isGodlike || isUltimate ? `
+                <div class="perk-card-particles">
+                    <span></span><span></span><span></span>
+                </div>
+            ` : ''}
                     <div class="perk-rarity-badge">${item.rarity}</div>
                     <div class="perk-card-art">
                         <div class="perk-card-icon">${icon}</div>
@@ -1067,7 +1081,7 @@ class UI {
 
         const {
             type,
-            wave,
+            round,
             chipsEarned,
             rollsRemaining,
             rollsToCash,
@@ -1090,17 +1104,19 @@ class UI {
         let clickHandler = '';
         let screenStyle = '';
 
-        if (type === 'wave_complete') {
-            title = `Wave ${wave} Complete`;
+        if (type === 'round_complete') {
+            title = `Round ${round} Complete`;
             subtitle = 'Rewards Summary';
+            // clickHandler is now handled by event listener
             clickHandler = canAdvance ? 'onclick="game.handleContinueFromRewards()"' : '';
             screenStyle = canAdvance ? 'cursor: pointer;' : 'cursor: default;';
             
+            const greenStyle = 'style="color: var(--uncommon)"'; // Green color for money
             contentHtml = `
                 <div class="reward-grid">
                     <div class="reward-card">
                         <div class="reward-label">Ȼ Earned</div>
-                        <div class="reward-value">${chipsEarned}${this.renderChipIcon()}</div>
+                        <div class="reward-value"><span style="color: var(--chip-blue)">${chipsEarned}</span>${this.renderChipIcon()}</div>
                     </div>
                     ${chipsBonus ? `
                     <div class="reward-card">
@@ -1113,36 +1129,36 @@ class UI {
                         <div class="reward-value">${rollsRemaining}</div>
                     </div>
                     <div class="reward-card">
-                        <div class="reward-label">Rolls → Cash</div>
-                        <div class="reward-value">+${rollsToCash}$</div>
+                        <div class="reward-label">${rollsRemaining} Roll → Cash</div>
+                        <div class="reward-value" ${greenStyle}>$${rollsToCash}</div>
                     </div>
                     <div class="reward-card">
-                        <div class="reward-label">Wave Cash</div>
-                        <div class="reward-value">+${baseReward}$</div>
+                        <div class="reward-label">Round Cash</div>
+                        <div class="reward-value" ${greenStyle}>$${baseReward}</div>
                     </div>
                     <div class="reward-card">
                         <div class="reward-label">Interest</div>
-                        <div class="reward-value">+${interestReward}$</div>
+                        <div class="reward-value" ${greenStyle}>$${interestReward}</div>
                     </div>
                     <div class="reward-card">
                         <div class="reward-label">Bonus</div>
-                        <div class="reward-value">+${cashBonus}$</div>
+                        <div class="reward-value" ${greenStyle}>$${cashBonus}</div>
                     </div>
                 </div>
                 <div class="reward-total">
                     <div class="reward-total-label">Total Cash Gained</div>
-                    <div class="reward-total-value">+${totalReward}$</div>
-                    <div class="reward-total-sub">Your Cash: <span class="reward-cash">${totalCash}$</span></div>
+                    <div class="reward-total-value" ${greenStyle}>+$${totalReward}</div>
+                    <div class="reward-total-sub">Your Cash: <span class="reward-cash" ${greenStyle}>$${totalCash}</span></div>
                 </div>
             `;
 
             footerHtml = `
                 <div class="reward-next">
-                    <div class="reward-next-label" style="font-size: 1.2rem; margin-bottom: 10px;">Next: Wave costs <strong>${nextCost}</strong>${this.renderChipIcon()}</div>
                     ${canAdvance
                         ? `<div class="reward-click-hint">Click anywhere to continue</div>`
                         : `<div class="reward-next-bad">CHIPS NEEDED: <strong>${nextCost}${this.renderChipIcon()}</strong></div>`}
                 </div>
+            
             `;
         } else {
             // Game Over / End of Run
@@ -1164,7 +1180,7 @@ class UI {
                     </div>
                     <div class="stat-row">
                         <span class="stat-label">Total Money Earned</span>
-                        <span class="stat-value">${stats.totalCashEarned || 0}$</span>
+                        <span class="stat-value">$${stats.totalCashEarned || 0}</span>
                     </div>
                     <div class="stat-row">
                         <span class="stat-label">Items Rolled</span>
@@ -1179,8 +1195,8 @@ class UI {
                         <span class="stat-value">${timePlayed}</span>
                     </div>
                     <div class="stat-row highlight">
-                        <span class="stat-label">Max Wave</span>
-                        <span class="stat-value">${this.gameState.wave}</span>
+                        <span class="stat-label">Max Round</span>
+                        <span class="stat-value">${this.gameState.round}</span>
                     </div>
                     <button class="stat-row seed-button" 
                         onclick="game.ui.toggleSeedDisplay(this, '${this.gameState.seedString || this.gameState.seed}')"
@@ -1209,27 +1225,66 @@ class UI {
         `;
         this.container.innerHTML = html;
 
-        // Add keyboard navigation
-        if (type === 'wave_complete' && canAdvance) {
-            const handleRewardKey = (e) => {
+        // Add keyboard and click navigation
+        if (type === 'round_complete' && canAdvance) {
+            // Remove any existing listeners first to prevent duplicates
+            if (this._rewardActionHandler) {
+                document.removeEventListener('keydown', this._rewardActionHandler);
+                document.removeEventListener('click', this._rewardActionHandler);
+                this._rewardActionHandler = null;
+            }
+
+            // Define the handler
+            this._rewardActionHandler = (e) => {
                 // If screen changed, remove listener
                 if (this.currentScreen !== 'rewards') {
-                    document.removeEventListener('keydown', handleRewardKey);
+                    if (this._rewardActionHandler) {
+                        document.removeEventListener('keydown', this._rewardActionHandler);
+                        document.removeEventListener('click', this._rewardActionHandler);
+                        this._rewardActionHandler = null;
+                    }
                     return;
                 }
                 
-                // Allow F12, F5 etc
-                if (e.key.startsWith('F') || e.ctrlKey || e.altKey) return;
+                // Allow specific keys/interactions
+                if (e.type === 'keydown') {
+                    // Allow F12, F5 etc
+                    if (e.key.startsWith('F') || e.ctrlKey || e.altKey) return;
+                }
                 
                 e.preventDefault();
-                document.removeEventListener('keydown', handleRewardKey);
-                game.handleContinueFromRewards();
+                if (document.activeElement) document.activeElement.blur();
+
+                // Remove listeners
+                if (this._rewardActionHandler) {
+                    document.removeEventListener('keydown', this._rewardActionHandler);
+                    document.removeEventListener('click', this._rewardActionHandler);
+                    this._rewardActionHandler = null;
+                }
+                
+                // Proceed
+                if (typeof game !== 'undefined' && game.handleContinueFromRewards) {
+                    game.handleContinueFromRewards();
+                } else {
+                    console.error('Game object or handleContinueFromRewards not found');
+                    // Fallback attempt
+                    if (window.game && window.game.handleContinueFromRewards) {
+                         window.game.handleContinueFromRewards();
+                    }
+                }
             };
             
-            // Small delay to prevent accidental skips if holding keys
+            // Small delay to prevent accidental skips if holding keys or double clicking
             setTimeout(() => {
-                if (this.currentScreen === 'rewards') {
-                    document.addEventListener('keydown', handleRewardKey);
+                if (this.currentScreen === 'rewards' && this._rewardActionHandler) {
+                    document.addEventListener('keydown', this._rewardActionHandler);
+                    document.addEventListener('click', this._rewardActionHandler);
+                    
+                    // Add direct click handler to container as fallback/primary
+                    const screen = this.container.querySelector('.reward-screen');
+                    if (screen) {
+                         screen.onclick = this._rewardActionHandler;
+                    }
                 }
             }, 300);
         }
@@ -1290,12 +1345,12 @@ class UI {
                 const id = `idx-boss-${i}`;
                 const name = (b && b.name) || '';
                 const desc = (b && b.description) || '';
-                const wave = (b && b.wave) || '';
+                const round = (b && b.round) || '';
                 return `
-                    <div class="index-entry index-boss" data-name="${escapeAttr(name)}" data-search="${escapeAttr(`${wave} ${desc}`)}">
+                    <div class="index-entry index-boss" data-name="${escapeAttr(name)}" data-search="${escapeAttr(`${round} ${desc}`)}">
                         <button type="button" class="index-entry-toggle" data-target="${id}">
                             <span class="index-entry-name">${escapeHtml(name)}</span>
-                            <span class="index-entry-meta">Wave ${wave}</span>
+                            <span class="index-entry-meta">Round ${round}</span>
                         </button>
                         <div class="index-entry-details" id="${id}" style="display:none">
                             ${desc ? `<div class="index-entry-meta">${escapeHtml(desc)}</div>` : ''}
@@ -1366,20 +1421,20 @@ class UI {
     }
 
     /**
-     * Show wave transition screen
+     * Show round transition screen
      */
-    renderWaveTransition(nextWave) {
+    renderRoundTransition(nextRound) {
         this.currentScreen = 'transition';
         const html = `
             <div class="screen">
-                <div class="screen-title">Wave ${nextWave}</div>
+                <div class="screen-title">Round ${nextRound}</div>
                 <div class="screen-subtitle">New Challenges Await!</div>
                 <div class="screen-content">
-                    <p>You successfully advanced to the next wave.</p>
+                    <p>You successfully advanced to the next round.</p>
                     <p>Your attributes are ready to help you!</p>
                 </div>
-                <button class="btn btn-primary" onclick="game.handleContinueWave()">
-                    Begin Wave ${nextWave}
+                <button class="btn btn-primary" onclick="game.handleContinueRound()">
+                    Begin Round ${nextRound}
                 </button>
             </div>
         `;
@@ -1387,129 +1442,134 @@ class UI {
     }
 
     /**
-     * Show shop between waves
+     * Show shop between rounds
      */
     renderShopScreen() {
-        this.currentScreen = 'shop';
-        // Removed automatic generation to prevent rerolling when returning from other screens
-        // this.shop.generateShopPerks();
-        if (typeof game !== 'undefined' && game.resetRerollCost) {
-            game.resetRerollCost();
-        }
-        
-        const displayWave = this.gameState.pendingNextWave || this.gameState.wave;
-        const rerollCost = (typeof game !== 'undefined') ? game.shopRerollCost : 5;
+        try {
+            this.currentScreen = 'shop';
+            // Removed automatic generation to prevent rerolling when returning from other screens
+            // this.shop.generateShopPerks();
+            if (typeof game !== 'undefined' && game.resetRerollCost) {
+                game.resetRerollCost();
+            }
+            
+            const displayRound = this.gameState.pendingNextRound || this.gameState.round;
+            const rerollCost = (typeof game !== 'undefined') ? game.shopRerollCost : 5;
 
-        const html = `
-            <div class="perk-topbar">
-                <div class="topbar-title">Perks Owned:</div>
-                <div class="topbar-perks" id="topbar-perks">
-                    ${this.renderTopbarPerks()}
-                </div>
-                <button class="stats-button" onclick="game.toggleStats()">📊 Stats</button>
-                <button class="index-button" onclick="game.toggleIndex()">📖 Index</button>
-            </div>
+            const html = `
+                <div class="perk-topbar">
 
-            <div id="stats-modal" class="stats-modal" style="display: none;">
-                <div class="stats-content">
-                    <button class="stats-close" onclick="game.toggleStats()">✕</button>
-                    <div class="stats-title">Your Stats & Attributes</div>
-                    ${this.renderAttributes()}
-                </div>
-            </div>
-            <div id="index-modal" class="index-modal" style="display: none;">
-                <div class="index-content">
-                    <button class="index-close" onclick="game.toggleIndex()">✕</button>
-                    <div class="index-title">📖 Knowledge Index</div>
-                    ${this.renderIndex()}
-                </div>
-            </div>
-
-            <div class="game-header">
-                <div class="game-title">Wave ${displayWave} Shop</div>
-                <div class="game-stats">
-                    <div class="stat-item">
-                        <span class="stat-label">Wave</span>
-                        <span class="stat-value">${displayWave}</span>
+                    <div class="topbar-perks" id="topbar-perks">
+                        ${this.renderTopbarPerks()}
                     </div>
-                    <div class="stat-item cash-with-tooltip">
-                        <span class="stat-label">Cash</span>
-                        <div class="cash-tooltip-wrapper">
-                            <span class="stat-value stat-cash">${this.gameState.cash}$</span>
-                            <div class="interest-tooltip">
-                                <span class="interest-tooltip-text">Interest: ×${this.gameState.interestStacks}</span>
+                    <button class="stats-button" onclick="game.toggleStats()">Stats</button>
+                    <button class="index-button" onclick="game.toggleIndex()">Index</button>
+                </div>
+
+                <div id="stats-modal" class="stats-modal" style="display: none;">
+                    <div class="stats-content">
+                        <button class="stats-close" onclick="game.toggleStats()">✕</button>
+                        <div class="stats-title">Your Stats & Attributes</div>
+                        ${this.renderAttributes()}
+                    </div>
+                </div>
+                <div id="index-modal" class="index-modal" style="display: none;">
+                    <div class="index-content">
+                        <button class="index-close" onclick="game.toggleIndex()">✕</button>
+                        <div class="index-title">📖 Knowledge Index</div>
+                        ${this.renderIndex()}
+                    </div>
+                </div>
+
+                <div class="game-header">
+                    <div class="game-title">Round ${displayRound} Shop</div>
+                    <div class="game-stats">
+                        <div class="stat-item">
+                            <span class="stat-label">Round</span>
+                            <span class="stat-value">${displayRound}</span>
+                        </div>
+                        <div class="stat-item cash-with-tooltip">
+                            <span class="stat-label">Cash</span>
+                            <div class="cash-tooltip-wrapper">
+                                <span class="stat-value stat-cash">${this.gameState.cash}$</span>
+                                <div class="interest-tooltip">
+                                    <span class="interest-tooltip-text">Interest: ×${this.gameState.interestStacks}</span>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
-            </div>
 
-            <div class="game-content">
-                <!-- Left: Consumables (Inventory) -->
-                <div class="section inventory-section">
-                    <div class="section-title">Inventory</div>
-                    <div class="shop-consumables-area">
-                        ${this.renderConsumablesSection()}
+                <div class="game-content">
+                    <!-- Left: Consumables (Inventory) -->
+                    <div class="section inventory-section">
+                        <div class="section-title">Inventory</div>
+                        <div class="shop-consumables-area">
+                            ${this.renderConsumablesSection()}
+                        </div>
+                        
+                        <div class="shop-consumables-area" style="margin-top: 30px; border-top: 1px solid var(--border); padding-top: 20px;">
+                            <div class="shop-section-title" style="margin-bottom: 10px; font-weight: 700;">Buy Consumables</div>
+                            <div class="shop-consumables-grid">
+                                ${this.renderShopConsumables ? this.renderShopConsumables() : ''}
+                            </div>
+                        </div>
                     </div>
-                    
-                    <div class="shop-consumables-area" style="margin-top: 30px; border-top: 1px solid var(--border); padding-top: 20px;">
-                        <div class="shop-section-title" style="margin-bottom: 10px; font-weight: 700;">Buy Consumables</div>
-                        <div class="shop-consumables-grid">
-                            ${this.renderShopConsumables ? this.renderShopConsumables() : ''}
+
+                    <!-- Center: Shop Perks -->
+                    <div class="section roll-section" style="overflow-y: auto;">
+                        <div class="section-title">Shop Perks</div>
+                        <div id="shop-grid" class="perk-card-grid">
+                            ${this.renderShop()}
+                        </div>
+                    </div>
+
+                    <!-- Right: Actions -->
+                    <div class="section loot-section">
+                        <div class="section-title">Actions</div>
+                        <div class="shop-footer-actions" style="display: flex; flex-direction: column; gap: 10px; margin-top: auto; margin-bottom: auto; width: 100%;">
+                            <div class="shop-subtitle" style="text-align: center; margin-bottom: 20px; color: var(--text-muted);">Prepare for the next battle</div>
+                            <button id="reroll-btn" class="reroll-btn" onclick="game.handleRerollShop()" style="margin-bottom: 10px; width: 100%;">
+                                Reroll (<span id="reroll-cost">${rerollCost}</span>$)
+                            </button>
+                            <button class="btn btn-secondary btn-block" onclick="game.handleOpenForging()" style="padding: 12px; width: 100%;">
+                                Forging Chamber
+                            </button>
+                            <button class="btn btn-primary btn-block start-round-btn" onclick="game.handleStartRound()" style="padding: 16px; font-size: 1.2rem; width: 100%;">
+                                Start Round ${displayRound}
+                            </button>
                         </div>
                     </div>
                 </div>
+            `;
+            this.container.innerHTML = html;
+            
+            // Add keyboard navigation
+            const handleShopKey = (e) => {
+                if (this.currentScreen !== 'shop') {
+                    document.removeEventListener('keydown', handleShopKey);
+                    return;
+                }
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    document.removeEventListener('keydown', handleShopKey);
+                    game.handleStartRound();
+                }
+            };
+            // Remove any existing listener first just in case (though difficult to reference anonymous func)
+            // We rely on the screen check to clean up
+            document.addEventListener('keydown', handleShopKey);
 
-                <!-- Center: Shop Perks -->
-                <div class="section roll-section" style="overflow-y: auto;">
-                    <div class="section-title">Shop Perks</div>
-                    <div id="shop-grid" class="perk-card-grid">
-                        ${this.renderShop()}
-                    </div>
-                </div>
-
-                <!-- Right: Actions -->
-                <div class="section loot-section">
-                    <div class="section-title">Actions</div>
-                    <div class="shop-footer-actions" style="display: flex; flex-direction: column; gap: 10px; margin-top: auto; margin-bottom: auto; width: 100%;">
-                        <div class="shop-subtitle" style="text-align: center; margin-bottom: 20px; color: var(--text-muted);">Prepare for the next battle</div>
-                        <button id="reroll-btn" class="reroll-btn" onclick="game.handleRerollShop()" style="margin-bottom: 10px; width: 100%;">
-                            Reroll (<span id="reroll-cost">${rerollCost}</span>$)
-                        </button>
-                        <button class="btn btn-secondary btn-block" onclick="game.handleOpenForging()" style="padding: 12px; width: 100%;">
-                            Forging Chamber
-                        </button>
-                        <button class="btn btn-primary btn-block start-wave-btn" onclick="game.handleStartWave()" style="padding: 16px; font-size: 1.2rem; width: 100%;">
-                            Start Wave ${displayWave}
-                        </button>
-                    </div>
-                </div>
-            </div>
-        `;
-        this.container.innerHTML = html;
-        
-        // Add keyboard navigation
-        const handleShopKey = (e) => {
-            if (this.currentScreen !== 'shop') {
-                document.removeEventListener('keydown', handleShopKey);
-                return;
-            }
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                document.removeEventListener('keydown', handleShopKey);
-                game.handleStartWave();
-            }
-        };
-        // Remove any existing listener first just in case (though difficult to reference anonymous func)
-        // We rely on the screen check to clean up
-        document.addEventListener('keydown', handleShopKey);
-
-        this.attachEventListeners();
-        setTimeout(() => {
-            if (typeof game !== 'undefined' && game.attachTiltEffect) {
-                game.attachTiltEffect();
-            }
-        }, 100);
+            this.attachEventListeners();
+            setTimeout(() => {
+                if (typeof game !== 'undefined' && game.attachTiltEffect) {
+                    game.attachTiltEffect();
+                }
+            }, 100);
+        } catch (error) {
+            console.error("Error in renderShopScreen:", error);
+            this.container.innerHTML = `<div style="padding: 20px; color: red;">Error loading shop: ${error.message}</div>`;
+        }
     }
 
     renderForgingScreen(perkId = null) {
@@ -1524,7 +1584,7 @@ class UI {
         const forgeable = this.gameState.getForgeableOptions ? this.gameState.getForgeableOptions() : [];
         
         // Sort recipes: Tier (Ascending) -> Name (Ascending)
-        const tierWeight = { 'common': 1, 'uncommon': 2, 'rare': 3, 'legendary': 4, 'special': 5 };
+        const tierWeight = {'special': 0, 'common': 1, 'uncommon': 2, 'rare': 3, 'legendary': 4, 'mythical':5, 'godlike': 6, 'ultimate':7 };
         forgeable.sort((a, b) => {
             const ta = tierWeight[a.tier] || 0;
             const tb = tierWeight[b.tier] || 0;
@@ -1551,10 +1611,17 @@ class UI {
             }
             
             // Perk Card Style for Sidebar (mimics shop cards)
+            const isHighTier = ['legendary', 'mythical', 'godlike', 'ultimate'].includes(rarity);
+            
             return `
                     <div class="perk-card perk-card-shop perk-card-forge ${rarityClass} ${isSelected ? 'perk-selected' : ''}" 
                          onclick="game.handleForgeSelect('${option.id}')"
                          title="${desc}">
+                        ${isHighTier ? `
+                            <div class="perk-card-particles">
+                                <span></span><span></span><span></span>
+                            </div>
+                        ` : ''}
                         <div class="perk-rarity-badge">${rarity.toUpperCase()}</div>
                         <div class="perk-card-art">
                             <div class="perk-card-icon">${icon}</div>
@@ -1607,7 +1674,7 @@ class UI {
 
         const html = `
             <div class="perk-topbar">
-                <div class="topbar-title">Perks Owned:</div>
+
                 <div class="topbar-perks" id="topbar-perks">
                     ${this.renderTopbarPerks()}
                 </div>
@@ -1791,9 +1858,15 @@ class UI {
                 // Root node (Target) - Full Card
                 const canForge = this.gameState.canForgePerk(id).canForge;
                 const statusClass = canForge ? 'status-ready' : 'status-pending';
+                const isHighTier = perk.tier && ['legendary', 'mythical', 'godlike', 'ultimate'].includes(perk.tier);
                 
                 nodeHtml = `
                     <div class="perk-card perk-card-tree target-node-card ${rarityClass} ${statusClass}">
+                        ${isHighTier ? `
+                            <div class="perk-card-particles">
+                                <span></span><span></span><span></span>
+                            </div>
+                        ` : ''}
                         <div class="perk-rarity-badge">${perk.tier ? perk.tier.toUpperCase() : 'COMMON'}</div>
                         <div class="perk-card-art">
                             <div class="perk-card-icon">${icon}</div>
@@ -1932,6 +2005,7 @@ class UI {
                 flex-direction: column;
                 gap: 10px; /* Spacing between cards */
                 padding-right: 5px;
+                margin-top: 10px;
             }
 
             /* Main Section */
@@ -2233,7 +2307,6 @@ class UI {
                 box-shadow: 0 4px 6px rgba(0,0,0,0.3);
             }
             .ingredient-node-simple:hover {
-                transform: scale(1.05);
                 border-color: #666;
                 z-index: 10;
             }
@@ -2284,9 +2357,9 @@ class UI {
             /* Tooltip Styles */
             .ingredient-tooltip {
                 position: absolute;
-                bottom: 120%;
+                top: 50%;
                 left: 50%;
-                transform: translateX(-50%);
+                transform: translate(-50%, -50%);
                 background: rgba(10, 10, 10, 0.95);
                 border: 1px solid #555;
                 border-radius: 8px;
@@ -2296,14 +2369,13 @@ class UI {
                 z-index: 100;
                 pointer-events: none;
                 opacity: 0;
-                transition: opacity 0.2s, transform 0.2s;
+                transition: opacity 0.2s;
                 visibility: hidden;
                 text-align: center;
             }
             .ingredient-node-simple:hover .ingredient-tooltip {
                 opacity: 1;
                 visibility: visible;
-                transform: translateX(-50%) translateY(-5px);
             }
             .tooltip-header {
                 display: flex;
@@ -2554,7 +2626,7 @@ class UI {
                     
                     <div class="screen-description">
                         <p>Roll items. Sell for chips. Survive.</p>
-                        <p>Every 5th wave is a <span class="text-danger">BOSS</span>.</p>
+                        <p>Every 5th round is a <span class="text-danger">BOSS</span>.</p>
                         <p>Build your engine. Break the bank.</p>
                     </div>
 
@@ -2595,10 +2667,14 @@ class UI {
             document.body.appendChild(container);
         }
         const existing = container.querySelector(`[data-msg-key="${escapeAttr(key)}"]`);
+        let duration = 4000;
+        if (type === 'epic') duration = 6000;
+        if (type === 'unlock') duration = 8000;
+
         if (existing) {
             let count = parseInt(existing.getAttribute('data-msg-count') || '1', 10) + 1;
             existing.setAttribute('data-msg-count', String(count));
-            existing.innerHTML = `${message} <span class="notification-count">(×${count})</span>`;
+            existing.innerHTML = `${message} <span class="notification-count">(×${count})</span><div class="notification-progress" style="animation-duration: ${duration}ms"></div>`;
             existing.classList.remove('hiding'); // Reset hiding state if it reappears
             const oldT = existing.getAttribute('data-timeout');
             if (oldT) clearTimeout(parseInt(oldT, 10));
@@ -2608,16 +2684,21 @@ class UI {
             div.className = `notification notification-${type}`;
             div.setAttribute('data-msg-key', key);
             div.setAttribute('data-msg-count', '1');
-            div.innerHTML = message;
+            div.innerHTML = `${message}<div class="notification-progress" style="animation-duration: ${duration}ms"></div>`;
             container.appendChild(div);
         }
-        const duration = type === 'epic' ? 6000 : 4000;
+        
         const t = setTimeout(() => {
             div.classList.add('hiding');
-            div.addEventListener('animationend', () => {
-                div.remove();
-            }, { once: true });
+            const onEnd = (e) => {
+                if (e.target === div && div.classList.contains('hiding')) {
+                    div.remove();
+                    div.removeEventListener('animationend', onEnd);
+                }
+            };
+            div.addEventListener('animationend', onEnd);
         }, duration);
         div.setAttribute('data-timeout', String(t));
     }
 }
+
