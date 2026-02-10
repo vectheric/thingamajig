@@ -25,7 +25,8 @@ class Inventory {
             templateId: thing.id,
             name: thing.name,
             value: thing.value,
-            rarity: thing.rarity,
+            rarity: thing.tier,
+            rarityScore: thing.rarityScore,
             nameStyle: thing.nameStyle,
             attribute: thing.attribute,
             mods: thing.mods,
@@ -40,6 +41,33 @@ class Inventory {
             totalValue: totalValue,
             isEmpty: false,
             count: items.length
+        };
+    }
+
+    /**
+     * Get paginated items
+     */
+    getPaginatedItems(page, itemsPerPage) {
+        const display = this.getDisplay();
+        const items = display.items;
+        const totalItems = items.length;
+        const totalPages = Math.ceil(totalItems / itemsPerPage) || 1;
+        
+        // Ensure current page is valid
+        if (page >= totalPages) page = totalPages - 1;
+        if (page < 0) page = 0;
+        
+        const start = page * itemsPerPage;
+        const end = start + itemsPerPage;
+        const paginatedItems = items.slice(start, end);
+        
+        return {
+            items: paginatedItems,
+            currentPage: page,
+            totalPages: totalPages,
+            totalItems: totalItems,
+            hasPrev: page > 0,
+            hasNext: page < totalPages - 1
         };
     }
 

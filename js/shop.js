@@ -54,17 +54,44 @@ class Shop {
             this.generateShopPerks();
         }
 
-        return this.currentShopPerks.map(perk => ({
-            id: perk.id,
-            name: perk.name,
-            description: perk.description,
-            cost: perk.cost,
-            rarity: perk.rarity,
-            type: perk.type,
-            special: perk.special,
-            nameStyle: perk.nameStyle,
-            owned: !!this.gameState.perksPurchased[perk.id]
-        }));
+        return this.currentShopPerks.map(perk => {
+            const ownedCount = this.gameState.perksPurchased[perk.id] || 0;
+            const maxStack = (perk.properties && perk.properties.stack) || 1;
+            const isMaxed = ownedCount >= maxStack;
+
+            // Check for conflicts
+            let isConflicted = false;
+            let conflictReason = null;
+            if (perk.properties && perk.properties.conflict) {
+                const conflicts = Array.isArray(perk.properties.conflict) ? perk.properties.conflict : [perk.properties.conflict];
+                for (const conflictId of conflicts) {
+                    if (this.gameState.perksPurchased[conflictId]) {
+                        isConflicted = true;
+                        // Try to find name of conflicting perk
+                        const conflictPerk = typeof getPerkById === 'function' ? getPerkById(conflictId) : null;
+                        conflictReason = conflictPerk ? conflictPerk.name : conflictId;
+                        break;
+                    }
+                }
+            }
+
+            return {
+                id: perk.id,
+                name: perk.name,
+                description: perk.description,
+                cost: perk.cost,
+                rarity: perk.rarity || perk.tier, // Fallback to tier if rarity is missing
+                type: perk.type,
+                icon: perk.icon,
+                special: perk.special,
+                nameStyle: perk.nameStyle,
+                owned: isMaxed, // Only show as owned (disabled) if maxed out
+                conflicted: isConflicted,
+                conflictReason: conflictReason,
+                count: ownedCount, // Pass current count for UI if needed
+                maxStack: maxStack
+            };
+        });
     }
 
     /**
@@ -103,7 +130,8 @@ class Shop {
         // Remove from shop
         this.currentShopConsumables.splice(index, 1);
         
-        return { success: true, message: `Purchased [${consumable.name}]` };
+        const color = consumable.nameStyle?.color || consumable.color || '#fff';
+        return { success: true, message: `Purchased <span style="color:${color}">[${consumable.name}]</span>` };
     }
 
     /**
@@ -127,10 +155,8 @@ class Shop {
             }
 
             if (index !== -1) {
-                const perk = this.currentShopPerks[index];
-                if (perk.type === 'subperk' || perk.tier === 'special') {
-                    this.currentShopPerks.splice(index, 1);
-                }
+                // Remove purchased perk from shop (single stock per card)
+                this.currentShopPerks.splice(index, 1);
             }
         }
 
@@ -159,7 +185,7 @@ class Shop {
         const entries = Object.entries(this.gameState.perksPurchased)
             .filter(([_, owned]) => owned)
             .map(([perkId, _]) => {
-                let perk = PERKS[Object.keys(PERKS).find(k => PERKS[k].id === perkId)];
+                let perk = typeof getPerkById === 'function' ? getPerkById(perkId) : null;
                 if (!perk && typeof getBossPerkById === 'function') perk = getBossPerkById(perkId);
                 return perk ? { id: perkId, name: perk.name } : null;
             })

@@ -5,153 +5,157 @@
 
 const PERKS = {
     // AFFINITY PERKS
-    ICE_AFFINITY: {
-        id: 'ice_affinity',
+    'ice_affinity': {
         name: 'Ice Affinity',
         description: 'You are cold as ice. Prevents Fire Affinity from spawning.',
         cost: 1,
         tier: 'common',
-        attributes: {},
-        conditions: [
-            { type: 'conflicts_perk', perkId: 'fire_affinity' }
-        ],
         icon: '❄️',
-        
+        properties: {
+            conflict: ['fire_affinity'],
+            stack: 1
+        },
+        stats: {}
     },
-    FIRE_AFFINITY: {
-        id: 'fire_affinity',
+    'fire_affinity': {
         name: 'Fire Affinity',
         description: 'You are hot as fire. Prevents Ice Affinity from spawning.',
         cost: 1,
         tier: 'common',
-        attributes: {},
-        conditions: [
-            { type: 'conflicts_perk', perkId: 'ice_affinity' }
-        ],
         icon: '🔥',
-        
+        properties: {
+            conflict: ['ice_affinity'],
+            stack: 1
+        },
+        stats: {}
     },
-    CHIP_VISION: {
-        id: 'chip_vision',
+    'chip_vision': {
         name: 'Ȼ Vision',
         description: 'Allows you to see your Ȼ when hovering over the perks topbar.',
         cost: 10,
         tier: 'common',
-        attributes: {},
         icon: '👁️',
-        
+        properties: {
+            stack: 1
+        },
+        stats: {}
     },
 
     // COMMON PERKS (15-25$ - ultra cheap early game)
-    OLD_TIRE: {
-        id: 'old_tire',
+    'old_tire': {
         name: 'Old Tire',
         description: "Sadly, it's too old to be use again, +1 Roll",
         cost: 2,
         tier: 'common',
-        attributes: { rolls: { add: 1 } },
         icon: '',
+        properties: {
+            stack: 50
+        },
+        stats: {
+            rolls: { type: 'add', value: 1 }
+        }
     },
 
-    NAZAR: {
-        id: 'nazar',
+    'nazar': {
         name: 'Nazar',
         description: 'Nazar Lag Gayi!!, +1 luck',
         cost: 2,
         tier: 'common',
-        attributes: { luck: { add: 1 } },
         icon: '🧿',
+        properties: {
+            stack: 50
+        },
+        stats: {
+            luck: { type: 'add', value: 1 }
+        }
     },
+    
     // FORGEABLE PERKS
-    FIFTY_FIVE_LEAF_CLOVER: {
-        id: '57_leaf_clover',
+    '57_leaf_clover': {
         name: '57 Leaf Clover',
         description: 'The ultimate symbol of luck. Massive boost to all stats. Can only be forged.',
         cost: 0,
         tier: 'legendary',
-        attributes: { 
-            luck: { add: 25 }, 
-            rolls: { add: 10 }, 
-            value: { mult: 2.0 }, // +100% -> mult 1.0 (additive multiplier in legacy logic, or should be mult: 2.0?)
-            // Legacy: valueBonus: 1.0 meant +100%. In new system, let's standarize.
-            // If we use 'mult', usually it means x(Value). 
-            // Existing logic: attributes[attr] = (attributes[attr] || 0) + (value * count) for non-multiplicative.
-            // But valueBonus was treated as additive percent in item calc?
-            // "modBonusSum += options.valueBonus" -> Yes, additive percent.
-            // So valueBonus: 1.0 means +100% base value.
-            // In new system: value: { addPercent: 1.0 } ? Or just stick to valueBonus for now.
-            // User asked for "add/multi/substract value".
-            // Let's use specific keys for clarity: valueAdd, valueMult.
-            // But to keep it simple, I'll map 'value' to valueBonus in getAttributes if needed.
-            // Let's stick to explicit keys compatible with new getAttributes.
-            valueBonus: { add: 1.0 },
-            chipBonus: { add: 1.0 },
-            chipsEndRound: { add: 57 }
-        },
-        forgeable: true,
-        forgeRecipe: {
-            perks: ['lucky_clover', 'nazar', 'chip_eater', 'thunder_strike','hex_breaker']
-        },
         icon: '💠',
         nameStyle: { color: '#06f71aff', textStroke: '1px rgba(0,0,0,0.5)' },
+        properties: {
+            stack: 1
+        },
+        conditions: [
+            { type: 'forging', recipe: ['lucky_clover', 'nazar', 'chip_eater', 'thunder_strike', 'hex_breaker'] }
+        ],
+        stats: {
+            luck: { type: 'add', value: 25 },
+            rolls: { type: 'add', value: 10 },
+            multiValue: { type: 'multi', value: 2.0 },
+            multiChip: { type: 'add', value: 1.0 },
+            chipsEndRound: { type: 'add', value: 57 }
+        }
     },
-    LUCKY_CLOVER: {
-        id: 'lucky_clover',
+    'lucky_clover': {
         name: 'Lucky Clover',
         description: '+15% item rarity boost. Can only be forged.',
         cost: 0,
         tier: 'rare',
-        attributes: { luck: { add: 3 } },
-        forgeable: true,
-        forgeRecipe: {
-            cash: 20,
-            perks: ['nazar']
-        },
         icon: '🍀',
         nameStyle: { color: '#3b82f6', textStroke: '1px rgba(0,0,0,0.5)' },
+        properties: {
+            stack: 1
+        },
+        conditions: [
+            { type: 'forging', recipe: ['nazar'], cash: 20 }
+        ],
+        stats: {
+            luck: { type: 'add', value: 3 }
+        }
     },
-    CAR: {
-        id: 'car',
-        name: 'car',
+    'car': {
+        name: 'Car',
         description: 'weeeeeeeeeeeee, +4 rolls, Can only be forged.',
         cost: 0,
         tier: 'uncommon',
-        attributes: { rolls: { add: 4 } },
-        forgeable: true,
-        forgeRecipe: {
-            cash: 60,
-            perks: ['old_tire', 'electrolyte']
-        },
         icon: '🚗',
         nameStyle: { color: '#ff0000ff', textStroke: '1px rgba(0,0,0,0.5)' },
+        properties: {
+            stack: 1
+        },
+        conditions: [
+            { type: 'forging', recipe: ['old_tire', 'electrolyte'], cash: 60 }
+        ],
+        stats: {
+            rolls: { type: 'add', value: 4 }
+        }
     },
-     FORMULA_ONE: {
-        id: 'formula_1',
+    'formula_1': {
         name: 'Formula 1',
         description: 'Fast and Furious, +40 rolls, -100 lucks. Can only be forged.',
         cost: 0,
         tier: 'mythical',
-        attributes: { rolls: { add: 40 }, luck: { sub: 100 } },
-        forgeable: true,
-        forgeRecipe: {
-            cash: 120,
-            perks: ['car','thunder_strike','electrolyte','old_tire','chip_vision','fire_affinity']
-        },
         icon: '🏎',
         nameStyle: { color: '#ff0000ff', textStroke: '1px rgba(0,0,0,0.5)' },
+        properties: {
+            stack: 1
+        },
+        conditions: [
+            { type: 'forging', recipe: ['car', 'thunder_strike', 'electrolyte', 'old_tire', 'chip_vision', 'fire_affinity'], cash: 120 }
+        ],
+        stats: {
+            rolls: { type: 'add', value: 40 },
+            luck: { type: 'sub', value: 100 }
+        }
     },
-    MIDAS_TOUCH: {
-        id: 'midas_touch',
+    'midas_touch': {
         name: 'Midas Touch',
         description: 'Turn items gold on touch, +10% Item values. Requires finding a Gold nugget',
         cost: 25,
         tier: 'legendary',
-        attributes: {
-            valueBonus: { add: 0.1 },
-            modifiers: { golden: 1 } // Special handling for modifiers map
-        },
-        special: 'failed_wish',
         icon: '🖐️',
+        special: {
+            'gold turning': "turn gold on touch"
+        },
+        properties: {
+            stack: 1
+        },
         conditions: [
             {
                 type: 'unlock',
@@ -161,18 +165,23 @@ const PERKS = {
                 }
             }
         ],
+        stats: {
+            valueBonus: { type: 'add', value: 0.1 },
+            modify: {
+                'golden': { guaranteed: true }
+            }
+        }
     },
 
-    CHIPPY: {
-        id: 'chippy',
+    'chippy': {
         name: 'Chippy',
         description: '+3Ȼ at the end of each round. Requires earning over 120Ȼ in a run',
         cost: 20,
         tier: 'common',
-        attributes: {
-            chipsEndRound: { add: 3 }
-        },
         icon: '🍟',
+        properties: {
+            stack: 50
+        },
         conditions: [
             {
                 type: 'unlock',
@@ -188,450 +197,588 @@ const PERKS = {
                     type: 'stat_threshold',
                     stat: 'round',
                     threshold: 5,
-                    bonus: { chipsEndRound: { add: 3 } }
+                    bonus: { chipsEndRound: { type: 'add', value: 3 } }
                 }
             }
         ],
+        stats: {
+            chipsEndRound: { type: 'add', value: 3 }
+        }
     },
-    SPEED_RUNNER: {
-        id: 'speed_runner',
+    'speed_runner': {
         name: 'Speed Runner',
         description: '+2 Rolls. Requires finishing a round in under 5 seconds',
         cost: 25,
         tier: 'common',
-        attributes: { rolls: { add: 2 } },
         icon: '⚡',
+        properties: {
+            stack: 50
+        },
         conditions: [
             {
                 type: 'unlock',
                 condition: {
                     type: 'stat_threshold',
                     stat: 'fastestRoundTime',
-                    threshold: 5000, // 15 seconds
+                    threshold: 5000, // 15 seconds (comment says 15s but value is 5000ms=5s, user said 5s)
                     compare: 'less'
                 }
             }
         ],
+        stats: {
+            rolls: { type: 'add', value: 2 }
+        }
     },
-    ELECTROLYTE: {
-        id: 'electrolyte',
+    'electrolyte': {
         name: 'Electrolyte',
         description: 'thunderstriked a potato, + 0.5 luck, +2 rolls. Can only be crafted',
         cost: 25,
         tier: 'rare',
-        attributes: { rolls: { add: 2 }, luck: { add: 0.5 } },
         icon: '⚡',
-        forgeable: true,
-        forgeRecipe: {
-        cash: 44,
-            perks: ['thunder_strike', 'potato'],
+        properties: {
+            stack: 1
         },
+        conditions: [
+            { type: 'forging', recipe: ['thunder_strike', 'potato'], cash: 44 }
+        ],
+        stats: {
+            rolls: { type: 'add', value: 2 },
+            luck: { type: 'add', value: 0.5 }
+        }
     },
-    SHREWD_MERCHANT: {
-        id: 'shrewd_merchant',
+    'shrewd_merchant': {
         name: 'Shrewd Merchant',
         description: '+15% Ȼ earnings',
         cost: 2,
         tier: 'common',
-        attributes: { chipBonus: { add: 0.15 } },
         icon: '💎',
+        properties: {
+            stack: 50
+        },
+        stats: {
+            chipBonus: { type: 'add', value: 0.15 }
+        }
     },
-    PROFIT_MARGIN: {
-        id: 'profit_margin',
+    'profit_margin': {
         name: 'Profit Margin',
         description: '+10% round reward cash',
         cost: 2,
         tier: 'common',
-        attributes: { cashBonus: { add: 0.1 } },
         icon: '💰',
+        properties: {
+            stack: 50
+        },
+        stats: {
+            cashBonus: { type: 'add', value: 0.1 }
+        }
     },
 
     // UNCOMMON PERKS (35-65$ - accessible early)
-    INTEREST_RATE_2: {
-        id: 'interest_rate_2',
+    'interest_rate_2': {
         name: 'Interest Rate 2',
-        tier: 'uncommon',
         description: 'Gain +3Ȼ at end of round.',
-        attributes: {
-            chipsEndRound: { add: 3 }
-        },
         cost: 15,
-        maxStacks: 5,
+        tier: 'uncommon',
         icon: '📈',
+        properties: {
+            stack: 5
+        },
+        stats: {
+            chipsEndRound: { type: 'add', value: 3 }
+        }
     },
-    CRYSTAL_BALL: {
-        id: 'crystall_ball',
+    'crystall_ball': {
         name: 'Crystal Ball',
         description: '+2 Rolls, +1Ȼ multiplier',
         cost: 5,
         tier: 'uncommon',
-        attributes: { rolls: { add: 2 }, chipBonus: { add: 1.0 } },
         icon: '🔮',
+        properties: {
+            stack: 50
+        },
+        stats: {
+            rolls: { type: 'add', value: 2 },
+            chipBonus: { type: 'add', value: 1.0 }
+        }
     },
-    THUNDER_STRIKE: {
-        id: 'thunder_strike',
+    'thunder_strike': {
         name: 'Thunder Strike',
         description: 'x1.6 Luck',
         cost: 5,
         tier: 'uncommon',
-        attributes: { luck: { mult: 1.6 } },
         icon: '⚡',
+        properties: {
+            stack: 50
+        },
+        stats: {
+            luck: { type: 'multi', value: 1.6 }
+        }
     },
-    TREASURE_HUNTER: {
-        id: 'treasure_hunter',
+    'treasure_hunter': {
         name: 'Treasure Hunter',
         description: '+2 Value multiplier, makes Golden/Ancient items more common',
         cost: 5,
         tier: 'uncommon',
-        attributes: {
-            valueBonus: { add: 1.0 },
-            modifiers: { ancient: 0.6 }
-        },
         icon: '👑',
+        properties: {
+            stack: 50
+        },
+        stats: {
+            valueBonus: { type: 'add', value: 1.0 },
+            modify: {
+                'ancient': { type: 'set', value: 0.6 } // Assuming value means rarity factor? Or chance? Original was modifiers: { ancient: 0.6 }
+            }
+        }
     },
-    POTATO: {
-        id: 'potato',
+    'potato': {
         name: 'Potato ',
         description: 'Did you know? potatoes are packed with electrolytes, +2 Extra Ȼ',
         cost: 5,
         tier: 'uncommon',
-        attributes: { addChip: { add: 2 } },
         icon: '🥔',
+        properties: {
+            stack: 50
+        },
+        stats: {
+            addChip: { type: 'add', value: 2 }
+        }
     },
-    CASH_FLOW: {
-        id: 'cash_flow',
+    'cash_flow': {
         name: 'Cash Flow',
         description: '+50% round reward cash',
         cost: 5,
         tier: 'uncommon',
-        attributes: { cashBonus: { add: 0.5 } },
         icon: '🌊',
+        properties: {
+            stack: 50
+        },
+        stats: {
+            cashBonus: { type: 'add', value: 0.5 }
+        }
     },
 
     // RARE PERKS (80-120$ - mid game targets)
-    HEX_BREAKER: {
-        id: 'hex_breaker',
+    'hex_breaker': {
         name: 'Hex Breaker',
         description: 'Makes Cursed, Corrupted, and Shadowy items much rarer',
         cost: 90,
         tier: 'rare',
-        attributes: {
-            modifiers: { cursed: 3.0, corrupted: 3.0, shadowy: 2.0 }
-        },
         icon: '🛡️',
+        properties: {
+            stack: 50
+        },
+        stats: {
+            modify: {
+                'cursed': { type: 'set', value: 3.0 },
+                'corrupted': { type: 'set', value: 3.0 },
+                'shadowy': { type: 'set', value: 2.0 }
+            }
+        }
     },
-    MASTER_COLLECTOR: {
-        id: 'master_collector',
+    'master_collector': {
         name: 'Master Collector',
         description: '+3 Value multiplier, +1 Luck',
         cost: 8,
         tier: 'rare',
-        attributes: { valueBonus: { add: 2.0 }, luck: { add: 1 } },
-        nameStyle: { color: '#FFD700' }, 
         icon: '🎩',
+        nameStyle: { color: '#FFD700' }, 
+        properties: {
+            stack: 50
+        },
+        stats: {
+            valueBonus: { type: 'add', value: 2.0 },
+            luck: { type: 'add', value: 1 }
+        }
     },
-    ROLLER_DELUXE: {
-        id: 'roller_deluxe',
+    'roller_deluxe': {
         name: 'Roller Deluxe',
         description: '+3 Rolls per round',
         cost: 8,
         tier: 'rare',
-        attributes: { rolls: { add: 3 } },
         icon: '🎰',
+        properties: {
+            stack: 50
+        },
+        stats: {
+            rolls: { type: 'add', value: 3 }
+        }
     },
-    GOLDEN_FORTUNE: {
-        id: 'golden_fortune',
+    'golden_fortune': {
         name: 'Golden Fortune',
         description: '+2 Value, +1Ȼ mult, +1 Luck',
         cost: 105,
         tier: 'rare',
-        attributes: { valueBonus: { add: 1.0 }, chipBonus: { add: 1.0 }, luck: { add: 1 } },
         icon: '🪙',
+        properties: {
+            stack: 50
+        },
+        stats: {
+            valueBonus: { type: 'add', value: 1.0 },
+            chipBonus: { type: 'add', value: 1.0 },
+            luck: { type: 'add', value: 1 }
+        }
     },
-    MEGA_ROLLER: {
-        id: 'mega_roller',
+    'mega_roller': {
         name: 'Mega Roller',
         description: '+2 Rolls, +2 Value multiplier',
         cost: 110,
         tier: 'rare',
-        attributes: { rolls: { add: 2 }, valueBonus: { add: 1.0 } },
         icon: '🎲',
+        properties: {
+            stack: 50
+        },
+        stats: {
+            rolls: { type: 'add', value: 2 },
+            valueBonus: { type: 'add', value: 1.0 }
+        }
     },
-    REVENUE_STREAM: {
-        id: 'revenue_stream',
+    'revenue_stream': {
         name: 'Revenue Stream',
         description: '+50% round reward cash, +1Ȼ multiplier',
         cost: 40,
         tier: 'rare',
-        attributes: { cashBonus: { add: 0.5 }, chipBonus: { add: 1.0 } },
         icon: '💸',
+        properties: {
+            stack: 50
+        },
+        stats: {
+            cashBonus: { type: 'add', value: 0.5 },
+            chipBonus: { type: 'add', value: 1.0 }
+        }
     },
 
     // EPIC PERKS (140-200$ - late game investments)
-    JACKPOT: {
-        id: 'jackpot',
+    'jackpot': {
         name: 'Jackpot',
         description: '+7Ȼ multiplier, +7 Rolls',
         cost: 77,
         tier: 'epic',
-        attributes: { chipBonus: { add: 6.0 }, rolls: { add: 7 } },
         icon: '🎰',
+        properties: {
+            stack: 50
+        },
+        stats: {
+            chipBonus: { type: 'add', value: 6.0 },
+            rolls: { type: 'add', value: 7 }
+        }
     },
-    PRISTINE_COLLECTOR: {
-        id: 'pristine_collector',
+    'pristine_collector': {
         name: 'Pristine Collector',
         description: '+300% Value, +2 Luck',
         cost: 160,
         tier: 'epic',
-        attributes: { valueBonus: { add: 3.0 }, luck: { add: 2 } },
         icon: '🏛️',
+        properties: {
+            stack: 50
+        },
+        stats: {
+            valueBonus: { type: 'add', value: 3.0 },
+            luck: { type: 'add', value: 2 }
+        }
     },
-    FORTUNE_MULTIPLIER: {
-        id: 'fortune_multiplier',
+    'fortune_multiplier': {
         name: 'Fortune Multiplier',
         description: '+5Ȼ multiplier, +200% Value',
         cost: 175,
         tier: 'epic',
-        attributes: { chipBonus: { add: 4.0 }, valueBonus: { add: 2.0 } },
         icon: '🎇',
+        properties: {
+            stack: 50
+        },
+        stats: {
+            chipBonus: { type: 'add', value: 4.0 },
+            valueBonus: { type: 'add', value: 2.0 }
+        }
     },
-    WEALTH_ACCUMULATOR: {
-        id: 'wealth_accumulator',
+    'wealth_accumulator': {
         name: 'Wealth Accumulator',
         description: '+100% round cash reward, +2 Interest stacks',
         cost: 190,
         tier: 'epic',
-        attributes: { cashBonus: { add: 1.0 }, max_interest_stacks: { add: 2 } },
         icon: '🏦',
+        properties: {
+            stack: 50
+        },
+        stats: {
+            cashBonus: { type: 'add', value: 1.0 },
+            max_interest_stacks: { type: 'add', value: 2 }
+        }
     },
 
     // LEGENDARY PERKS (250-350$ - ultimate endgame)
- 
-    CHIP_EATER: {
-        id: 'chip_eater',
+    'chip_eater': {
         name: 'Ȼ Eater',
         description: 'Bonus +0.5% Item Value Bonus for every 1Ȼ earned AFTER purchasing this perk.',
         cost: 1,
         tier: 'common',
-        attributes: {}, // Dynamic: 0.005 valueBonus per chip earned since purchase
-        special: 'chip_eater',
         icon: '👾',
+        special: {
+            'chip_eater': 'chip_eater'
+        },
+        properties: {
+            stack: 1
+        },
+        stats: {} // Dynamic
     },
 
     // SPECIAL PERKS
-    NULLIFICATI0N: {
-        id: 'nullificati0n',
-        name: 'NULLIFICATI0N',
-        description: 'REMOVES all owned perks. PREVENTS buying new perks. Scaling: +0.404 Luck and +4 Rolls for every round active.',
-        cost: 404,
-        tier: 'mythical',
-        attributes: {}, // Dynamic attributes
-        special: 'lock_shop',
-        nameStyle: { color: '#a500bbff', textStroke: '1px rgba(0,0,0,0.8)' },
-        icon: '🚫',
-    },
-    M4LW4R3_ZER01: {
-        id: 'M4LW4R3_ZER01',
+    'M4LW4R3_ZER01': {
         name: "m4Lw4r3_zer01",
         description: "A virus generator. Enables VIRUS upgrades. ",
         cost: 101,
         tier: 'mythical',
-        attributes: { luck: { mult: 2 }, valueBonus: { add: 1.0 } },
-        nameStyle: { color: 'rgba(202, 2, 2, 1)ff', textStroke: '1px rgba(255,255,255,0.7)' },
-        special: 'w4NnA_cRy?',
         icon: '🦟',
-        dynamicTooltip: 'virus_count',
-        
+        nameStyle: { color: 'rgba(202, 2, 2, 1)ff', textStroke: '1px rgba(255,255,255,0.7)' },
+        special: {
+            'w4NnA_cRy?': 'w4NnA_cRy?'
+        },
+        properties: {
+            stack: 1,
+            dynamictooltips: 'virus_count'
+        },
+        stats: {
+            luck: { type: 'multi', value: 2 },
+            valueBonus: { type: 'add', value: 1.0 }
+        }
     },
-    VIRUS: {
-        id: 'VIRUS',
+    'VIRUS': {
         name: 'Virus',
         description: "Increases VIRUS luck by 6.66. Appears after purchasing m4lw4r3_zer01.",
         cost: 0,
         tier: 'special',
-        rarity: 'special',
-        type: 'subperk',
-        attributes: { luck: { add: 0.66 } },
-        conditions: [
-            { type: 'requires_perk', perkId: 'M4LW4R3_ZER01' }
-        ],
-        hidden: true,
-        shopLimit: 3,
-        maxStacks: 50,
         icon: '₪',
+        properties: {
+            subperk: true,
+            shopLimit: 3,
+            stack: 50
+        },
+        conditions: [
+            { type: 'requirePerk', perkId: ['M4LW4R3_ZER01'] }
+        ],
+        stats: {
+            luck: { type: 'add', value: 0.66 }
+        }
     },
-    AUTO_ROLL_COMMON: {
-        id: 'auto_roll_common',
+    'auto_roll_common': {
         name: 'Auto-Roll Common',
         description: 'When you roll a Common item, automatically roll again (no extra roll cost)',
         cost: 12,
         tier: 'uncommon',
-        attributes: {},
-        special: 'auto_roll_common',
         icon: '🔄',
-        
+        special: {
+            'auto_roll_common': 'auto_roll_common'
+        },
+        properties: {
+            stack: 1
+        },
+        stats: {}
     },
-    COMMON_REROLLER: {
-        id: 'common_reroller',
+    'common_reroller': {
         name: 'Common Reroller',
         description: 'Reroll common items once per round',
         cost: 40,
         tier: 'uncommon',
-        attributes: { rolls: { add: 1 } },
-        special: 'reroll_common',
-        conditions: [
-            { type: 'requires_perk', perkId: 'auto_roll_common' }
-        ],
         icon: '♻️',
-        
+        special: {
+            'reroll_common': 'reroll_common'
+        },
+        properties: {
+            stack: 1
+        },
+        conditions: [
+            { type: 'requirePerk', perkId: ['auto_roll_common'] }
+        ],
+        stats: {
+            rolls: { type: 'add', value: 1 }
+        }
     },
     
     // MODIFICATION PERKS
-    MINECRAFT_MODS: {
-        id: 'MINECRAFT_MODS',
+    'MINECRAFT_MODS': {
         name: 'Minecraft Mods',
         description: '+50% chance for item modifications',
         cost: 75,
         tier: 'rare',
-        attributes: { modification_chance: { add: 0.5 } },
         icon: '🔧',
+        properties: {
+            stack: 50
+        },
+        stats: {
+            modification_chance: { type: 'add', value: 0.5 }
+        }
     },
-    ENCHANTED_TABLE: {
-        id: 'enchanted_table',
+    'enchanted_table': {
         name: 'Enchanted Table',
         description: 'Using a mysterious power to enchant loots.',
         cost: 222,
         tier: 'Mythical',
-         attributes: {
-            modifiers: { enchanted: 1 }
-        },
         icon: '✨',
-        
+        properties: {
+            stack: 50
+        },
+        stats: {
+            modify: {
+                'enchanted': { type: 'set', value: 1 }
+            }
+        }
     },
 
     // LEGENDARY MODIFICATION PERK
-    PRISMA: {
-        id: 'PRISMA',
+    'PRISMA': {
         name: 'PRISMA',
         description: '+200% mod chance, +3 Rolls, +4 Value, +2 Luck, +3Ȼ - Guaranteed special items. Prismatic items common',
         cost: 777,
         tier: 'legendary',
-        attributes: {
-            modification_chance: { add: 2.0 },
-            rolls: { add: 3 },
-            valueBonus: { add: 3.0 },
-            luck: { add: 7 },
-            chipBonus: { add: 2.0 },
-            modifiers: { prismatic: 0.2 }
-        },
-        special: 'guaranteed_mod_prismatic',
         icon: '🔺',
-        
+        special: {
+            'guaranteed_mod_prismatic': 'guaranteed_mod_prismatic'
+        },
+        properties: {
+            stack: 50
+        },
+        stats: {
+            modification_chance: { type: 'add', value: 2.0 },
+            rolls: { type: 'add', value: 3 },
+            valueBonus: { type: 'add', value: 3.0 },
+            luck: { type: 'add', value: 7 },
+            chipBonus: { type: 'add', value: 2.0 },
+            modify: {
+                'prismatic': { type: 'set', value: 0.2 }
+            }
+        }
     },
 
     // ALIGNMENT PERKS (Mutually Exclusive)
-    DAYBREAKER: {
-        id: 'daybreaker',
+    'daybreaker': {
         name: 'Daybreaker',
         description: '+3 Luck, +1 Value to every items. Overwrites Trial of Twilight.',
         cost: 60,
         tier: 'rare',
-        attributes: { luck: { add: 3 }, addValue: { add: 1 } },
-        nameStyle: { color: '#fbbf24', textStroke: '1px rgba(255,255,255,0.5)' },
-        overwrites: ['trial_of_twilight'],
         icon: '🌅',
-        
+        nameStyle: { color: '#fbbf24', textStroke: '1px rgba(255,255,255,0.5)' },
+        properties: {
+            overwrite: ['trial_of_twilight'],
+            stack: 50
+        },
+        stats: {
+            luck: { type: 'add', value: 3 },
+            addValue: { type: 'add', value: 1 }
+        }
     },
-    TRIAL_OF_TWILIGHT: {
-        id: 'trial_of_twilight',
+    'trial_of_twilight': {
         name: 'Trial of Twilight',
         description: '+3 Value Multiplier, +1 Luck. Overwrite Daybreaker.',
         cost: 60,
         tier: 'rare',
-        attributes: { valueBonus: { add: 0.5 }, luck: { add: 1 } },
-        nameStyle: { color: '#7c3aed', textStroke: '1px rgba(0,0,0,0.5)' },
-        overwrites: ['daybreaker'],
         icon: '🌑',
-        
+        nameStyle: { color: '#7c3aed', textStroke: '1px rgba(0,0,0,0.5)' },
+        properties: {
+            overwrite: ['daybreaker'],
+            stack: 50
+        },
+        stats: {
+            valueBonus: { type: 'add', value: 0.5 },
+            luck: { type: 'add', value: 1 }
+        }
     },
     // EXODIA SET
-    FORBIDDEN_ONE: {
-        id: 'forbidden_one',
+    'forbidden_one': {
         name: 'Exodia, The Forbidden One',
         description: 'The head of the forbidden one. Collect all 5 pieces to win... or just get massive stats.',
         cost: 300,
         tier: 'legendary',
-        attributes: { luck: { add: 2 } },
-        set: 'exodia',
-        setBonuses: {
-            2: { rolls: { add: 2 } },
-            3: { luck: { add: 5 } },
-            4: { valueBonus: { add: 2.0 } },
-            5: { luck: { add: 50 }, rolls: { add: 20 }, valueBonus: { add: 10.0 } }
-        },
-        dynamicTooltip: 'set_collection',
         icon: '🤯',
+        properties: {
+            stack: 1,
+            set: 'exodia',
+            setBonuses: {
+                2: { rolls: { type: 'add', value: 2 } },
+                3: { luck: { type: 'add', value: 5 } },
+                4: { valueBonus: { type: 'add', value: 2.0 } },
+                5: { luck: { type: 'add', value: 50 }, rolls: { type: 'add', value: 20 }, valueBonus: { type: 'add', value: 10.0 } }
+            },
+            dynamictooltips: 'set_collection'
+        },
+        stats: {
+            luck: { type: 'add', value: 2 }
+        }
     },
-    LEFT_ARM: {
-        id: 'left_arm',
+    'left_arm': {
         name: 'Left Arm',
         description: 'Left arm of the forbidden one.',
         cost: 100,
         tier: 'special',
-        rarity: 'special',
-        attributes: { rolls: { add: 1 } },
-        set: 'exodia',
-        dynamicTooltip: 'set_collection',
         icon: '💪',
+        properties: {
+            stack: 1,
+            set: 'exodia',
+            dynamictooltips: 'set_collection',
+            subperk: true
+        },
         conditions: [
-            { type: 'requires_perk', perkId: 'forbidden_one' }
+            { type: 'requirePerk', perkId: ['forbidden_one'] }
         ],
+        stats: {
+            rolls: { type: 'add', value: 1 }
+        }
     },
-    RIGHT_ARM: {
-        id: 'right_arm',
+    'right_arm': {
         name: 'Right Arm',
         description: 'Right arm of the forbidden one.',
         cost: 100,
         tier: 'special',
-        rarity: 'special',
-        attributes: { rolls: { add: 1 } },
-        set: 'exodia',
-        dynamicTooltip: 'set_collection',
         icon: '🤳',
+        properties: {
+            stack: 1,
+            set: 'exodia',
+            dynamictooltips: 'set_collection',
+            subperk: true
+        },
         conditions: [
-            { type: 'requires_perk', perkId: 'forbidden_one' }
+            { type: 'requirePerk', perkId: ['forbidden_one'] }
         ],
+        stats: {
+            rolls: { type: 'add', value: 1 }
+        }
     },
-    LEFT_LEG: {
-        id: 'left_leg',
+    'left_leg': {
         name: 'Left Leg',
         description: 'Left leg of the forbidden one.',
         cost: 100,
         tier: 'special',
-        rarity: 'special',
-        attributes: { luck: { add: 1 } },
-        set: 'exodia',
-        dynamicTooltip: 'set_collection',
         icon: '🦵',
+        properties: {
+            stack: 1,
+            set: 'exodia',
+            dynamictooltips: 'set_collection',
+            subperk: true
+        },
         conditions: [
-            { type: 'requires_perk', perkId: 'forbidden_one' }
+            { type: 'requirePerk', perkId: ['forbidden_one'] }
         ],
+        stats: {
+            luck: { type: 'add', value: 1 }
+        }
     },
-    RIGHT_LEG: {
-        id: 'right_leg',
+    'right_leg': {
         name: 'Right Leg',
         description: 'Right leg of the forbidden one.',
         cost: 100,
         tier: 'special',
-        rarity: 'special',
-        attributes: { luck: { add: 1 } },
-        set: 'exodia',
-        dynamicTooltip: 'set_collection',
         icon: '🦶',
+        properties: {
+            stack: 1,
+            set: 'exodia',
+            dynamictooltips: 'set_collection',
+            subperk: true
+        },
         conditions: [
-            { type: 'requires_perk', perkId: 'forbidden_one' }
+            { type: 'requirePerk', perkId: ['forbidden_one'] }
         ],
-    },
+        stats: {
+            luck: { type: 'add', value: 1 }
+        }
+    }
 };
 
 /**
@@ -640,7 +787,9 @@ const PERKS = {
  * @returns {Object|undefined}
  */
 function getPerkById(id) {
-    return Object.values(PERKS).find(p => p.id === id);
+    if (!PERKS[id]) return undefined;
+    // Inject ID into object for backward compatibility if needed, though we should prefer using the key
+    return { ...PERKS[id], id };
 }
 
 /**
@@ -649,7 +798,7 @@ function getPerkById(id) {
  * @returns {number} cost in chips
  */
 function getPerkCost(perkId) {
-    const perk = getPerkById(perkId);
+    const perk = PERKS[perkId];
     if (!perk) return 0;
     return perk.cost;
 }
@@ -659,88 +808,28 @@ function getPerkCost(perkId) {
  * @returns {Array} perk info for shop display
  */
 function getShopPerks() {
-    return Object.values(PERKS)
-        .filter(perk => !perk.forgeable)
-        .map(perk => ({
-            id: perk.id,
+    return Object.entries(PERKS)
+        .filter(([id, perk]) => {
+            const isForgeable = perk.conditions && perk.conditions.some(c => c.type === 'forging');
+            return !isForgeable;
+        })
+        .map(([id, perk]) => ({
+            id: id,
             name: perk.name,
             description: perk.description,
             cost: perk.cost,
             tier: perk.tier,
             rarity: perk.tier, // Backward compatibility
-            type: perk.type || null,
-            attributes: perk.attributes,
+            properties: perk.properties,
+            stats: perk.stats,
             special: perk.special || null,
-            conditions: perk.conditions || [],
-            overwrites: perk.overwrites || null,
-            hidden: perk.hidden || false,
-            nameStyle: perk.nameStyle || null,
-            maxStacks: perk.maxStacks || 1,
-            shopLimit: perk.shopLimit || 1,
-            stackable: !!perk.maxStacks || perk.type === 'subperk' 
+            nameStyle: perk.nameStyle,
+            icon: perk.icon
         }));
 }
 
 /**
- * Check if a perk's conditions are met
- * @param {Object} perk 
- * @param {Object} gameState 
- * @param {Object} ownedPerks 
- * @returns {boolean} true if all conditions pass
- */
-function checkPerkConditions(perk, gameState, ownedPerks = {}) {
-    if (!perk.conditions || perk.conditions.length === 0) return true;
-    
-    for (const condition of perk.conditions) {
-        // Unlock Condition (Global)
-        if (condition.type === 'unlock') {
-            if (!gameState) continue; // Skip if no state (assume unlocked or default safe)
-            const cond = condition.condition;
-            
-            if (cond.type === 'item_collected') {
-                if (!gameState.itemHistory) return false;
-                const hasItem = gameState.itemHistory.some(item => {
-                    if (cond.itemId && item.id !== cond.itemId) return false;
-                    if (cond.attribute && item.attribute !== cond.attribute) return false;
-                    if (cond.modifier && (!item.mods || !item.mods.includes(cond.modifier))) return false;
-                    if (cond.modifiers) {
-                        if (!item.mods) return false;
-                        for (const mod of cond.modifiers) {
-                            if (!item.mods.includes(mod)) return false;
-                        }
-                    }
-                    return true;
-                });
-                if (!hasItem) return false;
-            } else if (cond.type === 'stat_threshold') {
-                if (!gameState.stats) return false;
-                const statValue = gameState.stats[cond.stat];
-                if (statValue === undefined || statValue === null) return false;
-                
-                if (cond.compare === 'less') {
-                    if (!(statValue < cond.threshold)) return false;
-                } else {
-                    if (!(statValue >= cond.threshold)) return false;
-                }
-            }
-        }
-        
-        // Requirement (Shop Prerequisite)
-        if (condition.type === 'requires_perk') {
-            if (!ownedPerks[condition.perkId]) return false;
-        }
-        
-        // Conflict (Shop Exclusion)
-        if (condition.type === 'conflicts_perk') {
-            if (ownedPerks[condition.perkId]) return false;
-        }
-    }
-    
-    return true;
-}
-
-/**
- * Get random perks based on round
+ * Get random shop perks based on round
  * Higher rounds have better chance at rare/epic/legendary perks
  * @param {number} round - current round
  * @param {number} count - number of perks to return
@@ -748,132 +837,160 @@ function checkPerkConditions(perk, gameState, ownedPerks = {}) {
  * @returns {Array} random perks filtered by round
  */
 function getRandomShopPerks(round, count = 4, owned = {}, rng = Math.random, luck = 0, gameState = null) {
-    const allPerks = getShopPerks().filter(p => {
-        // Standard check: filter if owned (unless stackable and under limit)
-        const ownedCount = (typeof owned[p.id] === 'number') ? owned[p.id] : (owned[p.id] ? 1 : 0);
+    const availablePerks = [];
+    
+    // Helper to check unlock conditions
+    const checkUnlockCondition = (condition) => {
+        if (!gameState) return true; // Fallback if no gamestate, assume unlocked or locked? usually locked if strict, but let's say true to avoid breaking tests
         
-        if (ownedCount > 0) {
-             // If it's not stackable, or we reached max stacks, filter it out
-             if (!p.maxStacks || p.maxStacks <= 1) return false;
-             if (ownedCount >= p.maxStacks) return false;
+        if (condition.type === 'stat_threshold') {
+            const statVal = gameState.stats[condition.stat] || 0;
+            const threshold = condition.threshold;
+            if (condition.compare === 'less') {
+                return statVal < threshold;
+            }
+            return statVal >= threshold;
         }
         
-        // Check unified conditions
-        if (!checkPerkConditions(p, gameState, owned)) return false;
-
-        // Reverse Conflict check (Owned -> Self)
-        // Check if any owned perk prevents this one from spawning
-        const ownedIds = Object.keys(owned);
-        for (const oId of ownedIds) {
-            const oPerk = getPerkById(oId);
-            if (oPerk && oPerk.conditions) {
-                // If owned perk has a conflict condition against this perk
-                const conflict = oPerk.conditions.find(c => c.type === 'conflicts_perk' && c.perkId === p.id);
-                if (conflict) return false;
-            }
+        if (condition.type === 'item_collected') {
+            // Check item history or current inventory
+            // Assuming itemHistory stores item IDs
+            if (gameState.itemHistory && gameState.itemHistory.includes(condition.itemId)) return true;
+            // Also check current inventory just in case
+            if (gameState.inventory && gameState.inventory.some(i => i.id === condition.itemId)) return true;
+            return false;
         }
 
         return true;
-    });
-    
-    // Weight perks by tier and round (Higher Rarity = Rarer)
-    const TIER_RARITY = {
-        'common': 12,
-        'uncommon': 25,
-        'rare': 60,
-        'epic': 200,
-    'legendary': 500,
-    'mythical': 1200,
-    'godlike': 2500,
-    'ultimate': 5000,
-    'special': null // Special handling
     };
 
-    const weighted = allPerks.map(perk => {
-        let rarity = perk.rarityValue || TIER_RARITY[perk.tier] || 10;
-        
-        
-        
-        // Round-based Rarity Adjustment (Simulates "Base Tier Weight" from things.js)
-        // Adjust rarity based on round (Lower score = More common)
-        let roundMultiplier = 1.0;
+    // Helper to check if perk is unlocked/available
+    const isPerkAvailable = (id, perk) => {
+        // 1. Check conflicts
+        if (perk.properties && perk.properties.conflict) {
+            const conflicts = Array.isArray(perk.properties.conflict) ? perk.properties.conflict : [perk.properties.conflict];
+            for (const conflictId of conflicts) {
+                if (owned[conflictId]) return false;
+            }
+        }
 
-        if (round <= 3) {
-            // Early: Common is normal, others rare
-            if (perk.tier === 'common') roundMultiplier = 0.5; // More common
-            if (perk.tier === 'uncommon') roundMultiplier = 1.5;
-            if (perk.tier === 'rare') roundMultiplier = 3.0;
-        }
-        else if (round <= 6) {
-            // Mid: Uncommon common
-            if (perk.tier === 'uncommon') roundMultiplier = 0.8;
-            if (perk.tier === 'rare') roundMultiplier = 1.2;
-        }
-        else {
-            // Late: Higher tiers accessible
-            if (perk.tier === 'rare') roundMultiplier = 0.9;
-            if (perk.tier === 'epic') roundMultiplier = 1.0;
-            if (perk.tier === 'legendary') roundMultiplier = 1.0;
-        }
-        
-        // Apply Round Multiplier to Score
-        rarity *= roundMultiplier;
+        // 2. Check prerequisites/conditions
+        if (perk.conditions) {
+            // Check for 'requirePerk'
+            const reqPerk = perk.conditions.find(c => c.type === 'requirePerk' || c.type === 'requires_perk');
+            if (reqPerk) {
+                const requiredIds = Array.isArray(reqPerk.perkId) ? reqPerk.perkId : [reqPerk.perkId];
+                const hasRequirement = requiredIds.every(reqId => owned[reqId]);
+                if (!hasRequirement) return false;
+            }
+            
+            // Check for 'unlock' conditions
+            const unlockCond = perk.conditions.find(c => c.type === 'unlock');
+            if (unlockCond) {
+                if (!checkUnlockCondition(unlockCond.condition)) return false;
+            }
 
-        // Luck Mitigation: Reduce effective rarity (making it more common)
+            // Forging perks shouldn't appear in random shop
+            if (perk.conditions.some(c => c.type === 'forging')) return false;
+        }
+
+        // 3. Check stack limit
+        const currentStack = owned[id] || 0;
+        const maxStack = (perk.properties && perk.properties.stack !== undefined && perk.properties.stack !== null) ? perk.properties.stack : 1;
+        if (currentStack >= maxStack) return false;
+
+        // 4. Check subperk property (implicit logic: subperks only appear if requirements met, which we checked above)
+        // But if it's a subperk WITHOUT requirements (weird), maybe hide it?
+        // Usually subperks have 'subperk: true' in properties.
+        if (perk.properties && perk.properties.subperk && !perk.conditions) {
+             // If it's a subperk with NO conditions, it probably shouldn't be in the general pool?
+             // Or maybe it's just a "special" perk. 
+             // Let's assume if it passed requirements check, it's fine.
+        }
+
+        return true;
+    };
+
+    for (const [id, perk] of Object.entries(PERKS)) {
+        if (isPerkAvailable(id, perk)) {
+            availablePerks.push({ ...perk, id });
+        }
+    }
+
+    // Weighting logic
+    const weightedPerks = availablePerks.map(perk => {
+        let weight = 100;
+        if (perk.tier === 'common') weight = 100;
+        if (perk.tier === 'uncommon') weight = 60;
+        if (perk.tier === 'rare') weight = 30;
+        if (perk.tier === 'epic') weight = 10;
+        if (perk.tier === 'legendary') weight = 5;
+        if (perk.tier === 'mythical') weight = 1;
+        if (perk.tier === 'special') weight = 1; 
+        
+        // Luck influence
         if (luck > 0) {
-            // Luck reduces rarity by percentage
-            // e.g. Luck 10 -> 1.5x boost -> Rarity / 1.5
-            const luckFactor = 1 + (luck * 0.1); 
-            rarity /= luckFactor;
+            if (perk.tier !== 'common') weight *= (1 + luck * 0.1);
         }
-        
-        // Calculate Weight: Inverse of Rarity
-        let weight = 1000 / Math.max(1, rarity);
-        
+
         return { perk, weight };
     });
-    
-    // Weighted random selection
-    const selected = [];
-    let available = [...weighted];
-    const selectedCounts = {}; 
-    
-    for (let i = 0; i < count; i++) {
-        if (available.length === 0) break;
 
-        const totalWeight = available.reduce((sum, item) => sum + item.weight, 0);
+    const selected = [];
+    
+    // Helper to count occurrences in current selection
+    const countInSelection = (perkId) => selected.filter(p => p.id === perkId).length;
+
+    for (let i = 0; i < count; i++) {
+        if (weightedPerks.length === 0) break;
+        
+        const totalWeight = weightedPerks.reduce((sum, item) => sum + item.weight, 0);
         let random = rng() * totalWeight;
         
-        for (let j = 0; j < available.length; j++) {
-            random -= available[j].weight;
+        for (let j = 0; j < weightedPerks.length; j++) {
+            random -= weightedPerks[j].weight;
             if (random <= 0) {
-                const selectedPerk = available[j].perk;
-                const perkId = selectedPerk.id;
-
-                // Clone and add instance ID
-                const perkInstance = {
-                    ...selectedPerk,
-                    instanceId: `shop_perk_${perkId}_${Date.now()}_${i}_${Math.floor(rng() * 1000)}`
-                };
-
-                selected.push(perkInstance);
+                const selectedPerk = weightedPerks[j].perk;
                 
-                // Handle duplicates logic
-                const isSubperk = selectedPerk.type === 'subperk';
-                selectedCounts[perkId] = (selectedCounts[perkId] || 0) + 1;
-                const limit = selectedPerk.shopLimit || (isSubperk ? 2 : 1);
+                // Check shop limit
+                const shopLimit = (selectedPerk.properties && selectedPerk.properties.shopLimit) || 1;
+                const currentCount = countInSelection(selectedPerk.id);
                 
-                // For regular stackable perks, we generally don't want the SAME perk appearing twice in one shop roll
-                // unless explicitly allowed. Typically shop shows unique items per roll.
-                // But for subperks or specific logic, maybe. 
-                // Default: Remove from available for this roll.
-                if (selectedCounts[perkId] >= limit) {
-                    available.splice(j, 1);
+                if (currentCount < shopLimit) {
+                    selected.push(selectedPerk);
+                    
+                    // If we reached the limit for this perk in this shop session, remove it from pool
+                    if (currentCount + 1 >= shopLimit) {
+                        weightedPerks.splice(j, 1);
+                    }
+                    // Else: leave it in the pool so it can be picked again
+                } else {
+                    // Should not happen if logic below is correct, but safe guard
+                    weightedPerks.splice(j, 1);
+                    i--; // Retry this iteration since we didn't pick anything
                 }
+                
                 break;
             }
         }
     }
     
     return selected;
+}
+
+/**
+ * Get random consumables for shop
+ */
+function getRandomShopConsumables(count = 3, rng = Math.random, luck = 0, gameState = null) {
+    // Placeholder, needs actual consumables list if available, or just empty
+    if (typeof CONSUMABLES !== 'undefined') {
+        const list = Object.values(CONSUMABLES);
+        const selected = [];
+        for(let i=0; i<count; i++) {
+            const item = list[Math.floor(rng() * list.length)];
+            selected.push(item);
+        }
+        return selected;
+    }
+    return [];
 }

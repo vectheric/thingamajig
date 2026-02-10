@@ -37,104 +37,110 @@ const ITEM_TIER = {
 
 // Thing templates - easily extensible
 const ITEMS = {
-    STONE: {
+    stone: {
         name: 'Stone',
         baseValue: 5,
         rarityMultiplier: 1.0,
         tier: ITEM_TIER.COMMON,
-        rarityScore: 5,
+        rarity: 5,
         color: '#9ca3af'
     },
-    COPPER_ROD: {
+    copper_rod: {
         name: 'Copper Rod',
         baseValue: 8,
         rarityMultiplier: 1.1,
         tier: ITEM_TIER.SIGNIFICANT,      
-        rarityScore: 10,
+        rarity: 10,
         color: '#f97316'
     },
-    SILVER_ORE: {
+    silver_ore: {
         name: 'Silver Ore',
         baseValue: 10,
         rarityMultiplier: 1.2,
         tier: ITEM_TIER.SIGNIFICANT,
-        rarityScore: 28,
+        rarity: 28,
         color: '#e5e7eb'
     },
-    GOLD_NUGGET: {
+    gold_nugget: {
         name: 'Gold Nugget',
         baseValue: 15,
         rarityMultiplier: 1.4,
         tier: ITEM_TIER.RARE,
-        rarityScore: 56,
+        rarity: 56,
         color: '#fbbf24'
     },
-    DIAMOND: {
+    diamond: {
         name: 'Diamond',
         baseValue: 25,
         rarityMultiplier: 1.6,
         tier: ITEM_TIER.MASTER,
-        rarityScore: 34,
+        rarity: 34,
         color: '#a5f3fc'
     },
-    AMETHYST_GEODE: {
+    amethyst_geode: {
         name: 'Amethyst Geode',
         baseValue: 15,
         rarityMultiplier: 1.5,
         tier: ITEM_TIER.RARE,
-        rarityScore: 45,
+        rarity: 45,
         color: '#c200e9ff'
     },
-    ANCIENT_RELIC: {
+    ancient_relic: {
         name: 'Ancient Relic',
         baseValue: 25,
         rarityMultiplier: 2.0,
         tier: ITEM_TIER.SURREAL,
-        rarityScore: 83,
+        rarity: 83,
         color: '#a78bfa'
     },
-    BLESSED_ARTIFACT: {
+    blessed_artifact: {
         name: 'Blessed Artifact',
         baseValue: 30,
         rarityMultiplier: 2.2,
         tier: ITEM_TIER.SURREAL,
-        rarityScore: 92,
+        rarity: 92,
         color: '#f59e0b'
     },
-    VOID_ESSENCE: {
+    void_essence: {
         name: 'Void Essence',
         baseValue: 40,
         rarityMultiplier: 1.8,
         tier: ITEM_TIER.MYTHIC,
-        rarityScore: 1001,
+        rarity: 1001,
         color: '#8b5cf6'
     },
-    EXODAL: {
+    exodal: {
         name: 'Exodal',
         baseValue: 80,
         rarityMultiplier: 1.8,
         tier: ITEM_TIER.EXOTIC,
-        rarityScore: 5001,
+        rarity: 5001,
         color: '#5eff01ff'
     },
-    TOILET: {
+    toilet: {
         name: '🚽',
         baseValue: 80,
         rarityMultiplier: 1.8,
         tier: ITEM_TIER.EXOTIC,
-        rarityScore: 5001,
+        rarity: 5001,
         color: '#5eff01ff'
     },
-    MAMMOTH: {
+    mammoth: {
         name: 'Mammoth',
         baseValue: 80,
         rarityMultiplier: 1.8,
         tier: ITEM_TIER.ENIGMATIC,
-        rarityScore: 10000,
+        rarity: 10000,
         color: '#5eff01ff'
     },
 
 };
+
+// Add ID property to each item to match key
+Object.keys(ITEMS).forEach(key => {
+    ITEMS[key].id = key;
+});
+
 
 /**
  * Roll a random thing
@@ -155,30 +161,36 @@ function rollThing(round = 1, rng = Math.random, rarityWeightsOverride) {
         name: template.name,
         value: finalValue,
         tier: tier,
-        rarity: tier, // Keep rarity for backward compatibility if needed, but prefer tier
+        rarity: template.rarity || 1, // Store numeric rarity from template
         nameStyle: template.color ? { color: template.color } : undefined
     };
 }
 
 function getRoundBasedTemplateWeights(round, tierRarityOverride) {
     const tierRarity = tierRarityOverride || getRoundBasedRarityWeights(round);
-    const entries = Object.entries(ITEMS);
     const weights = [];
 
-    for (const [id, template] of entries) {
-        const tier = template.tier;
-        const tierRarityVal = tierRarity[tier] ?? 100; // Default to high rarity if missing
+    for (const template of Object.values(ITEMS)) {
+        // Use template.rarity as the primary rarity score
+        // Default to 10 if missing, but all defined items should have it
+        const itemRarity = template.rarity || 10;
         
-        // Rarity: Higher number = Rarer (Probability ~ 1/Score)
-        // Use template.rarity as rarity score (default to 10 if missing)
-        const itemRarity = typeof template.rarity === 'number' ? template.rarity : 10;
+        // Calculate probability weight
+        // Formula: 1,000,000 / itemRarity
+        // Higher rarity number = Lower probability
+        let weight = 1000000 / Math.max(1, itemRarity);
+
+        // Apply Luck/Tier modifiers if an override is provided
+        // This preserves the Luck mechanic which modifies tierRarity values
+        if (tierRarityOverride) {
+            const tier = template.tier;
+            const tierVal = tierRarity[tier] ?? 100;
+            // Adjust weight inversely to the tier rarity (lower tier score = higher weight)
+            // We normalize by 100 to keep scale similar
+            weight *= (100 / Math.max(1, tierVal));
+        }
         
-        // Calculate probability weight: 
-        // 1. Inverse of Tier Rarity (Higher score = Lower probability)
-        // 2. Inverse of Item Rarity
-        const probabilityWeight = (100 / Math.max(1, tierRarityVal)) * (100 / Math.max(1, itemRarity));
-        
-        if (probabilityWeight > 0) weights.push({ item: { template, id }, weight: probabilityWeight });
+        if (weight > 0) weights.push({ item: { template, id: template.id }, weight });
     }
 
     return weights;

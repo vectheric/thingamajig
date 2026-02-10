@@ -255,36 +255,27 @@ class Game {
             // Start iterating item names
             const nameEl = lastRolledDiv.querySelector('.roll-iterating-name');
             
-            // Rarity color mapping
-            const rarityColors = {
-                common: '#9ca3af',      // gray-400
-                significant: '#e4e4e7', // zinc-200
-                rare: '#fb923c',        // orange-400
-                master: '#c084fc',      // purple-400
-                surreal: '#2dd4bf',     // teal-400
-                mythic: '#f472b6',      // pink-400
-                exotic: '#facc15',      // yellow-400
-                exquisite: '#4ade80',   // green-400
-                transcendent: '#60a5fa',// blue-400
-                enigmatic: '#a3e635',   // lime-400
-                unfathomable: '#818cf8',// indigo-400
-                otherworldly: '#f472b6',// pink-400
-                imaginary: '#fef08a',   // yellow-200
-                zenith: '#ffffff'       // white
-            };
-
             this._rollIntervalId = setInterval(() => {
                 if (nameEl) {
                     try {
-                        // Use rollThing(1) to get a random name safely
-                        // Pass current round to get relevant items if possible, or random 1-10 for variety
-                        const round = this.gameState ? Math.max(1, this.gameState.round) : 1;
-                        const tempThing = typeof rollThing === 'function' ? rollThing(round) : { name: '...', rarity: 'common' };
+                        // Pick a random item from ITEMS for visual flair without consuming RNG
+                        let tempThing = { name: '...', rarity: 'common' };
+                        if (typeof ITEMS !== 'undefined') {
+                            const keys = Object.keys(ITEMS);
+                            if (keys.length > 0) {
+                                const k = keys[Math.floor(Math.random() * keys.length)];
+                                tempThing = ITEMS[k];
+                            }
+                        }
                         
                         nameEl.textContent = tempThing.name;
                         
                         // Apply color based on rarity
-                        const color = rarityColors[tempThing.rarity] || rarityColors.common;
+                        let color = '#9ca3af';
+                        if (typeof TIER_NAME_STYLES !== 'undefined' && TIER_NAME_STYLES[tempThing.tier]) {
+                            color = TIER_NAME_STYLES[tempThing.tier].color;
+                        }
+                        
                         nameEl.style.color = color;
                         nameEl.style.textShadow = `0 0 10px ${color}60`; // Add glow
                         
@@ -319,9 +310,9 @@ class Game {
             // Track stats
             this.gameState.addStat('totalItemsRolled', 1);
 
-            const streak = this.gameState.updateRareStreak(thing.rarity);
+            const streak = this.gameState.updateRareStreak(thing.tier);
             const streakMessage = this.gameState.getRareStreakMessage();
-            if (thing.rarity === 'epic' || thing.rarity === 'legendary') {
+            if (thing.tier === 'epic' || thing.tier === 'legendary') {
                 this.celebrateRareItem(thing);
             }
             if (streakMessage) this.ui.showMessage(streakMessage, 'epic');
@@ -342,12 +333,12 @@ class Game {
             }
             const nameHtml = `<span class="rolled-thing-name"${nameCss}>${safeName}</span>`;
             
-            const wrapClass = thing.rarity === 'legendary' ? 'rolled-thing-name-wrap legendary-particle-wrap' : 'rolled-thing-name-wrap';
+            const wrapClass = thing.tier === 'legendary' ? 'rolled-thing-name-wrap legendary-particle-wrap' : 'rolled-thing-name-wrap';
             if (lastRolledDiv) {
                 lastRolledDiv.innerHTML = `
-                    <div class="rolled-thing rolled-thing-holder rarity-${thing.rarity} ${thing.rarity === 'epic' || thing.rarity === 'legendary' ? 'rare-celebration' : ''}">
+                    <div class="rolled-thing rolled-thing-holder rarity-${thing.tier} ${thing.tier === 'epic' || thing.tier === 'legendary' ? 'rare-celebration' : ''}">
                         <div class="${wrapClass}">${nameHtml}</div>
-                        <div class="rolled-thing-rarity">${thing.rarity.toUpperCase()}</div>
+                        <div class="rolled-thing-rarity">${thing.tier.toUpperCase()} (1 in ${thing.rarityScore || '?'})</div>
                         ${modBadges ? `<div class="rolled-thing-mods">${modBadges}</div>` : ''}
                         <div class="rolled-thing-value"><span style="color: #60a5fa">+${thing.value}Ȼ</span></div>
                     </div>
@@ -473,7 +464,7 @@ class Game {
      * Creates dopamine reward for epic/legendary items
      */
     celebrateRareItem(thing) {
-        const rarity = thing.rarity;
+        const rarity = thing.tier;
         let message = '';
         let emoji = '';
         
@@ -604,7 +595,7 @@ class Game {
                 selector = `.perk-card[data-perk-instance-id="${instanceId}"]`;
             }
             const card = shopGrid ? shopGrid.querySelector(selector) : null;
-            const isSubperk = card && (card.querySelector('.rarity-special') || card.querySelector('.rarity-subperk') || perkId === 'VIRUS');
+            const isSubperk = card && (card.querySelector('.rarity-special') || card.querySelector('.rarity-subperk') || perkId === 'virus');
 
             // Use shop.purchasePerk to ensure it gets removed from the shop list if it's a subperk
             const result = this.shop.purchasePerk(perkId, instanceId);

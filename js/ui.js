@@ -123,9 +123,9 @@ class UI {
                     <div class="stat-item cash-with-tooltip">
                         <span class="stat-label">Cash</span>
                         <div class="cash-tooltip-wrapper">
-                            <span class="stat-value stat-cash">${this.gameState.cash}$</span>
+                            <span class="stat-value stat-cash">$${this.gameState.cash}</span>
                             <div class="interest-tooltip">
-                                <span class="interest-tooltip-text">Interest: ×${this.gameState.interestStacks}</span>
+                                <span class="interest-tooltip-text">Interest: ${this.gameState.interestStacks}</span>
                             </div>
                         </div>
                     </div>
@@ -394,11 +394,13 @@ class UI {
     }
 
     getDynamicTooltipText(perkId) {
-        if (typeof PERKS === 'undefined' || !PERKS) return null;
-        const perkDef = Object.values(PERKS).find(p => p.id === perkId);
-        if (!perkDef || !perkDef.dynamicTooltip) return null;
+        const perkDef = typeof getPerkById === 'function' ? getPerkById(perkId) : null;
+        if (!perkDef) return null;
+        
+        const dynamicType = perkDef.properties ? perkDef.properties.dynamictooltips : perkDef.dynamicTooltip;
+        if (!dynamicType) return null;
 
-        switch (perkDef.dynamicTooltip) {
+        switch (dynamicType) {
             case 'chip_count':
                 const chips = typeof this.gameState.getInventoryValue === 'function' ? this.gameState.getInventoryValue() : 0;
                 return `<br><span style="color:var(--success)">Current Ȼ: ${chips}</span>`;
@@ -407,9 +409,9 @@ class UI {
                 if (virus === true) virus = 1;
                 return `<br><span style="color:var(--warning)">VIRUS: ${virus}</span>`;
             case 'set_collection':
-                const set = perkDef.set;
+                const set = perkDef.properties ? perkDef.properties.set : perkDef.set;
                 if (!set) return null;
-                const setPerks = Object.values(PERKS).filter(p => p.set === set);
+                const setPerks = Object.values(PERKS).filter(p => (p.properties && p.properties.set === set) || p.set === set);
                 if (setPerks.length === 0) return null;
                 
                 let html = '<div style="margin-top:8px; border-top:1px solid #444; padding-top:4px;">';
@@ -428,39 +430,41 @@ class UI {
                 
                 // Show active bonus
                 const ownedCount = setPerks.filter(p => this.gameState.perksPurchased[p.id]).length;
-                const bonusPerk = setPerks.find(p => p.setBonuses);
+                const bonusPerk = setPerks.find(p => p.properties && p.properties.setBonuses) || setPerks.find(p => p.setBonuses);
                 
-                if (bonusPerk && bonusPerk.setBonuses) {
-                     const bonuses = bonusPerk.setBonuses;
-                     let currentBonus = null;
-                     let nextBonus = null;
-                     let nextCount = 0;
-                     
-                     const sortedCounts = Object.keys(bonuses).map(Number).sort((a,b) => a-b);
-                     
-                     for (const c of sortedCounts) {
-                         if (ownedCount >= c) {
-                             currentBonus = bonuses[c];
-                         } else {
-                             nextBonus = bonuses[c];
-                             nextCount = c;
-                             break;
+                if (bonusPerk) {
+                     const bonuses = (bonusPerk.properties && bonusPerk.properties.setBonuses) || bonusPerk.setBonuses;
+                     if (bonuses) {
+                         let currentBonus = null;
+                         let nextBonus = null;
+                         let nextCount = 0;
+                         
+                         const sortedCounts = Object.keys(bonuses).map(Number).sort((a,b) => a-b);
+                         
+                         for (const c of sortedCounts) {
+                             if (ownedCount >= c) {
+                                 currentBonus = bonuses[c];
+                             } else {
+                                 nextBonus = bonuses[c];
+                                 nextCount = c;
+                                 break;
+                             }
                          }
-                     }
-                     
-                     if (currentBonus) {
-                         let bonusText = '';
-                         for (const [k, v] of Object.entries(currentBonus)) {
-                             if (k === 'luck' && v.add) bonusText += `+${v.add} Luck `;
-                             else if (k === 'rolls' && v.add) bonusText += `+${v.add} Rolls `;
-                             else if (k === 'valueBonus' && v.add) bonusText += `+${v.add * 100}% Value `;
-                             else bonusText += `${k} `;
+                         
+                         if (currentBonus) {
+                             let bonusText = '';
+                             for (const [k, v] of Object.entries(currentBonus)) {
+                                 if (k === 'luck' && v.type === 'add') bonusText += `+${v.value} Luck `;
+                                 else if (k === 'rolls' && v.type === 'add') bonusText += `+${v.value} Rolls `;
+                                 else if (k === 'valueBonus' && v.type === 'add') bonusText += `+${v.value * 100}% Value `;
+                                 else bonusText += `${k} `;
+                             }
+                             html += `<div style="font-size:0.8em; color:#4ade80; margin-top:4px;">Active: ${bonusText}</div>`;
                          }
-                         html += `<div style="font-size:0.8em; color:#4ade80; margin-top:4px;">Active: ${bonusText}</div>`;
-                     }
-                     
-                     if (nextBonus) {
-                         html += `<div style="font-size:0.8em; color:#888; margin-top:2px;">Next (${ownedCount}/${nextCount}): ???</div>`;
+                         
+                         if (nextBonus) {
+                             html += `<div style="font-size:0.8em; color:#888; margin-top:2px;">Next (${ownedCount}/${nextCount}): ???</div>`;
+                         }
                      }
                 }
                 html += '</div>';
@@ -503,11 +507,11 @@ class UI {
 
             perkTooltip.innerHTML = `<span class="pt-name">${esc(name)}</span><span class="pt-rarity">${esc(rarity.toUpperCase())}</span><span class="pt-desc">${descHtml}</span>${special ? `<span class="pt-special">✨ ${esc(special)}</span>` : ''}`;
             perkTooltip.classList.add('visible');
-            requestAnimationFrame(() => this.positionFloatingTooltip(perkTooltip, anchor.getBoundingClientRect()));
+            this.positionTooltipNearMouse(perkTooltip, e);
         }, true);
         this.container.addEventListener('mousemove', (e) => {
             const anchor = e.target.closest('.perk-tooltip-anchor');
-            if (anchor && perkTooltip.classList.contains('visible')) this.positionFloatingTooltip(perkTooltip, anchor.getBoundingClientRect());
+            if (anchor && perkTooltip.classList.contains('visible')) this.positionTooltipNearMouse(perkTooltip, e);
         }, true);
         this.container.addEventListener('mouseleave', (e) => {
             if (!e.relatedTarget || !e.relatedTarget.closest('#floating-perk-tooltip')) perkTooltip.classList.remove('visible');
@@ -620,9 +624,17 @@ class UI {
         }
         return ownedPerks.map((perk) => {
             const full = typeof getBossPerkById === 'function' ? getBossPerkById(perk.id) : null;
-            const p = full || (PERKS[Object.keys(PERKS).find(k => PERKS[k].id === perk.id)]);
+            const p = full || (typeof getPerkById === 'function' ? getPerkById(perk.id) : null);
             const desc = (p && p.description) || '';
-            const special = (p && p.special) ? p.special.replace(/_/g, ' ') : '';
+            let specialText = '';
+            if (p && p.special) {
+                if (typeof p.special === 'string') {
+                    specialText = p.special;
+                } else if (typeof p.special === 'object') {
+                    specialText = Object.keys(p.special).join(', ');
+                }
+            }
+            const special = specialText ? specialText.replace(/_/g, ' ') : '';
             let rarity = (p && (p.rarity || p.tier)) || 'common';
             // Safety check for non-string rarity
             if (typeof rarity !== 'string') {
@@ -635,7 +647,17 @@ class UI {
             let count = this.gameState.perksPurchased[perk.id] || 0;
             if (count === true) count = 1;
             
-            if (p && p.type === 'subperk' && count > 0) {
+            // Check stackability
+            let maxStack = 1;
+            if (p) {
+                if (p.properties && p.properties.stack) maxStack = p.properties.stack;
+                else if (p.maxStacks) maxStack = p.maxStacks;
+            }
+            
+            if (maxStack > 1 && count > 0) {
+                 displayName += ` x${count}`;
+            } else if (p && p.type === 'subperk' && count > 0) {
+                 // Keep subperk logic just in case
                  if (p.maxStacks) {
                      displayName += ` (${count}/${p.maxStacks})`;
                  } else {
@@ -744,39 +766,58 @@ class UI {
         const itemsHtml = paginated.items.map((item, index) => {
             const actualIndex = (paginated.currentPage * this.gameState.itemsPerPage) + index;
             const allMods = typeof getAllModifications === 'function' ? getAllModifications(item) : [];
-            const modBadges = allMods.map(mod => typeof getModBadgeHtml === 'function' ? getModBadgeHtml(mod) : `<span class="mod-badge" title="${mod.description || ''}">${mod.name}</span>`).join('');
+            
+            // Generate HTML for modifiers and attributes (Attributes as text, Mods as badges)
+            // Filter out attributes from the name prefix
+            // For loot card view: User requested to remove Mod names, only show Attribute (handled in fullNameHtml)
+            const prefixHtml = '';
+
             const nameStyle = typeof getItemNameStyle === 'function' ? getItemNameStyle(item) : {};
             const nameCss = typeof nameStyleToCss === 'function' ? nameStyleToCss(nameStyle) : '';
             
-            let safeName;
+            // Build the full name HTML: [Attribute Name] [Base Name]
+            let fullNameHtml = '';
+            
+            // Base Name Part (Colored Text)
+            // Attributes are now handled inside getModifiedItemNameHtml
             if (typeof getModifiedItemNameHtml === 'function') {
-                safeName = getModifiedItemNameHtml(item);
+                fullNameHtml += getModifiedItemNameHtml(item);
             } else {
                 const displayName = typeof getModifiedItemName === 'function' ? getModifiedItemName(item) : item.name;
-                safeName = typeof escapeHtml === 'function' ? escapeHtml(displayName) : displayName;
+                const safeName = typeof escapeHtml === 'function' ? escapeHtml(displayName) : displayName;
+                fullNameHtml += safeName;
             }
             
             // Particle wrappers for high tiers
             let legendWrap = '';
-            if (['transcendent', 'enigmatic', 'unfathomable', 'otherworldly', 'imaginary', 'zenith'].includes(item.rarity)) {
+            if (['transcendent', 'enigmatic', 'unfathomable', 'otherworldly', 'imaginary', 'zenith'].includes(item.tier)) {
                 legendWrap = ' loot-item-name particle-wrap';
                 // Add specific particle containers if needed, currently just CSS class on wrapper
-            } else if (item.rarity === 'legendary' || item.rarity === 'surreal' || item.rarity === 'mythic' || item.rarity === 'exotic' || item.rarity === 'exquisite') {
+            } else if (item.tier === 'legendary' || item.tier === 'surreal' || item.tier === 'mythic' || item.tier === 'exotic' || item.tier === 'exquisite') {
                 legendWrap = ' loot-item-name high-tier-wrap';
             }
 
             return `
-                <div class="loot-item loot-item-minimal ${this.inventory.getRarityClass(item.rarity)}" data-item-index="${actualIndex}">
+                <div class="loot-item loot-item-minimal ${this.inventory.getRarityClass(item.tier)}" data-item-index="${actualIndex}">
                     <div class="loot-item-name${legendWrap}"${nameCss}>
-                        ${safeName}
-                        ${item.rarity === 'zenith' ? '<div class="zenith-question-mark">?</div>' : ''}
-                        ${['transcendent', 'enigmatic', 'unfathomable', 'otherworldly', 'imaginary', 'zenith'].includes(item.rarity) ? '<div class="particle-container"></div>' : ''}
+                        ${prefixHtml}
+                        ${fullNameHtml}
+                        ${item.tier === 'zenith' ? '<div class="zenith-question-mark">?</div>' : ''}
+                        ${['transcendent', 'enigmatic', 'unfathomable', 'otherworldly', 'imaginary', 'zenith'].includes(item.tier) ? '<div class="particle-container"></div>' : ''}
                     </div>
                     <div class="loot-item-tooltip" aria-hidden="true">
-                        <div class="tooltip-name"${nameCss}>${safeName}</div>
-                        <div class="tooltip-rarity rarity-color rarity-${item.rarity}">${item.rarity.toUpperCase()}</div>
-                        ${allMods.length > 0 ? `<div class="tooltip-mods">${modBadges}</div>` : ''}
-                        <div class="tooltip-value"><span style="color: #60a5fa">${item.value}Ȼ</span></div>
+                        <div class="tooltip-name"${nameCss}>${fullNameHtml}</div>
+                        <div class="tooltip-rarity rarity-color rarity-${item.tier}">${item.tier.toUpperCase()} (1 in ${item.rarityScore || '?'})</div>
+                        
+                        ${allMods.length > 0 ? `
+                            <div class="tooltip-mods-list" style="margin-top:4px; font-size:0.85em; text-align:left;">
+                                ${allMods.map(m => 
+                                    typeof getModBadgeHtml === 'function' ? getModBadgeHtml(m) : `<span class="mod-badge" style="color:${m.color || '#fff'}; border: 1px solid ${m.color || '#fff'}; padding: 3px 8px; border-radius: 12px; margin-right: 4px; margin-bottom: 2px; font-size: 0.85em; font-weight: bold; display: inline-block;">${m.name}</span>`
+                                ).join(' ')}
+                            </div>
+                        ` : ''}
+                        
+                        <div class="tooltip-value" style="margin-top:8px;"><span style="color: #60a5fa">${item.value}Ȼ</span></div>
                         ${item.baseValue != null && item.baseValue !== item.value && item.priceMultiplier != null ? `<div class="tooltip-base">Base: ${item.baseValue} (×${item.priceMultiplier.toFixed(2)})</div>` : ''}
                     </div>
                 </div>
@@ -888,14 +929,20 @@ class UI {
             let reqHtml = '';
             let reqLocked = false;
             let reqPerk = null;
-            if (typeof PERKS !== 'undefined') {
-                const perkDef = PERKS[Object.keys(PERKS).find(k => PERKS[k].id === item.id)];
-                if (perkDef && perkDef.requires && !this.gameState.perksPurchased[perkDef.requires]) {
-                     reqLocked = true;
-                     const reqId = perkDef.requires;
-                     const reqP = PERKS[Object.keys(PERKS).find(k => PERKS[k].id === reqId)];
-                     reqPerk = reqP ? reqP.name : reqId;
-                     reqHtml = `<div class="perk-req-warning">Requires: ${reqPerk}</div>`;
+            const perkDef = typeof getPerkById === 'function' ? getPerkById(item.id) : null;
+            
+            if (perkDef && perkDef.conditions) {
+                const reqCond = perkDef.conditions.find(c => c.type === 'requirePerk');
+                if (reqCond) {
+                    const reqIds = Array.isArray(reqCond.perkId) ? reqCond.perkId : [reqCond.perkId];
+                    const missingId = reqIds.find(id => !this.gameState.perksPurchased[id]);
+                    
+                    if (missingId) {
+                        reqLocked = true;
+                        const reqP = typeof getPerkById === 'function' ? getPerkById(missingId) : null;
+                        reqPerk = reqP ? reqP.name : missingId;
+                        reqHtml = `<div class="perk-req-warning">Requires: ${reqPerk}</div>`;
+                    }
                 }
             }
 
@@ -906,24 +953,14 @@ class UI {
                 nullificationLocked = true;
             }
 
-            // Check Overwrite Warning
+            // Check Overwrite Warning - Deprecated/Removed in new system (handled by Conflict Lock)
             let overwriteHtml = '';
-            if (typeof PERKS !== 'undefined') {
-                const perkDef = PERKS[Object.keys(PERKS).find(k => PERKS[k].id === item.id)];
-                if (perkDef && perkDef.overwrites) {
-                    const conflicts = perkDef.overwrites.filter(id => this.gameState.perksPurchased[id]);
-                    if (conflicts.length > 0) {
-                         const confNames = conflicts.map(id => {
-                             const p = PERKS[Object.keys(PERKS).find(k => PERKS[k].id === id)];
-                             return p ? p.name : id;
-                         }).join(', ');
-                         overwriteHtml = `<div class="perk-overwrite-warning">⚠️ Replaces: ${confNames}</div>`;
-                    }
-                }
-            }
 
-            const lockedOverlay = (locked && !isOwned) || reqLocked || nullificationLocked
-                ? `<div class="perk-locked-overlay">${nullificationLocked ? '⛔ NULLIFIED' : (reqLocked ? '🔒 LOCKED' : '🔒 LOCKED')}</div>`
+            const conflicted = item.conflicted;
+            const conflictReason = item.conflictReason;
+
+            const lockedOverlay = (locked && !isOwned) || reqLocked || nullificationLocked || conflicted
+                ? `<div class="perk-locked-overlay">${nullificationLocked ? '⛔ NULLIFIED' : (conflicted ? (conflictReason ? '⛔ ' + conflictReason.toUpperCase() : '⛔ CONFLICT') : (reqLocked ? '🔒 LOCKED' : '🔒 LOCKED'))}</div>`
                 : '';
                 
             let showPurchased = false;
@@ -943,8 +980,17 @@ class UI {
             const rollingClass = item.type === 'subperk' ? ' rolling-text' : '';
             const rollingAttr = item.type === 'subperk' ? ` data-final-text="${safeName}"` : '';
 
+            let specialText = '';
+            if (item.special) {
+                if (typeof item.special === 'string') {
+                    specialText = item.special;
+                } else if (typeof item.special === 'object') {
+                    specialText = Object.keys(item.special).join(', ');
+                }
+            }
+
             return `
-                <div class="perk-card perk-card-shop perk-tooltip-anchor rarity-${item.rarity} ${showPurchased ? 'perk-purchased' : ''} ${isSelected ? 'perk-selected' : ''} ${locked || reqLocked || nullificationLocked ? 'perk-locked' : ''} ${isNullification ? 'perk-glitch' : ''}" data-perk-id="${item.id}" data-perk-instance-id="${item.instanceId || ''}" data-perk-name="${escapeAttr(item.name)}" data-perk-rarity="${escapeAttr(item.rarity)}" data-perk-desc="${escapeAttr(safeDesc)}" data-perk-special="${escapeAttr(item.special || '')}" data-perk-cost="${item.cost}" onclick="game.handleShopPerkClick('${item.id}', '${item.instanceId || ''}')" style="animation-delay: ${index * 0.1}s">
+                <div class="perk-card perk-card-shop perk-tooltip-anchor rarity-${item.rarity} ${showPurchased ? 'perk-purchased' : ''} ${isSelected ? 'perk-selected' : ''} ${locked || reqLocked || nullificationLocked || conflicted ? 'perk-locked' : ''} ${isNullification ? 'perk-glitch' : ''}" data-perk-id="${item.id}" data-perk-instance-id="${item.instanceId || ''}" data-perk-name="${escapeAttr(item.name)}" data-perk-rarity="${escapeAttr(item.rarity)}" data-perk-desc="${escapeAttr(safeDesc)}" data-perk-special="${escapeAttr(specialText)}" data-perk-cost="${item.cost}" onclick="game.handleShopPerkClick('${item.id}', '${item.instanceId || ''}')" style="animation-delay: ${index * 0.1}s">
                     ${purchasedOverlay}
             ${lockedOverlay}
             ${isLegendary || isMythical || isGodlike || isUltimate ? `
@@ -1324,7 +1370,15 @@ class UI {
             const name = (p && p.name) || '';
             const rarity = (p && p.rarity) || '';
             const desc = (p && p.description) || '';
-            const special = (p && p.special) ? p.special.replace(/_/g, ' ') : '';
+            let specialText = '';
+            if (p && p.special) {
+                if (typeof p.special === 'string') {
+                    specialText = p.special;
+                } else if (typeof p.special === 'object') {
+                    specialText = Object.keys(p.special).join(', ');
+                }
+            }
+            const special = specialText ? specialText.replace(/_/g, ' ') : '';
             const cost = p && typeof p.cost !== 'undefined' ? p.cost : '';
             return `
                 <div class="index-entry" data-name="${escapeAttr(name)}" data-search="${escapeAttr(`${rarity} ${desc} ${special} ${cost}`)}">
@@ -1440,11 +1494,7 @@ class UI {
         `;
         this.container.innerHTML = html;
     }
-
-    /**
-     * Show shop between rounds
-     */
-    renderShopScreen() {
+  renderShopScreen() {
         try {
             this.currentScreen = 'shop';
             // Removed automatic generation to prevent rerolling when returning from other screens
@@ -1491,7 +1541,7 @@ class UI {
                         <div class="stat-item cash-with-tooltip">
                             <span class="stat-label">Cash</span>
                             <div class="cash-tooltip-wrapper">
-                                <span class="stat-value stat-cash">${this.gameState.cash}$</span>
+                                <span class="stat-value stat-cash">$${this.gameState.cash}</span>
                                 <div class="interest-tooltip">
                                     <span class="interest-tooltip-text">Interest: ×${this.gameState.interestStacks}</span>
                                 </div>
@@ -1571,8 +1621,13 @@ class UI {
             this.container.innerHTML = `<div style="padding: 20px; color: red;">Error loading shop: ${error.message}</div>`;
         }
     }
+    /**
+     * Show shop between rounds
+     */
+ renderForgingScreen(perkId = null) {
+        // Stop any running simulation first
+        this.stopForceLayout();
 
-    renderForgingScreen(perkId = null) {
         this.currentScreen = 'forging';
         this.selectedForgePerk = perkId;
         
@@ -1777,11 +1832,47 @@ class UI {
 
         // Drag Handlers
         viewport.addEventListener('mousedown', (e) => {
-            // Only drag if clicking background or content wrapper, not buttons/cards directly
-            // Traverse up to see if we clicked a button or card
+            // 1. Check for Graph Node Dragging first
             let target = e.target;
+            let nodeElement = null;
+            
+            // Traverse up to find potential targets
+            let current = target;
+            while (current && current !== viewport) {
+                if (current.id && current.id.startsWith('node-') && current.classList.contains('forge-graph-node')) {
+                    nodeElement = current;
+                    break;
+                }
+                current = current.parentElement;
+            }
+
+            if (nodeElement) {
+                // Start Node Drag
+                e.preventDefault();
+                e.stopPropagation();
+                
+                const nodeId = nodeElement.id.replace('node-', '');
+                if (this.currentGraphData && this.currentGraphData.nodes) {
+                    const node = this.currentGraphData.nodes.find(n => n.id.toString() === nodeId);
+                    if (node) {
+                        this.draggedGraphNode = node;
+                        node.isDragging = true;
+                        node.vx = 0; node.vy = 0;
+                        viewport.style.cursor = 'grabbing';
+                        return; // Stop here, don't start pan
+                    }
+                }
+            }
+
+            // 2. Check if we should block panning (buttons, non-graph cards)
+            // Only drag if clicking background or content wrapper, not buttons/cards directly
+            target = e.target;
             while (target && target !== viewport) {
                 if (target.tagName === 'BUTTON' || target.classList.contains('perk-card-tree')) {
+                    // Note: Graph nodes have perk-card-tree inside, but we handled them above.
+                    // If we are here, it means we clicked a card that is NOT inside a graph node (unlikely in this view but possible if mixed)
+                    // Or we clicked a button.
+                    // To be safe, if we didn't match nodeElement above, we block pan on these.
                     return;
                 }
                 target = target.parentElement;
@@ -1799,9 +1890,99 @@ class UI {
         if (!this._forgeListenersAttached) {
             this._forgeListenersAttached = true;
             
+            // Mouse Over/Out for Highlighting (Tooltip handled by global listeners)
+            window.addEventListener('mouseover', (e) => {
+                // Find closest node wrapper
+                const wrapper = e.target.closest('.forge-graph-node');
+                
+                if (wrapper) {
+                    // Highlight Connections
+                    const nodeId = wrapper.id.replace('node-', '');
+                    wrapper.classList.add('highlight-node');
+                    
+                    // Highlight Links and Neighbors
+                    const svg = document.getElementById('forge-graph-svg');
+                    if (svg) {
+                        const links = svg.querySelectorAll('.forge-link');
+                        links.forEach(link => {
+                            const source = link.getAttribute('data-source');
+                            const targetId = link.getAttribute('data-target');
+                            
+                            if (source === nodeId || targetId === nodeId) {
+                                link.classList.add('highlight-link');
+                                // Styles handled by CSS class now
+                                
+                                // Highlight connected node
+                                const otherId = source === nodeId ? targetId : source;
+                                const otherNode = document.getElementById(`node-${otherId}`);
+                                if (otherNode) otherNode.classList.add('highlight-node');
+                            } else {
+                                link.classList.add('dimmed-link');
+                            }
+                        });
+                    }
+                }
+            });
+            
+            window.addEventListener('mouseout', (e) => {
+                // Check if we really left the node
+                const wrapper = e.target.closest('.forge-graph-node');
+                if (wrapper) {
+                     if (e.relatedTarget && wrapper.contains(e.relatedTarget)) return;
+                     
+                     // Remove highlights
+                     const allNodes = document.querySelectorAll('.forge-graph-node');
+                     allNodes.forEach(n => n.classList.remove('highlight-node'));
+                     
+                     const svg = document.getElementById('forge-graph-svg');
+                     if (svg) {
+                         const links = svg.querySelectorAll('.forge-link');
+                         links.forEach(link => {
+                             link.classList.remove('highlight-link');
+                             link.classList.remove('dimmed-link');
+                         });
+                     }
+                }
+            });
+
             window.addEventListener('mousemove', (e) => {
-                if (!this.forgePan || !this.forgePan.isDragging) return;
                 e.preventDefault();
+                
+                // Update Tooltip Position
+                const tooltip = document.getElementById('forge-floating-tooltip');
+                if (tooltip && tooltip.style.opacity === '1') {
+                    // Position slightly offset from mouse
+                    const offset = 15;
+                    let x = e.clientX + offset;
+                    let y = e.clientY + offset;
+                    
+                    // Boundary check (simple)
+                    if (x + 250 > window.innerWidth) x = e.clientX - 265;
+                    if (y + 100 > window.innerHeight) y = e.clientY - 115;
+                    
+                    tooltip.style.transform = `translate(${x}px, ${y}px)`;
+                }
+
+                // Handle Graph Node Drag
+                if (this.draggedGraphNode) {
+                     const container = document.getElementById('forge-graph-container');
+                     if (container) {
+                         const rect = container.getBoundingClientRect();
+                         // Update node position relative to container
+                         this.draggedGraphNode.x = e.clientX - rect.left;
+                         this.draggedGraphNode.y = e.clientY - rect.top;
+                         this.draggedGraphNode.vx = 0;
+                         this.draggedGraphNode.vy = 0;
+                         
+                         if (!this.isSimulating) {
+                             this.updateGraphDOM(); 
+                         }
+                     }
+                     return;
+                }
+                
+                // Handle Viewport Pan
+                if (!this.forgePan || !this.forgePan.isDragging) return;
                 
                 this.forgePan.x = e.clientX - this.forgePan.startX;
                 this.forgePan.y = e.clientY - this.forgePan.startY;
@@ -1814,6 +1995,13 @@ class UI {
             });
 
             window.addEventListener('mouseup', () => {
+                // Stop Graph Node Drag
+                if (this.draggedGraphNode) {
+                    this.draggedGraphNode.isDragging = false;
+                    this.draggedGraphNode = null;
+                }
+
+                // Stop Viewport Pan
                 if (this.forgePan && this.forgePan.isDragging) {
                     this.forgePan.isDragging = false;
                     const currentViewport = document.getElementById('forge-viewport');
@@ -1825,138 +2013,379 @@ class UI {
         }
     }
 
+    stopForceLayout() {
+        this.isSimulating = false;
+        // Also clear any dragged node state
+        this.draggedGraphNode = null;
+        if (this.forgePan) {
+            this.forgePan.isDragging = false;
+        }
+    }
+
     renderForgeTree(perkId) {
-        // Recursive tree builder
+        // Force-Directed Graph Builder
+        
+        // 1. Build Graph Data (Nodes & Links)
+        const nodes = [];
+        const links = [];
+        const addedNodeIds = new Set();
 
-        const buildTree = (id, parentId = null) => {
-            const perk = typeof getPerkById === 'function' ? getPerkById(id) : null;
-            if (!perk) return '';
-
-            const isTarget = id === this.selectedForgePerk;
-            const ownedCount = this.gameState.perksPurchased[id] || 0;
-            const isOwned = ownedCount > 0;
+        const addNode = (id, type = 'perk', parentId = null) => {
+            if (addedNodeIds.has(id)) {
+                // Link even if already added
+                if (parentId) links.push({ source: parentId, target: id });
+                return;
+            }
             
-            const recipe = perk.forgeRecipe;
-            const hasRecipe = !!recipe;
-            
-            // Rarity Class
-            const rarityClass = perk.tier ? `rarity-${perk.tier}` : 'rarity-common';
-            
-            // Name Style
-            let nameStyleStr = '';
-            if (perk.nameStyle) {
-                if (perk.nameStyle.color) nameStyleStr += `color: ${perk.nameStyle.color};`;
-                if (perk.nameStyle.textStroke) nameStyleStr += `-webkit-text-stroke: ${perk.nameStyle.textStroke};`;
+            // Logic to get perk/data
+            let data = {};
+            if (type === 'perk') {
+                const perk = typeof getPerkById === 'function' ? getPerkById(id) : null;
+                if (!perk) return;
+                data = perk;
+            } else if (type === 'cash') {
+                data = { id: 'cash-' + parentId, name: 'Cash', amount: id }; // id passed as amount
             }
 
-            // Determine Icon
-            let icon = this.getPerkIcon(perk);
-
-            let nodeHtml = '';
-
-            if (isTarget) {
-                // Root node (Target) - Full Card
-                const canForge = this.gameState.canForgePerk(id).canForge;
-                const statusClass = canForge ? 'status-ready' : 'status-pending';
-                const isHighTier = perk.tier && ['legendary', 'mythical', 'godlike', 'ultimate'].includes(perk.tier);
+            // Create Node Object
+            const node = {
+                id: type === 'cash' ? data.id : id,
+                type: type,
+                data: data,
+                x: 0, y: 0, vx: 0, vy: 0 // Physics placeholders
+            };
+            
+            nodes.push(node);
+            addedNodeIds.add(node.id);
+            
+            if (parentId) {
+                links.push({ source: parentId, target: node.id });
+            }
+            
+            // Recursively add children
+            if (type === 'perk') {
+                const perk = data;
+                const recipe = perk.forgeRecipe;
                 
-                nodeHtml = `
-                    <div class="perk-card perk-card-tree target-node-card ${rarityClass} ${statusClass}">
-                        ${isHighTier ? `
-                            <div class="perk-card-particles">
-                                <span></span><span></span><span></span>
-                            </div>
-                        ` : ''}
-                        <div class="perk-rarity-badge">${perk.tier ? perk.tier.toUpperCase() : 'COMMON'}</div>
-                        <div class="perk-card-art">
-                            <div class="perk-card-icon">${icon}</div>
-                        </div>
-                        <div class="perk-card-info">
-                            <div class="perk-card-name" style="${nameStyleStr}">${perk.name}</div>
-                            <div class="perk-card-description" style="font-size: 0.8em; color: #aaa; margin-bottom: 10px; text-align: center; white-space: normal; line-height: 1.3;">
-                                ${perk.description}
-                            </div>
+                // 1. Recipe Perks
+                if (recipe && Array.isArray(recipe.perks)) {
+                    recipe.perks.forEach(reqId => addNode(reqId, 'perk', node.id));
+                }
+                
+                // 2. Recipe Cash
+                if (recipe && recipe.cash) {
+                    addNode(recipe.cash, 'cash', node.id);
+                }
+                
+                // 3. Fallback: Conditions
+                if (!recipe && perk.conditions) {
+                     const forgeCondition = perk.conditions.find(c => c.type === 'forging');
+                     if (forgeCondition && forgeCondition.recipe) {
+                        const r = forgeCondition.recipe;
+                        const pList = Array.isArray(r) ? r : (r.perks || []);
+                        const cAmt = r.cash || (forgeCondition.cash);
+                        
+                        pList.forEach(reqId => addNode(reqId, 'perk', node.id));
+                        if (cAmt) addNode(cAmt, 'cash', node.id);
+                     }
+                }
+            }
+        };
+        
+        // Start building from root
+        addNode(perkId);
+        
+        this.currentGraphData = { nodes, links };
+        
+        // Render Initial HTML (Nodes only, links via SVG)
+        const nodesHtml = nodes.map(node => {
+            const isTarget = node.id === perkId;
+            let innerHtml = '';
+            let tooltipHtml = '';
+            
+            if (node.type === 'cash') {
+                const amount = node.data.amount;
+                const hasCash = this.gameState.cash >= amount;
+                
+                // Cash Node - Horizontal Pill Style
+                innerHtml = `
+                    <div class="perk-square-node ${hasCash ? 'status-owned' : 'status-missing'}" style="width: 160px; height: 60px; background: #222; border: 2px solid ${hasCash ? '#4ade80' : '#ef4444'}; border-radius: 8px; display: flex; flex-direction: row; align-items: center; justify-content: flex-start; padding: 5px 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.5); text-align: left;">
+                        <div style="font-size: 2em; margin-right: 10px;">💵</div>
+                        <div class="perk-name" style="color: #4ade80; font-size: 0.9em; font-weight: bold; line-height: 1.1;">$${amount}</div>
+                        <div class="node-tooltip-content" style="display: none;">
+                            <div class="tooltip-header"><span class="tooltip-name" style="color: #4ade80;">$${amount}</span></div>
+                            <div class="tooltip-desc">Required Cash</div>
+                            <div class="tooltip-status ${hasCash ? 'req-met' : 'req-missing'}">${hasCash ? 'AVAILABLE' : 'MISSING'}</div>
                         </div>
                     </div>
                 `;
             } else {
-                // Ingredient node - Simplified
-                const isMet = isOwned; 
-                const statusClass = isMet ? 'status-owned' : 'status-missing';
+                const perk = node.data;
+                const isOwned = (this.gameState.perksPurchased[perk.id] || 0) > 0;
+                const icon = this.getPerkIcon(perk);
+                const rarityClass = perk.tier ? `rarity-${perk.tier}` : 'rarity-common';
+                const desc = typeof escapeHtml === 'function' ? escapeHtml(perk.description) : perk.description;
+                const rarityLabel = perk.tier ? perk.tier.toUpperCase() : 'COMMON';
+                const canForge = isTarget ? this.gameState.canForgePerk(perk.id).canForge : false;
                 
-                nodeHtml = `
-                    <div class="ingredient-node-simple ${statusClass} ${rarityClass}">
-                        <div class="ing-icon">${icon}</div>
-                        <div class="ing-info">
-                            <div class="ing-name" style="${nameStyleStr}">${perk.name}</div>
-                        </div>
-                        
-                        <!-- Hover Tooltip -->
-                        <div class="ingredient-tooltip">
-                            <div class="tooltip-header">
-                                <span class="tooltip-name">${perk.name}</span>
-                                <span class="tooltip-rarity rarity-${perk.tier}">${perk.tier ? perk.tier.toUpperCase() : 'COMMON'}</span>
-                            </div>
-                            <div class="tooltip-desc">${perk.description}</div>
-                            <div class="tooltip-status">${isOwned ? '✓ Owned' : '🔒 Missing'}</div>
-                        </div>
+                // Status class logic
+                let statusClass = 'status-pending';
+                if (isOwned) statusClass = 'status-owned';
+                else if (isTarget && canForge) statusClass = 'status-ready';
+                else if (!isTarget && !isOwned) statusClass = 'status-missing';
+
+                // Tooltip HTML (stored for mouse-following)
+                tooltipHtml = `
+                    <div class="tooltip-header">
+                         <span class="tooltip-name" style="${perk.nameStyle?.color ? 'color:'+perk.nameStyle.color : ''}">${perk.name}</span>
+                    </div>
+                    <div class="tooltip-rarity ${rarityClass}">${rarityLabel}</div>
+                    <div class="tooltip-desc">${desc}</div>
+                    <div class="tooltip-status ${isOwned ? 'req-met' : 'req-missing'}">
+                        ${isOwned ? 'OWNED' : 'MISSING'}
                     </div>
                 `;
-            }
-
-            // Children (Ingredients)
-            let childrenHtml = '';
-            if (hasRecipe) {
-                const children = [];
                 
-                // Perk ingredients
-                if (Array.isArray(recipe.perks)) {
-                    recipe.perks.forEach(reqId => {
-                        children.push(buildTree(reqId, id));
-                    });
-                }
-                
-                // Cash ingredient
-                if (recipe.cash) {
-                    const hasCash = this.gameState.cash >= recipe.cash;
-                    const cashClass = hasCash ? 'status-owned' : 'status-missing';
-                    // Render Cash as a simplified node
-                    children.push(`
-                        <div class="tree-node-wrapper">
-                            <div class="ingredient-node-simple ${cashClass} rarity-common">
-                                <div class="ing-icon">💵</div>
-                                <div class="ing-info">
-                                    <div class="ing-name">${recipe.cash}$</div>
+                if (isTarget) {
+                    // Target Node - Exact Shop Card Style
+                    const specialText = perk.special ? (typeof perk.special === 'string' ? perk.special : Object.keys(perk.special).join(', ')) : '';
+                    const isLegendary = ['legendary', 'mythic', 'godlike', 'ultimate', 'surreal', 'exotic'].includes(perk.tier || 'common');
+                    const isMythical = (perk.tier || 'common') === 'mythical';
+                    const nameStyle = perk.nameStyle || {};
+                    const nameCss = nameStyle.color ? ` style="color:${nameStyle.color}"` : '';
+                    
+                    if (isMythical) {
+                        // Mythical Shop Card Style (Vertical Rectangle) with Opaque Background
+                        innerHtml = `
+                            <div class="perk-card perk-card-shop perk-tooltip-anchor rarity-${perk.tier || 'common'} ${statusClass}" 
+                                 data-perk-id="${perk.id}" 
+                                 data-perk-name="${escapeAttr(perk.name)}" 
+                                 data-perk-rarity="${escapeAttr(rarityLabel)}" 
+                                 data-perk-desc="${escapeAttr(desc)}" 
+                                 data-perk-special="${escapeAttr(specialText)}"
+                                 style="width: 180px; height: 240px; position: relative; background: #2a0a2a; border: 2px solid #a855f7; z-index: 10;">
+                                
+                                <div class="perk-card-particles">
+                                    <span></span><span></span><span></span>
+                                </div>
+                                
+                                <div class="perk-rarity-badge">${rarityLabel}</div>
+                                <div class="perk-card-art">
+                                    <div class="perk-card-icon">${icon}</div>
+                                </div>
+                                <div class="perk-card-info">
+                                    <div class="perk-card-name"${nameCss}>${perk.name}</div>
+                                    <div class="perk-card-footer">
+                                        <!-- Removed FORGE text -->
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    `);
-                }
-                
-                if (children.length > 0) {
-                    childrenHtml = `
-                        <div class="node-children">
-                            ${children.map(c => `<div class="tree-branch">${c}</div>`).join('')}
+                        `;
+                    } else {
+                        // Standard Shop Card Style
+                        innerHtml = `
+                            <div class="perk-card perk-card-shop perk-tooltip-anchor rarity-${perk.tier || 'common'} ${statusClass}" 
+                                 data-perk-id="${perk.id}" 
+                                 data-perk-name="${escapeAttr(perk.name)}" 
+                                 data-perk-rarity="${escapeAttr(rarityLabel)}" 
+                                 data-perk-desc="${escapeAttr(desc)}" 
+                                 data-perk-special="${escapeAttr(specialText)}"
+                                 style="width: 180px; height: 240px; position: relative;">
+                                
+                                ${isLegendary ? `
+                                    <div class="perk-card-particles">
+                                        <span></span><span></span><span></span>
+                                    </div>
+                                ` : ''}
+                                
+                                <div class="perk-rarity-badge">${rarityLabel}</div>
+                                <div class="perk-card-art">
+                                    <div class="perk-card-icon">${icon}</div>
+                                </div>
+                                <div class="perk-card-info">
+                                    <div class="perk-card-name"${nameCss}>${perk.name}</div>
+                                    <div class="perk-card-footer">
+                                        <!-- Removed FORGE text -->
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    }
+                } else {
+                    // Ingredient Node - Horizontal Pill Style with Name + Tooltip Anchor
+                    const specialText = perk.special ? (typeof perk.special === 'string' ? perk.special : Object.keys(perk.special).join(', ')) : '';
+                    const borderColor = isOwned ? '#4ade80' : '#ef4444';
+                    
+                    innerHtml = `
+                        <div class="perk-square-node perk-tooltip-anchor ${rarityClass} ${statusClass}" 
+                             data-perk-id="${perk.id}" 
+                             data-perk-name="${escapeAttr(perk.name)}" 
+                             data-perk-rarity="${escapeAttr(rarityLabel)}" 
+                             data-perk-desc="${escapeAttr(desc)}" 
+                             data-perk-special="${escapeAttr(specialText)}"
+                             style="width: 160px; height: 60px; background: #1a1a1a; border: 2px solid ${borderColor}; border-radius: 8px; display: flex; flex-direction: row; align-items: center; justify-content: flex-start; padding: 5px 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.6); position: relative; text-align: left;">
+                            <div class="perk-icon" style="font-size: 2em; margin-right: 10px; flex-shrink: 0;">${icon}</div>
+                            <div class="perk-name" style="${perk.nameStyle?.color ? 'color:'+perk.nameStyle.color : 'color: #ffffff'}; font-size: 0.8em; font-weight: bold; line-height: 1.1; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; width: 100%;">${perk.name}</div>
                         </div>
                     `;
                 }
             }
-
+            
             return `
-                <div class="tree-node-wrapper">
-                    ${nodeHtml}
-                    ${childrenHtml}
+                <div class="forge-graph-node" id="node-${node.id}" style="position: absolute; transform: translate(-50%, -50%); z-index: 10;">
+                    ${innerHtml}
                 </div>
             `;
-        };
+        }).join('');
 
-        const treeHtml = buildTree(perkId);
+        // Trigger simulation
+        setTimeout(() => this.initForceLayout(), 0);
 
         return `
-            <div class="forge-tree-container">
-                ${treeHtml}
+            <div class="forge-graph-container" id="forge-graph-container" style="position: relative; width: 100%; height: 100%;">
+                <svg class="forge-connections-svg" id="forge-graph-svg" style="position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1;"></svg>
+                ${nodesHtml}
+                <div id="forge-floating-tooltip" class="ingredient-tooltip" style="position: fixed; pointer-events: none; opacity: 0; z-index: 9999; transform: translate(15px, 15px); transition: opacity 0.1s; max-width: 250px;"></div>
             </div>
         `;
+    }
+
+    initForceLayout() {
+        if (this.isSimulating) return;
+        this.isSimulating = true;
+        
+        const { nodes, links } = this.currentGraphData;
+        const width = 800; 
+        const height = 600; 
+        
+        // Initial positions
+        nodes.forEach((node, i) => {
+            if (!node.x) {
+                const angle = i * 0.5;
+                const radius = 50 * i + 10;
+                node.x = width/2 + Math.cos(angle) * radius;
+                node.y = height/2 + Math.sin(angle) * radius;
+                node.vx = 0; node.vy = 0;
+            }
+        });
+
+        // Tuned for MAX SPREAD and FLOATINESS
+        const repulsion = 40000;      // Very strong push
+        const springLength = 400;     // Long connections
+        const springStrength = 0.03;  // Loose springs
+        const centerGravity = 0.0005; // Almost zero gravity
+        const damping = 0.92;         // High damping for drift
+        
+        const tick = () => {
+            const svg = document.getElementById('forge-graph-svg');
+            if (!svg) {
+                this.isSimulating = false;
+                return;
+            }
+            
+            // Physics
+            // Repulsion
+            for (let i = 0; i < nodes.length; i++) {
+                for (let j = i + 1; j < nodes.length; j++) {
+                    const a = nodes[i];
+                    const b = nodes[j];
+                    const dx = a.x - b.x;
+                    const dy = a.y - b.y;
+                    let d2 = dx*dx + dy*dy;
+                    if (d2 === 0) { d2 = 0.1; }
+                    const d = Math.sqrt(d2);
+                    const f = repulsion / d2;
+                    const fx = (dx/d)*f;
+                    const fy = (dy/d)*f;
+                    
+                    if (!a.isDragging) { a.vx += fx; a.vy += fy; }
+                    if (!b.isDragging) { b.vx -= fx; b.vy -= fy; }
+                }
+            }
+            // Springs
+            links.forEach(link => {
+                const s = nodes.find(n => n.id === link.source);
+                const t = nodes.find(n => n.id === link.target);
+                if (!s || !t) return;
+                const dx = t.x - s.x;
+                const dy = t.y - s.y;
+                const d = Math.sqrt(dx*dx + dy*dy);
+                const f = (d - springLength) * springStrength;
+                const fx = (dx/d)*f;
+                const fy = (dy/d)*f;
+                
+                if (!s.isDragging) { s.vx += fx; s.vy += fy; }
+                if (!t.isDragging) { t.vx -= fx; t.vy -= fy; }
+            });
+
+            // Collision Detection
+            // Assume typical card size ~180x240, so radius approx 120 or check rect overlap
+            // Simple circular collision for smooth physics
+            const collisionRadius = 150; // Enough to keep cards from overlapping too much
+            for (let i = 0; i < nodes.length; i++) {
+                for (let j = i + 1; j < nodes.length; j++) {
+                    const a = nodes[i];
+                    const b = nodes[j];
+                    const dx = a.x - b.x;
+                    const dy = a.y - b.y;
+                    let d2 = dx*dx + dy*dy;
+                    if (d2 === 0) { d2 = 0.1; }
+                    const d = Math.sqrt(d2);
+                    
+                    if (d < collisionRadius) {
+                        const overlap = collisionRadius - d;
+                        const force = overlap * 0.05; // Soft collision
+                        const fx = (dx/d) * force;
+                        const fy = (dy/d) * force;
+                        
+                        if (!a.isDragging) { a.vx += fx; a.vy += fy; }
+                        if (!b.isDragging) { b.vx -= fx; b.vy -= fy; }
+                    }
+                }
+            }
+
+            // Gravity
+            nodes.forEach(n => {
+                if (n.isDragging) return;
+                n.vx += (width/2 - n.x) * centerGravity;
+                n.vy += (height/2 - n.y) * centerGravity;
+                n.vx *= damping;
+                n.vy *= damping;
+                n.x += n.vx;
+                n.y += n.vy;
+            });
+            
+            this.updateGraphDOM();
+            
+            if (this.isSimulating) requestAnimationFrame(tick);
+        };
+        tick();
+    }
+
+    updateGraphDOM() {
+        const { nodes, links } = this.currentGraphData;
+        const svg = document.getElementById('forge-graph-svg');
+        if (!svg) return;
+        
+        // Update Links
+            let linesHtml = '';
+            links.forEach(link => {
+                const s = nodes.find(n => n.id === link.source);
+                const t = nodes.find(n => n.id === link.target);
+                if (s && t) {
+                    linesHtml += `<line class="forge-link" data-source="${s.id}" data-target="${t.id}" x1="${s.x}" y1="${s.y}" x2="${t.x}" y2="${t.y}" stroke="rgba(255,255,255,0.2)" stroke-width="4" />`;
+                }
+            });
+            svg.innerHTML = linesHtml;
+        
+        // Update Nodes
+        nodes.forEach(node => {
+            const el = document.getElementById(`node-${node.id}`);
+            if (el) {
+                el.style.left = `${node.x}px`;
+                el.style.top = `${node.y}px`;
+            }
+        });
     }
 
     _injectForgeStyles() {
@@ -2157,6 +2586,63 @@ class UI {
                 transform: scale(0.95);
             }
             
+            /* Graph Node Fixes */
+            .forge-graph-node {
+                opacity: 1 !important; /* Disable transparency */
+                transition: transform 0.2s ease, opacity 0.2s ease;
+            }
+            
+            /* Ensure opaque backgrounds for cards in tree */
+            .perk-card-tree {
+                background-color: #151515 !important;
+                backdrop-filter: none !important;
+            }
+            
+            /* Highlight State */
+            .highlight-node {
+                z-index: 20 !important;
+                transform: translate(-50%, -50%) scale(1.1) !important;
+                filter: brightness(1.2);
+            }
+            
+            /* Simple Circle Node Hover */
+            .perk-circle-node {
+                transition: box-shadow 0.2s, border-color 0.2s;
+            }
+            .perk-circle-node:hover {
+                box-shadow: 0 0 15px rgba(255, 255, 255, 0.4);
+                border-color: #fff !important;
+            }
+
+            /* Square Node Styling */
+            .perk-square-node {
+                transition: box-shadow 0.2s, border-color 0.2s, transform 0.2s;
+                border-radius: 4px; /* Slight rounded corners for squares */
+            }
+            .perk-square-node:hover {
+                box-shadow: 0 0 15px rgba(255, 255, 255, 0.4);
+                border-color: #fff !important;
+                transform: scale(1.05);
+                z-index: 15;
+            }
+            
+            /* Link Highlight */
+            .forge-link {
+                transition: stroke 0.2s, stroke-width 0.2s, opacity 0.2s;
+            }
+            .highlight-link {
+                stroke: rgba(255, 255, 255, 1) !important;
+                filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.8));
+                stroke-width: 6px !important;
+                z-index: 5;
+            }
+            .dimmed-link {
+                opacity: 0.1 !important;
+                stroke-width: 3px !important;
+
+                stroke: rgba(255, 255, 255, 1) !important;
+            }
+            
             .perk-card-forge .perk-card-art {
                 width: 80px;
                 height: auto !important; /* Allow it to stretch */
@@ -2317,7 +2803,7 @@ class UI {
             }
             .ingredient-node-simple.status-missing {
                 border-color: #ef4444;
-                opacity: 0.8;
+                opacity: 1;
             }
             .ing-icon {
                 font-size: 1.8em;
@@ -2563,6 +3049,7 @@ class UI {
         document.head.appendChild(style);
     }
 
+
     /**
      * Boss defeated: choose 3 exclusive perks
      */
@@ -2674,7 +3161,8 @@ class UI {
         if (existing) {
             let count = parseInt(existing.getAttribute('data-msg-count') || '1', 10) + 1;
             existing.setAttribute('data-msg-count', String(count));
-            existing.innerHTML = `${message} <span class="notification-count">(×${count})</span><div class="notification-progress" style="animation-duration: ${duration}ms"></div>`;
+            const progressHtml = type === 'unlock' ? '' : `<div class="notification-progress" style="animation-duration: ${duration}ms"></div>`;
+            existing.innerHTML = `<span class="notification-text">${message}</span> <span class="notification-count">(×${count})</span>${progressHtml}`;
             existing.classList.remove('hiding'); // Reset hiding state if it reappears
             const oldT = existing.getAttribute('data-timeout');
             if (oldT) clearTimeout(parseInt(oldT, 10));
@@ -2684,7 +3172,8 @@ class UI {
             div.className = `notification notification-${type}`;
             div.setAttribute('data-msg-key', key);
             div.setAttribute('data-msg-count', '1');
-            div.innerHTML = `${message}<div class="notification-progress" style="animation-duration: ${duration}ms"></div>`;
+            const progressHtml = type === 'unlock' ? '' : `<div class="notification-progress" style="animation-duration: ${duration}ms"></div>`;
+            div.innerHTML = `<span class="notification-text">${message}</span>${progressHtml}`;
             container.appendChild(div);
         }
         

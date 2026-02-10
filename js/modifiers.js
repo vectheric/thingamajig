@@ -4,182 +4,174 @@
  */
 
 // SIZE MODIFICATIONS - affect item value and appearance
+// Kept as is, but keys might need to be lowercase if we want consistency, 
+// but user only specified "for modifiers". 
+// I will keep ATTRIBUTE uppercase keys for now to avoid breaking too much, 
+// but ensure IDs match keys if possible.
 const ATTRIBUTE = {
-    NORMAL: {
-        id: 'normal',
+    normal: {
         name: 'Normal',
         value: 1.0,
-        rarity: 10  // 50% chance (Base)
+        rarity: 10
     },
-    SMALL: {
-        id: 'small',
+    small: {
         name: 'Small',
         value: 0.8,
-        rarity: 40, // ~15% chance
-        color: '#f14f3aff' // cyan-200
+        rarity: 40,
+        color: '#f14f3aff'
     },
-    TINY: {
-        id: 'tiny',
+    tiny: {
         name: 'Tiny',
         value: 0.6,
-        rarity: 33, // ~15% chance
-        color: '#f14f3aff' // cyan-200
+        rarity: 33,
+        color: '#f14f3aff'
     },
-    MICROSCOPIC: {
-        id: 'microscopic',
+    microscopic: {
         name: 'Microscopic',
         value: 0.35,
-        rarity: 120, // ~5% chance
-        color: '#fa1515ff' // blue-400
+        rarity: 120,
+        color: '#fa1515ff'
     },
-    BIG: {
-        id: 'big',
+    big: {
         name: 'Big',
         value: 1.3,
-        rarity: 33, // ~15% chance
-        color: '#74e716ff' // orange-400
+        rarity: 33,
+        color: '#74e716ff'
     },
-    HUGE: {
-        id: 'huge',
+    huge: {
         name: 'Huge',
         value: 1.65,
-        rarity: 50, // ~10% chance
-        color: '#4bf520ff' // red-400
+        rarity: 50,
+        color: '#4bf520ff'
     },
-    GIGANTIC: {
-        id: 'gigantic',
+    gigantic: {
         name: 'Gigantic',
         value: 1.75,
-        rarity: 125, // ~5% chance
-        color: '#21fa1aff' // purple-400
+        rarity: 125,
+        color: '#21fa1aff'
     },
-    TITANIC: {
-        id: 'titanic',
+    titanic: {
         name: 'Titanic',
         value: 2,
-        rarity: 125, // ~5% chance
-        color: '#1cd616ff' // purple-400
+        rarity: 125,
+        color: '#1cd616ff'
     },
-    GARGANTUAN: {
-        id: 'gargantuan',
+    gargantuan: {
         name: 'Gargantuan',
         value: 2.5,
-        rarity: 125, // ~5% chance
-        color: '#08b602ff' // purple-400
+        rarity: 125,
+        color: '#08b602ff'
     }
 };
 
-// ITEM MODIFICATIONS - various effects and attributes
-// Rarity: Higher number = Rarer (Probability ~ 1/Rarity)
+// Add ID property to each attribute to match key (for backward compatibility)
+Object.keys(ATTRIBUTE).forEach(key => {
+    ATTRIBUTE[key].id = key;
+});
+
+// ITEM MODIFICATIONS
+// New Schema: key = id
 const MODS = {
-    GLOSSY: {
-        id: 'glossy',
+    glossy: {
         name: 'Glossy',
-        value: 1.2,
-        rarity: 10,
-        color: '#22d3ee', // cyan-400
+        multi: 1.2,
+        color: '#22d3ee',
+        rarity: 10, // Preserved for spawning logic
         description: '+20% value'
     },
-    ALIEN: {
-        id: 'alien',
+    alien: {
         name: 'Alien',
-        value: 1.5,
+        multi: 1.5,
+        color: '#4ade80',
         rarity: 15,
-        color: '#4ade80', // green-400
         description: '+50% value'
     },
-    GOLDEN: {
-        id: 'golden',
+    golden: {
         name: 'Golden',
-        value: 2,
+        multi: 2,
+        color: '#facc15',
         rarity: 25,
-        color: '#facc15', // yellow-400
         description: '+200% value'
     },
-    ANCIENT: {
-        id: 'ancient',
+    ancient: {
         name: 'Ancient',
-        value: 1.4,
+        multi: 1.4,
+        color: '#d6d3d1',
         rarity: 12,
-        color: '#d6d3d1', // stone-300
         description: '+40% value'
     },
-    CURSED: {
-        id: 'cursed',
+    cursed: {
         name: 'Cursed',
-        value: -0.3,
+        multi: 0.7, // -30% = 0.7x
+        color: '#9ca3af',
         rarity: 15,
-        color: '#9ca3af', // gray-400
         description: '-30% value (unlucky)'
     },
-    HOLOGRAPHIC: {
-        id: 'holographic',
+    holographic: {
         name: 'Holographic',
-        value: 0.35,
+        multi: 1.35,
+        color: '#e879f9',
         rarity: 11,
-        color: '#e879f9', // fuchsia-400
         description: '+35% value'
     },
-    RADIOACTIVE: {
-        id: 'radioactive',
+    radioactive: {
         name: 'Radioactive',
-        value: 0.25,
+        multi: 1.25,
+        color: '#a3e635',
         rarity: 18,
-        color: '#a3e635', // lime-400
         description: '+25% value (risky)',
         requiresPerk: 'hazmat_suit'
     },
-    PRISMATIC: {
-        id: 'prismatic',
+    prismatic: {
         name: 'Prismatic',
-        value: 1.0,
+        multi: 2.0, // +100%
+        color: '#f472b6',
         rarity: 40,
-        color: '#f472b6', // pink-400
         description: '+100% value (rare)'
     },
-    CORRUPTED: {
-        id: 'corrupted',
+    corrupted: {
         name: 'Corrupted',
-        value: -0.5,
+        multi: 0.5,
+        color: '#52525b',
         rarity: 20,
-        color: '#52525b', // zinc-600
         description: '-50% value'
     },
-    ECTOPLASMIC: {
-        id: 'ectoplasmic',
+    ectoplasmic: {
         name: 'Ectoplasmic',
-        value: 1.6,
+        multi: 1.2,
+        color: '#2dd4bf',
         rarity: 18,
-        color: '#2dd4bf', // teal-400
         description: '+20% value',
         requiresPerk: 'spirit_sight'
     },
-    BLESSED: {
-        id: 'blessed',
+    blessed: {
         name: 'Blessed',
-        value: 0.7,
+        multi: 1.7,
+        color: '#fde047',
         rarity: 16,
-        color: '#fde047', // yellow-300
         description: '+70% value'
     },
-    SHADOWY: {
-        id: 'shadowy',
+    shadowy: {
         name: 'Shadowy',
-        value: -0.15,
+        multi: 0.85,
+        color: '#475569',
         rarity: 12,
-        color: '#475569', // slate-600
         description: '-15% value'
     },
-    ENCHANTED: {
-        id: 'enchanted',
+    enchanted: {
         name: 'enchanted',
-        value: 10, // +1000% value -> 11x multiplier (10 bonus)
-        rarity: 0, // High rarity, but controlled by perk requirement
-        color: '#d8b4fe', // purple-300
+        multi: 11, // +1000%
+        rarity: 0,
+        color: '#d8b4fe',
         description: '1000% value',
         requiresPerk: 'enchanted_table'
-    },
+    }
 };
+
+// Add ID property to each mod to match key (for backward compatibility if needed)
+Object.keys(MODS).forEach(key => {
+    MODS[key].id = key;
+});
 
 /**
  * Get random size modification based on chance weights
@@ -221,7 +213,7 @@ function getRandomAttribute(rng = Math.random, luck = 0) {
         if (random <= 0) return { ...item.mod };
     }
     
-    return { ...ATTRIBUTE.NORMAL };
+    return { ...ATTRIBUTE.normal };
 }
 
 /**
@@ -245,14 +237,12 @@ function getRandomMods(options = {}) {
     // Add guaranteed mods first
     if (guaranteedMods && guaranteedMods.length > 0) {
         guaranteedMods.forEach(modId => {
-            const mod = modArray.find(m => m.id === modId);
+            const mod = MODS[modId] || modArray.find(m => m.id === modId);
             if (mod) selectedMods.push({ ...mod });
         });
     }
 
     // Determine how many random mods to add
-    // Base: 40% for 1 mod, 15% for 2 mods, 45% for 0 mods
-    // Luck also boosts chance of getting more mods slightly
     const luckModChanceBoost = luck > 0 ? (1 + luck * 0.05) : 1.0;
     
     const baseChance = rng();
@@ -261,8 +251,6 @@ function getRandomMods(options = {}) {
     
     let targetModCount = baseChance < modChance1 ? 1 : baseChance < (modChance1 + modChance2) ? 2 : 0;
     
-    // Fix: Make random mods additive to guaranteed mods (allow stacking)
-    // Random mods are now IN ADDITION to guaranteed ones
     const needed = targetModCount;
 
     // Select random mods based on their individual chances
@@ -273,16 +261,12 @@ function getRandomMods(options = {}) {
         // Check for required perk to unlock this mod
         if (m.requiresPerk && !ownedPerks[m.requiresPerk]) return false;
 
-        // Legacy special case: Enchanted requires Enchanted Table perk
-        // (Can be refactored to use requiresPerk in definition)
         return !selectedMods.some(sm => sm.id === m.id);
     });
     
     for (let i = 0; i < needed && availableMods.length > 0; i++) {
-        // Calculate probability weights from rarity (Higher rarity = Lower weight)
-        // weight = 100 / rarity
+        // Calculate probability weights
         const weightedMods = availableMods.map(mod => {
-            // Base rarity (higher = rarer)
             let rarity = mod.rarity || 10;
             
             // Apply rarity multipliers from perks (e.g. Hex Breaker increases rarity of Cursed items)
@@ -290,42 +274,32 @@ function getRandomMods(options = {}) {
                 rarity *= rarityMultipliers[mod.id];
             }
             
-            // Luck Mitigation: Apply luck to Rarity directly
-            // Higher luck = Lower rarity for good items (making them more common)
-            // Higher luck = Higher rarity for bad items (making them rarer)
             if (luck > 0) {
-                if (mod.value > 1.0) {
-                    // Good mod: Reduce rarity to make it more common
-                    // e.g. Luck 10 -> 2x boost -> Rarity / 2
-                    const luckFactor = 1 + (luck * 0.1);
+                // Check value based on multi now
+                const isGood = mod.multi > 1.0;
+                
+                if (isGood) {
+                    const luckFactor = 1 + (luck * 0.1); 
                     rarity /= luckFactor;
-                } else if (mod.value < 1.0) {
-                    // Bad mod: Increase rarity to make it rarer
-                    // e.g. Luck 10 -> 1.5x boost -> Rarity * 1.5
+                } else {
                     const luckProtection = 1 + (luck * 0.05);
                     rarity *= luckProtection;
                 }
             }
             
-            // Calculate final probability weight
-            // Inverse of Rarity
-            let probabilityWeight = 100 / Math.max(0.1, rarity);
-            
-            // Apply modChanceBoost (Global multiplier)
-            probabilityWeight *= modChanceBoost;
-            
-            return { mod, weight: probabilityWeight };
+            // Weight = 100 / Rarity
+            return { mod, weight: 100 / Math.max(0.1, rarity) };
         });
-
+        
         const totalWeight = weightedMods.reduce((sum, item) => sum + item.weight, 0);
         let random = rng() * totalWeight;
         
-        for (let j = 0; j < weightedMods.length; j++) {
-            random -= weightedMods[j].weight;
+        for (const item of weightedMods) {
+            random -= item.weight;
             if (random <= 0) {
-                selectedMods.push({ ...weightedMods[j].mod });
-                // Remove selected from available for next iteration
-                availableMods = availableMods.filter(m => m.id !== weightedMods[j].mod.id);
+                selectedMods.push({ ...item.mod });
+                // Remove selected mod from available pool to prevent duplicates
+                availableMods = availableMods.filter(m => m.id !== item.mod.id);
                 break;
             }
         }
@@ -335,114 +309,154 @@ function getRandomMods(options = {}) {
 }
 
 /**
- * Apply modifications to an item
- * @param {Object} item - base item object
- * @param {Object} options - { modChanceBoost, rng, guaranteedMods, luck }
- * @returns {Object} modified item with size and mods
+ * Apply modifications to a thing
+ * @param {Object} thing - the base item
+ * @param {Object} options - modification options
+ * @returns {Object} modified thing
  */
-function applyModifications(item, options = {}) {
-    // Legacy support
-    if (typeof options === 'number') {
-        options = {
-            modChanceBoost: options,
-            rng: arguments[2] || Math.random
-        };
-    }
-    
-    const { modChanceBoost = 1.0, rng = Math.random, luck = 0 } = options;
+function applyModifications(thing, options) {
+    const { rng = Math.random, luck = 0, valueBonus = 0 } = options;
+
+    // 1. Roll for Size/Attribute
     const attribute = getRandomAttribute(rng, luck);
+    
+    // 2. Roll for Mods
     const mods = getRandomMods(options);
+
+    // 3. Apply changes
+    const modifiedThing = { ...thing };
+    modifiedThing.originalValue = thing.value;
+    // Save base color (handle nameStyle object or direct color string)
+    modifiedThing.baseColor = (thing.nameStyle && thing.nameStyle.color) || thing.color || '#9ca3af';
+    modifiedThing.attribute = attribute;
+    modifiedThing.mods = mods; // Use 'mods' for consistency with game-state.js
+    modifiedThing.modifiers = mods; // Keep 'modifiers' for internal consistency if needed
     
-    // Calculate price multiplier from all mods using additive options
-    // Formula: ItemBaseValue * Attribute * (1 + Sum of modifiers)
-    // We assume mod.value is a multiplier (e.g. 1.2 for +20%), so we sum (mod.value - 1)
-    let modBonusSum = 0;
-    mods.forEach(mod => {
-        modBonusSum += mod.value ;
-    });
+    // Calculate Rarity Score
+    // Formula: itemBaseRarity * attributeRarity * modifierRarity
+    // Note: Don't add guaranteed modifiers rarity (from perks)
     
-    // Add global value bonus from perks
-    if (options.valueBonus) {
-        modBonusSum += options.valueBonus;
+    const itemBaseRarity = thing.rarity || 1;
+    const attributeRarity = attribute.rarity || 1;
+    
+    let modifierRarity = 1;
+    const guaranteedMods = options.guaranteedMods || [];
+    
+    for (const mod of mods) {
+        // Skip guaranteed mods
+        if (guaranteedMods.includes(mod.id)) continue;
+        
+        modifierRarity *= (mod.rarity || 1);
+    }
+    
+    modifiedThing.rarityScore = Math.round(itemBaseRarity * attributeRarity * modifierRarity);
+
+    // Calculate new value
+    // User formula: ItemValue = baseValue * attributeValue * (1 + sum(modifiers))
+    // We assume modifiers store 'multi' as a multiplier (e.g. 1.5).
+    // So the additive bonus is (mod.multi - 1).
+    
+    let modifierSum = 0;
+    for (const mod of mods) {
+        // Convert multiplicative factor to additive bonus (e.g. 1.5 -> +0.5)
+        modifierSum += (mod.multi - 1);
+    }
+    
+    // Ensure we don't go below -100% (value 0)
+    if (modifierSum < -1) modifierSum = -1;
+
+    modifiedThing.value = Math.round(thing.value * attribute.value * (1 + modifierSum));
+    
+    // Construct display name
+    // Format: "{Attribute} {Mod1} {Mod2} {ThingName}"
+    const parts = [];
+    if (attribute.id !== 'normal') parts.push(attribute.name);
+    for (const mod of mods) {
+        parts.push(mod.name);
+    }
+    parts.push(thing.name);
+    modifiedThing.displayName = parts.join(' ');
+    
+    // Apply color overrides
+    // Attribute color is base override
+    if (attribute.color) modifiedThing.color = attribute.color;
+    
+    // Mod colors override attribute color (last one wins)
+    for (const mod of mods) {
+        if (mod.color) modifiedThing.color = mod.color;
     }
 
-    // Safety clamp to prevent negative multipliers if many bad mods stack
-    const modMultiplier = Math.max(0.1, 1 + modBonusSum);
-    
-    let finalMultiplier = attribute.value * modMultiplier;
-    
-    return {
-        ...item,
-        baseValue: item.value,
-        value: Math.round(item.value * finalMultiplier),
-        attribute: attribute,
-        mods: mods,
-        modValue: finalMultiplier
-    };
+    return modifiedThing;
 }
 
 /**
- * Get display name for an item with modifications
- * @param {Object} item - item with mods
- * @returns {string} formatted name
- */
-function getModifiedItemName(item) {
-    let name = item.name;
-    
-    // Add size prefix if not normal
-    if (item.attribute && item.attribute.id !== 'normal') {
-        name = `${item.attribute.name} ${name}`;
-    }
-    
-    return name;
-}
-
-/**
- * Get display name HTML for an item with modifications (colored)
- * @param {Object} item - item with mods
- * @returns {string} formatted HTML name
- */
-function getModifiedItemNameHtml(item) {
-    let nameHtml = '';
-    
-    // Add size prefix if not normal (Attribute Color)
-    if (item.attribute && item.attribute.id !== 'normal') {
-        const attrColor = item.attribute.color || '#fff';
-        nameHtml += `<span style="color: ${attrColor}">${item.attribute.name}</span> `;
-    }
-    
-    // Item Name (Item Color)
-    const itemColor = item.color || '#9ca3af'; // Default to stone/gray if missing
-    nameHtml += `<span style="color: ${itemColor}">${item.name}</span>`;
-    
-    return nameHtml;
-}
-
-/**
- * Get all modifications for display (size + mods)
- * @param {Object} item - item with mods
- * @returns {Array} array of all active modifications
+ * Get all modifications applied to an item (attribute + mods)
+ * @param {Object} item 
+ * @returns {Array} list of mod objects
  */
 function getAllModifications(item) {
-    const allMods = [];
-    
+    const mods = [];
     if (item.attribute && item.attribute.id !== 'normal') {
-        allMods.push(item.attribute);
+        mods.push({ ...item.attribute, type: 'attribute' });
     }
-    
-    if (item.mods && item.mods.length > 0) {
-        allMods.push(...item.mods);
+    const itemMods = item.mods || item.modifiers;
+    if (itemMods && Array.isArray(itemMods)) {
+        mods.push(...itemMods);
     }
-    
-    return allMods;
+    return mods;
 }
 
 /**
- * Get modification badge HTML for UI
- * @param {Object} mod - modification object
- * @returns {string} HTML badge
+ * Get the full display name of a modified item
+ * @param {Object} item 
+ * @returns {string}
+ */
+function getModifiedItemName(item) {
+    return item.displayName || item.name;
+}
+
+/**
+ * Get the HTML display name (Base Name Only)
+ * @param {Object} item 
+ * @returns {string} HTML string
+ */
+function getModifiedItemNameHtml(item) {
+    if (!item.displayName && !item.attribute && !item.mods) return item.name;
+    const parts = [];
+    
+    // Attribute Part (Colored Text)
+    if (item.attribute && item.attribute.id !== 'normal') {
+        const color = item.attribute.color || '#fff';
+        parts.push(`<span style="color: ${color}; font-weight: bold;">${item.attribute.name}</span>`);
+    }
+
+    // Only return the base name with its color (and attribute)
+    // Mods are handled by ui.js composition as badges
+    const baseColor = item.baseColor || (item.nameStyle && item.nameStyle.color) || item.color || '#9ca3af';
+    parts.push(`<span style="color: ${baseColor}">${item.name}</span>`);
+    
+    return parts.join(' ');
+}
+
+/**
+ * Get HTML badge for a modifier
+ * @param {Object} mod 
+ * @returns {string} HTML string
  */
 function getModBadgeHtml(mod) {
-    const style = mod.color ? `style="color: ${mod.color}; border-color: ${mod.color}"` : '';
-    return `<span class="mod-badge" ${style} title="${mod.description || ''}">${mod.name}</span>`;
+    const color = mod.color || '#fff';
+    return `<span class="mod-badge" style="
+        display: inline-block;
+        border: 1px solid ${color};
+        color: ${color};
+        border-radius: 12px;
+        padding: 3px 8px;
+        margin-right: 4px;
+        margin-bottom: 2px;
+        font-size: 0.85em;
+        font-weight: bold;
+        vertical-align: middle;
+        background: rgba(0, 0, 0, 0.2);
+        line-height: 1.4;
+    ">${mod.name}</span>`;
 }

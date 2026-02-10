@@ -52,6 +52,102 @@ const TIER_NAME_STYLES = {
         textStroke: '1px rgba(0,0,0,0.4)',
         fontFamily: 'inherit',
     },
+    significant: {
+        color: '#e4e4e7',
+        fontWeight: 'bold',
+        fontStyle: 'normal',
+        textDecoration: 'none',
+        textStroke: 'none',
+        fontFamily: 'inherit',
+    },
+    master: {
+        color: '#c084fc',
+        fontWeight: 'bold',
+        fontStyle: 'italic',
+        textDecoration: 'none',
+        textStroke: '1px rgba(0,0,0,0.3)',
+        fontFamily: 'inherit',
+    },
+    surreal: {
+        color: '#2dd4bf',
+        fontWeight: 'bold',
+        fontStyle: 'italic',
+        textDecoration: 'none',
+        textStroke: '1px rgba(0,0,0,0.3)',
+        fontFamily: 'inherit',
+    },
+    mythic: {
+        color: '#f472b6',
+        fontWeight: 'bold',
+        fontStyle: 'italic',
+        textDecoration: 'none',
+        textStroke: '1px rgba(0,0,0,0.4)',
+        fontFamily: 'inherit',
+    },
+    exotic: {
+        color: '#facc15',
+        fontWeight: 'bold',
+        fontStyle: 'italic',
+        textDecoration: 'none',
+        textStroke: '1px rgba(0,0,0,0.4)',
+        fontFamily: 'inherit',
+    },
+    exquisite: {
+        color: '#4ade80',
+        fontWeight: 'bold',
+        fontStyle: 'italic',
+        textDecoration: 'none',
+        textStroke: '1px rgba(0,0,0,0.4)',
+        fontFamily: 'inherit',
+    },
+    transcendent: {
+        color: '#60a5fa',
+        fontWeight: 'bold',
+        fontStyle: 'italic',
+        textDecoration: 'none',
+        textStroke: '1px rgba(0,0,0,0.5)',
+        fontFamily: 'inherit',
+    },
+    enigmatic: {
+        color: '#a3e635',
+        fontWeight: 'bold',
+        fontStyle: 'italic',
+        textDecoration: 'none',
+        textStroke: '1px rgba(0,0,0,0.5)',
+        fontFamily: 'inherit',
+    },
+    unfathomable: {
+        color: '#818cf8',
+        fontWeight: 'bold',
+        fontStyle: 'italic',
+        textDecoration: 'none',
+        textStroke: '1px rgba(0,0,0,0.5)',
+        fontFamily: 'inherit',
+    },
+    otherworldly: {
+        color: '#f472b6',
+        fontWeight: 'bold',
+        fontStyle: 'italic',
+        textDecoration: 'none',
+        textStroke: '1px rgba(0,0,0,0.5)',
+        fontFamily: 'inherit',
+    },
+    imaginary: {
+        color: '#fef08a',
+        fontWeight: 'bold',
+        fontStyle: 'italic',
+        textDecoration: 'none',
+        textStroke: '1px rgba(0,0,0,0.5)',
+        fontFamily: 'inherit',
+    },
+    zenith: {
+        color: '#ffffff',
+        fontWeight: 'bold',
+        fontStyle: 'italic',
+        textDecoration: 'none',
+        textStroke: '1px rgba(0,0,0,0.6)',
+        fontFamily: 'inherit',
+    },
 };
 
 /** Perk name styles by rarity (same structure) */
@@ -88,7 +184,7 @@ function nameStyleToCss(style) {
  * @returns {Object} style object
  */
 function getItemNameStyle(item) {
-    const rarity = (item && item.rarity) || 'common';
+    const rarity = (item && (item.tier || item.rarity)) || 'common';
     const base = TIER_NAME_STYLES[rarity] || TIER_NAME_STYLES.common;
     let style = item && item.nameStyle ? { ...base, ...item.nameStyle } : base;
 

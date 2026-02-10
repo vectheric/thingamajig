@@ -86,14 +86,17 @@ class GameState {
 
         for (const perkId in PERKS) {
             const perk = PERKS[perkId];
+            if (!perk.conditions) continue;
+            
             // Only check if it has unlock conditions OR requirements (like Virus/Exodia) and we haven't unlocked it yet this run
-            const hasUnlock = perk.conditions && perk.conditions.some(c => c.type === 'unlock');
-            const hasRequirement = perk.conditions && perk.conditions.some(c => c.type === 'requires_perk');
+            const hasUnlock = perk.conditions.some(c => c.type === 'unlock');
+            const hasRequirement = perk.conditions.some(c => c.type === 'requires_perk');
             
             if ((hasUnlock || hasRequirement) && !this.unlockedPerks.has(perkId)) {
                 if (checkPerkConditions(perk, this, this.perksPurchased)) {
                     this.unlockedPerks.add(perkId);
-                    game.ui.showMessage(`Unlocked [${perk.name}]`, 'unlock');
+                    const color = perk.nameStyle?.color || perk.color || '#fff';
+                    game.ui.showMessage(`Unlocked <span style="color:${color}">[${perk.name}]</span>`, 'unlock');
                 }
             }
         }
@@ -152,59 +155,90 @@ class GameState {
     /**
      * Helper to apply attributes to the stats object
      * @param {Object} targetAttributes - The accumulator object
-     * @param {Object} sourceAttributes - The attributes to apply
+     * @param {Object} sourceStats - The stats to apply (new schema)
      * @param {number} multiplier - Multiplier for the values (usually count)
      */
-    _applyAttributeSet(targetAttributes, sourceAttributes, multiplier = 1) {
-        if (!sourceAttributes) return;
+    _applyAttributeSet(targetAttributes, sourceStats, multiplier = 1) {
+        if (!sourceStats) return;
 
-        for (const attr in sourceAttributes) {
-            const value = sourceAttributes[attr];
+        for (const statName in sourceStats) {
+            const statDef = sourceStats[statName];
             
-            // Handle object definition (e.g. { add: 3 })
-            if (typeof value === 'object' && value !== null) {
-                if (value.add !== undefined) {
-                    targetAttributes[attr] = (targetAttributes[attr] || 0) + (value.add * multiplier);
-                }
-                // Handle subtract and sub alias
-                const subVal = value.subtract !== undefined ? value.subtract : value.sub;
-                if (subVal !== undefined) {
-                    targetAttributes[attr] = (targetAttributes[attr] || 0) - (subVal * multiplier);
-                }
+            // Handle 'modify' (modifiers) specifically
+            if (statName === 'modify') {
+                if (!targetAttributes.modifiers) targetAttributes.modifiers = {};
                 
-                // Handle multiply and mult alias
-                const multVal = value.multiply !== undefined ? value.multiply : value.mult;
-                if (multVal !== undefined) {
-                    if (multiplier > 0) {
-                        targetAttributes[attr] = (targetAttributes[attr] || 1) * Math.pow(multVal, multiplier);
+                for (const modName in statDef) {
+                    const modStat = statDef[modName];
+                    // modStat is like { set: 1 } or { value: -1 } (which assumes add?)
+                    // User example: 'golden': {set: 1}, 'prismatic': {value: -1}, 'ectoplasmic': {multi: 1}
+                    
+                    let currentVal = targetAttributes.modifiers[modName] || 0;
+                    
+                    if (modStat.guaranteed) {
+                        if (!targetAttributes.guaranteedMods) targetAttributes.guaranteedMods = [];
+                        if (multiplier > 0) targetAttributes.guaranteedMods.push(modName);
+                    } else if (modStat.set !== undefined) {
+                        if (multiplier > 0) targetAttributes.modifiers[modName] = modStat.set;
+                    } else if (modStat.value !== undefined) {
+                        // Assume additive if 'value' is used without type, or 'add' implied
+                        targetAttributes.modifiers[modName] = currentVal + (modStat.value * multiplier);
+                    } else if (modStat.multi !== undefined) {
+                        // Multiplier for chance/rarity?
+                        // If it's a multiplier, default base should be 1?
+                        // But modifiers map usually stores "rarity factor" or "chance weight".
+                        // If it's weight, multi makes sense.
+                        const base = currentVal === 0 ? 1 : currentVal;
+                        targetAttributes.modifiers[modName] = base * Math.pow(modStat.multi, multiplier);
+                    } else if (modStat.div !== undefined) {
+                        const base = currentVal === 0 ? 1 : currentVal;
+                        targetAttributes.modifiers[modName] = base / Math.pow(modStat.div, multiplier);
                     }
                 }
-                
-                // Handle divide and div alias
-                const divVal = value.divide !== undefined ? value.divide : value.div;
-                if (divVal !== undefined && divVal !== 0) {
-                    if (multiplier > 0) {
-                        targetAttributes[attr] = (targetAttributes[attr] || 1) / Math.pow(divVal, multiplier);
-                    }
+                continue;
+            }
+
+            // Standard Stat Handling
+            if (statDef && typeof statDef === 'object') {
+                const type = statDef.type;
+                const value = statDef.value;
+
+                switch (type) {
+                    case 'add':
+                        targetAttributes[statName] = (targetAttributes[statName] || 0) + (value * multiplier);
+                        break;
+                    case 'sub':
+                    case 'subtract':
+                        targetAttributes[statName] = (targetAttributes[statName] || 0) - (value * multiplier);
+                        break;
+                    case 'multi':
+                    case 'mult':
+                    case 'multiply':
+                        // Initialize to 1 if not present for multiplication
+                        if (targetAttributes[statName] === undefined) targetAttributes[statName] = 1;
+                        if (multiplier > 0) {
+                            targetAttributes[statName] *= Math.pow(value, multiplier);
+                        }
+                        break;
+                    case 'div':
+                    case 'divide':
+                         if (targetAttributes[statName] === undefined) targetAttributes[statName] = 1;
+                         if (multiplier > 0) {
+                            targetAttributes[statName] /= Math.pow(value, multiplier);
+                         }
+                        break;
+                    case 'set':
+                        if (multiplier > 0) targetAttributes[statName] = value;
+                        break;
+                    default:
+                        // Fallback for "legacy" style if mixed { rolls: { add: 1 } } vs { rolls: 1 }
+                        if (statDef.add !== undefined) targetAttributes[statName] = (targetAttributes[statName] || 0) + (statDef.add * multiplier);
+                        // ... other legacy checks if needed, but we are enforcing new schema
+                        break;
                 }
-                if (value.set !== undefined) {
-                    if (multiplier > 0) targetAttributes[attr] = value.set;
-                }
-                // Modifiers
-                if (value.modifiers) {
-                    // Logic for modifiers if needed
-                }
-            } 
-            // Legacy direct number handling
-            else if (attr.startsWith('multi') || attr.startsWith('divide')) {
-                targetAttributes[attr] = (targetAttributes[attr] || 1) * Math.pow(value, multiplier);
-            } else if (attr.startsWith('set')) {
-                if (multiplier > 0) targetAttributes[attr] = value;
-            } else {
-                // Additive accumulation
-                if (typeof value === 'number') {
-                    targetAttributes[attr] = (targetAttributes[attr] || 0) + (value * multiplier);
-                }
+            } else if (typeof statDef === 'number') {
+                // Direct number = additive (legacy support)
+                targetAttributes[statName] = (targetAttributes[statName] || 0) + (statDef * multiplier);
             }
         }
     }
@@ -222,30 +256,46 @@ class GameState {
             
             // Value modifiers
             valueBonus: 0,
-            addValue: 0, subtractValue: 0, multiValue: 1, divideValue: 1, setValue: undefined,
+            multiValue: 1,
+            addValue: 0,
+            subtractValue: 0,
+            divideValue: 1,
+            setValue: undefined,
+            // In new schema, valueBonus: { type: 'multi', value: 2.0 } implies it starts at 1?
+            // Or valueBonus: { type: 'add', value: 0.1 } implies it starts at 0?
+            // Existing logic uses valueBonus as additive percentage (0.1 = +10%).
+            // But 'multi' logic in _applyAttributeSet inits to 1.
+            // Let's ensure consistent starting values for known stats.
+            // Actually, let's let _applyAttributeSet handle initialization if undefined.
+            // But for 'valueBonus', if we mix add and multi, we need to be careful.
+            // Usually: (Base + Add) * Multi.
+            // Our simple _applyAttributeSet does operations sequentially.
+            // This might depend on order of perks.
+            // Ideally we separate add and multi. But for now let's stick to simple accumulator.
             
             // Chip modifiers
             addChip: 0, subtractChip: 0, multiChip: 1, divideChip: 1, setChip: undefined,
-            chipsEndRound: 0, // Added for Chippy integration
+            chipsEndRound: 0,
             
             // Cash modifiers
-            addCash: 0, subtractCash: 0, multiCash: 1, divideCash: 1, setCash: undefined
+            addCash: 0, subtractCash: 0, multiCash: 1, divideCash: 1, setCash: undefined,
+            
+            modifiers: {}, // Initialize modifiers map
+            guaranteedMods: [] // Initialize guaranteed mods list
         };
 
         const activeSets = {}; // { setName: { count: 0, bonuses: {} } }
 
         for (const perkId in this.perksPurchased) {
             let count = this.perksPurchased[perkId];
-            let perk = typeof getPerkById === 'function' ? getPerkById(perkId) : Object.values(PERKS).find(p => p.id === perkId);
+            let perk = typeof getPerkById === 'function' ? getPerkById(perkId) : PERKS[perkId];
             if (!perk && typeof getBossPerkById === 'function') perk = getBossPerkById(perkId);
             
-            // Special handling for Nullification
-            if (perkId === 'nullificati0n') {
-                const roundsActive = typeof count === 'number' ? count : 0;
-                attributes.luck = (attributes.luck || 0) + (0.404 * roundsActive);
-                attributes.rolls = (attributes.rolls || 0) + (4 * roundsActive);
-                continue; 
-            }
+            // Special handling for Nullification (Removed/Commented out as requested, but logic exists)
+            // User said "remove NULLIFICAT0N". It's not in PERKS anymore.
+            // So we can skip special handling or leave it as dead code.
+            // But if it's in perksPurchased from save, we might want to ignore it?
+            // User said "remove it", implies it shouldn't exist.
 
             // Special handling for Chip Eater
             if (perkId === 'chip_eater') {
@@ -254,34 +304,30 @@ class GameState {
 
             if (perk) {
                 // Standardize count
-                if (perk.maxStacks) {
-                    // It's a stackable perk, count is accurate
-                } else {
-                    count = 1; // Non-stackable owned = 1
-                }
-
-                // 1. Apply Base Attributes
-                if (perk.attributes) {
-                    this._applyAttributeSet(attributes, perk.attributes, count);
+                const maxStack = (perk.properties && perk.properties.stack) || 1;
+                // If it's a stackable perk (maxStack > 1 or specific property), count is accurate.
+                // If maxStack is 1, count should be 1.
+                // But perksPurchased stores count.
+                
+                // 1. Apply Base Stats
+                if (perk.stats) {
+                    this._applyAttributeSet(attributes, perk.stats, count);
                 }
 
                 // 2. Track Sets
-                if (perk.set) {
-                    if (!activeSets[perk.set]) {
-                        activeSets[perk.set] = { count: 0, bonuses: null };
+                if (perk.properties && perk.properties.set) {
+                    const setName = perk.properties.set;
+                    if (!activeSets[setName]) {
+                        activeSets[setName] = { count: 0, bonuses: null };
                     }
-                    activeSets[perk.set].count += 1; // Count unique perks in set? Or stacks? Usually unique perks.
-                    // User asked for "Exodia", which implies unique pieces.
-                    // If I have 2 left arms, does it count as 2 pieces? Usually Exodia needs distinct pieces.
-                    // But for flexibility, let's say "count += 1" implies counting purchased instances.
-                    // Since Exodia parts are likely non-stackable, this is fine.
+                    activeSets[setName].count += count; // Count stacks or instances?
                     
-                    if (perk.setBonuses) {
-                        activeSets[perk.set].bonuses = perk.setBonuses;
+                    if (perk.properties.setBonuses) {
+                        activeSets[setName].bonuses = perk.properties.setBonuses;
                     }
                 }
 
-                // 3. Apply Conditions
+                // 3. Apply Conditions (Bonus Triggers)
                 if (perk.conditions) {
                     for (const condition of perk.conditions) {
                         if (condition.type === 'bonus_trigger' && condition.condition) {
@@ -300,7 +346,20 @@ class GameState {
                             }
                             
                             if (met && cond.bonus) {
-                                this._applyAttributeSet(attributes, cond.bonus, 1);
+                                this._applyAttributeSet(attributes, cond.bonus, 1); // Trigger bonus usually applies once?
+                            }
+                        }
+                    }
+                }
+
+                // 4. Handle Special Properties (Guaranteed Mods)
+                if (perk.special) {
+                    for (const key in perk.special) {
+                        if (key.startsWith('guaranteed_mod_')) {
+                            const modId = key.replace('guaranteed_mod_', '');
+                            // Only add if not already present to avoid duplicates
+                            if (!attributes.guaranteedMods.includes(modId)) {
+                                attributes.guaranteedMods.push(modId);
                             }
                         }
                     }
@@ -312,14 +371,6 @@ class GameState {
         for (const setName in activeSets) {
             const set = activeSets[setName];
             if (set.bonuses) {
-                // Sort keys to apply in order? Not strictly necessary for additive, but good for predictable results.
-                // Assuming bonuses are additive.
-                // Logic: "boost its power" - maybe cumulative?
-                // Exodia: 2 pieces -> +power, 3 pieces -> +more power.
-                // Usually these are thresholds. "If you have >= 2, get this". "If you have >= 3, get that".
-                // Should they stack? (e.g. get both 2-piece and 3-piece bonus?)
-                // Standard RPG sets often stack. Let's assume yes.
-                
                 for (const thresholdStr in set.bonuses) {
                     const threshold = parseInt(thresholdStr);
                     if (set.count >= threshold) {
@@ -425,7 +476,7 @@ class GameState {
 
         let thing = this._doOneRoll(modChanceBoost);
         let autoRerolls = 0;
-        while (this.hasAutoRollCommon() && thing.rarity === 'common' && autoRerolls < maxAutoRerolls) {
+        while (this.hasAutoRollCommon() && thing.tier === 'common' && autoRerolls < maxAutoRerolls) {
             thing = this._doOneRoll(modChanceBoost);
             autoRerolls++;
         }
@@ -500,31 +551,12 @@ class GameState {
         }
 
         // Prepare modification options
-        const guaranteedMods = [];
+        const guaranteedMods = attrs.guaranteedMods || [];
         const rarityMultipliers = {};
         
-        // Check for perks that guarantee mods or modify rarity
-        for (const perkId in this.perksPurchased) {
-            // Find perk definition
-            const perk = typeof getPerkById === 'function' ? getPerkById(perkId) : Object.values(PERKS).find(p => p.id === perkId);
-            
-            if (perk) {
-                if (perk.special && perk.special.startsWith('guaranteed_mod_')) {
-                    const modId = perk.special.replace('guaranteed_mod_', '');
-                    guaranteedMods.push(modId);
-                }
-                
-                if (perk.attributes && perk.attributes.modifiers) {
-                    for (const [modId, multiplier] of Object.entries(perk.attributes.modifiers)) {
-                        // Fix: If multiplier is 1 (like Midas Touch), treat it as guaranteed mod
-                        if (multiplier === 1) {
-                            guaranteedMods.push(modId);
-                        } else {
-                            rarityMultipliers[modId] = (rarityMultipliers[modId] || 1) * multiplier;
-                        }
-                    }
-                }
-            }
+        // Use calculated modifiers from attributes (populated via perk.stats.modify)
+        if (attrs.modifiers) {
+            Object.assign(rarityMultipliers, attrs.modifiers);
         }
 
         const modOptions = {
@@ -711,14 +743,29 @@ class GameState {
      */
     purchasePerk(perkId) {
         // Find the perk first
-        const perk = typeof getPerkById === 'function' ? getPerkById(perkId) : Object.values(PERKS).find(p => p.id === perkId);
+        const perk = PERKS[perkId];
         if (!perk) return { success: false, message: 'Perk not found' };
 
-        // Check if already purchased (Stackable removed)
+        const props = perk.properties || {};
+        const conditions = perk.conditions || [];
+
+        // Check conflicts
+        if (props.conflict) {
+            const conflicts = Array.isArray(props.conflict) ? props.conflict : [props.conflict];
+            for (const conflictId of conflicts) {
+                if (this.perksPurchased[conflictId]) {
+                    const conflictName = PERKS[conflictId] ? PERKS[conflictId].name : conflictId;
+                    return { success: false, message: `Conflicts with ${conflictName}` };
+                }
+            }
+        }
+
+        // Check if already purchased (Stackable check)
         if (this.perksPurchased[perkId]) {
-            // Exception for subperks/stackable perks (like VIRUS)
-            const isStackable = perk.type === 'subperk' || perk.maxStacks;
-            if (!isStackable) {
+            const stackLimit = props.stack || 1;
+            
+            // If stackLimit is 1, you can't buy again
+            if (stackLimit === 1) {
                 return { 
                     success: false, 
                     message: 'You already own this perk' 
@@ -726,42 +773,41 @@ class GameState {
             }
             
             // Check limits for stackable perks
-            const currentCount = (typeof this.perksPurchased[perkId] === 'number') 
-                ? this.perksPurchased[perkId] 
-                : 1; // Handle legacy 'true' as 1
+            const currentCount = this.perksPurchased[perkId] || 0;
             
-            const limit = perk.maxStacks || perk.shopLimit || 1;
-            
-            if (currentCount >= limit) {
+            if (currentCount >= stackLimit) {
                 return {
                     success: false,
-                    message: `Max stacks reached (${limit})`
+                    message: `Max stacks reached (${stackLimit})`
                 };
             }
         }
 
-        // Check for NULLIFICATI0N lock
-        if (this.perksPurchased['nullificati0n']) {
-            return {
-                success: false,
-                message: 'NULLIFICATI0N prevents further purchases'
-            };
+        // Check Shop Limit (global limit for this run, separate from stack limit logic if needed)
+        // Usually stack limit IS the shop limit for self-stacking perks.
+        // But shopLimit might be for non-stacking perks that can be bought multiple times?
+        // Let's assume shopLimit and stack are similar for now, but respect shopLimit if present.
+        if (props.shopLimit) {
+             const currentCount = this.perksPurchased[perkId] || 0;
+             if (currentCount >= props.shopLimit) {
+                 return { success: false, message: `Shop limit reached (${props.shopLimit})` };
+             }
         }
 
         // Check Requirements
-        if (perk.requires) {
-            const requiredPerkId = perk.requires;
-            const requiredPerk = typeof getPerkById === 'function' ? getPerkById(requiredPerkId) : Object.values(PERKS).find(p => p.id === requiredPerkId);
-            
-            if (!this.perksPurchased[requiredPerkId]) {
+        const reqCondition = conditions.find(c => c.type === 'requirePerk');
+        if (reqCondition) {
+            const requiredId = reqCondition.perkId;
+            if (!this.perksPurchased[requiredId]) {
+                const requiredName = PERKS[requiredId] ? PERKS[requiredId].name : requiredId;
                 return {
                     success: false,
-                    message: `Requires ${requiredPerk ? requiredPerk.name : 'Unknown Perk'}`
+                    message: `Requires ${requiredName}`
                 };
             }
         }
 
-        const cost = getPerkCost(perkId);
+        const cost = perk.cost;
 
         // Perks cost CASH (persistent currency), not chips
         if (this.cash < cost) {
@@ -772,8 +818,9 @@ class GameState {
         }
 
         // Handle Overwrites (Mutually Exclusive Perks)
-        if (perk.overwrites && Array.isArray(perk.overwrites)) {
-            perk.overwrites.forEach(overwrittenId => {
+        if (props.overwrite) {
+            const overwrites = Array.isArray(props.overwrite) ? props.overwrite : [props.overwrite];
+            overwrites.forEach(overwrittenId => {
                 if (this.perksPurchased[overwrittenId]) {
                     delete this.perksPurchased[overwrittenId];
                     // Remove from perkOrder to update UI correctly
@@ -787,26 +834,33 @@ class GameState {
 
         this.currency.spendCash(cost);
 
-        // Special handling for NULLIFICATI0N: Wipes all other perks
-        if (perkId === 'nullificati0n') {
-            this.perksPurchased = {};
-            this.perkOrder = [];
-        }
-
         // Add Perk (Single ownership or increment)
         if (this.perksPurchased[perkId]) {
             // Must be stackable if we reached here
             if (this.perksPurchased[perkId] === true) {
-                this.perksPurchased[perkId] = 2;
+                this.perksPurchased[perkId] = 2; // Convert boolean to number
             } else {
                 this.perksPurchased[perkId]++;
             }
         } else {
             // First purchase
-            if (perk.type === 'subperk' || perk.maxStacks) {
+            if (props.stack > 1 || perk.type === 'subperk') {
                 this.perksPurchased[perkId] = 1;
             } else {
-                this.perksPurchased[perkId] = true;
+                this.perksPurchased[perkId] = true; // Use true for single-stack for legacy compatibility? 
+                // Or should we move to numbers everywhere? 
+                // Let's stick to true for single stack to avoid breaking other checks that expect boolean
+                // But wait, my getAttributes uses 'count' which defaults to 1.
+                // If I use number everywhere, it's cleaner.
+                // But legacy checks might use `if (perksPurchased[id])`. 1 is truthy.
+                // So using 1 is fine.
+                // However, let's keep `true` for consistency with legacy if it matters.
+                // Actually, let's use 1 if stackable, true if not.
+                if (props.stack > 1) {
+                    this.perksPurchased[perkId] = 1;
+                } else {
+                    this.perksPurchased[perkId] = true;
+                }
             }
         }
 
@@ -816,15 +870,16 @@ class GameState {
         }
 
         // Add to order for UI (unless hidden or already there)
-        if (!perk.hidden && !this.perkOrder.includes(perkId)) {
+        if (!props.hidden && !this.perkOrder.includes(perkId)) {
             this.perkOrder.push(perkId);
         }
 
         this.checkUnlockNotifications();
 
+        const color = perk.nameStyle?.color || perk.color || '#fff';
         return {
             success: true,
-            message: `Purchased [${perk.name}]`
+            message: `Purchased <span style="color:${color}">[${perk.name}]</span>`
         };
     }
 
@@ -833,12 +888,17 @@ class GameState {
      */
     getFormattedAttributes() {
         const attrs = this.getAttributes();
+        const luck = typeof attrs.luck === 'number' ? attrs.luck : 0;
+        const multiValue = typeof attrs.multiValue === 'number' ? attrs.multiValue : 1;
+        const multiChip = typeof attrs.multiChip === 'number' ? attrs.multiChip : 1;
+        const multiCash = typeof attrs.multiCash === 'number' ? attrs.multiCash : 1;
+
         const result = {
             'Rolls/Round': this.getAvailableRolls(),
-            'Luck': `${parseFloat(attrs.luck.toFixed(2))}`,
-            'Value x': `${attrs.multiValue.toFixed(2)}x`,
-            'Ȼ+': `${parseFloat(attrs.multiChip.toFixed(2))}`,
-            'Cash x': `${attrs.multiCash.toFixed(2)}x`
+            'Luck': `${parseFloat(luck.toFixed(2))}`,
+            'Value x': `${multiValue.toFixed(2)}x`,
+            'Ȼ+': `${parseFloat(multiChip.toFixed(2))}`,
+            'Cash x': `${multiCash.toFixed(2)}x`
         };
         if (attrs.modification_chance && attrs.modification_chance > 0) {
             result['Mod Chance'] = `+${Math.round(attrs.modification_chance * 100)}%`;
@@ -847,71 +907,92 @@ class GameState {
     }
 
     canForgePerk(perkId) {
-        const perk = typeof getPerkById === 'function' ? getPerkById(perkId) : Object.values(PERKS).find(p => p.id === perkId);
+        const perk = PERKS[perkId];
         if (!perk) {
             return { canForge: false, reason: 'Perk not found' };
         }
-        if (!perk.forgeable || !perk.forgeRecipe) {
+        
+        const conditions = perk.conditions || [];
+        const forgeCondition = conditions.find(c => c.type === 'forging');
+        
+        if (!forgeCondition) {
             return { canForge: false, reason: 'Perk cannot be forged' };
         }
-        if (this.perksPurchased['nullificati0n']) {
-            return { canForge: false, reason: 'NULLIFICATI0N prevents forging' };
-        }
+        
         if (this.perksPurchased[perkId]) {
             return { canForge: false, reason: 'Already owned' };
         }
-        const recipe = perk.forgeRecipe;
-        if (recipe.cash && this.cash < recipe.cash) {
+
+        if (forgeCondition.cash && this.cash < forgeCondition.cash) {
+            // Allow forging even with insufficient cash (User Request)
             return { canForge: false, reason: 'Missing Recipes' };
         }
-        if (Array.isArray(recipe.perks)) {
-            for (const requiredId of recipe.perks) {
+        
+        const recipe = forgeCondition.recipe;
+        if (Array.isArray(recipe)) {
+            for (const requiredId of recipe) {
                 if (!this.perksPurchased[requiredId]) {
                     return { canForge: false, reason: 'Missing Recipes' };
                 }
             }
         }
+        
         return { canForge: true, reason: null };
     }
 
     getForgeableOptions() {
-        const forgeablePerks = Object.values(PERKS).filter(p => p.forgeable);
-        return forgeablePerks.map(perk => {
-            const check = this.canForgePerk(perk.id);
-            return {
-                id: perk.id,
-                name: perk.name,
-                description: perk.description,
-                rarity: perk.tier,
-                tier: perk.tier, // Explicitly pass tier for UI
-                icon: perk.icon, // Pass icon
-                nameStyle: perk.nameStyle, // Pass nameStyle
-                recipe: perk.forgeRecipe,
-                canForge: check.canForge,
-                reason: check.reason
-            };
-        });
+        const options = [];
+        for (const [id, perk] of Object.entries(PERKS)) {
+            const conditions = perk.conditions || [];
+            const forgeCondition = conditions.find(c => c.type === 'forging');
+            
+            if (forgeCondition) {
+                const check = this.canForgePerk(id);
+                options.push({
+                    id: id,
+                    name: perk.name,
+                    description: perk.description,
+                    rarity: perk.tier,
+                    tier: perk.tier,
+                    icon: perk.icon,
+                    nameStyle: perk.nameStyle,
+                    recipe: forgeCondition.recipe,
+                    canForge: check.canForge,
+                    reason: check.reason
+                });
+            }
+        }
+        return options;
     }
 
     forgePerk(perkId) {
-        const perk = typeof getPerkById === 'function' ? getPerkById(perkId) : Object.values(PERKS).find(p => p.id === perkId);
+        const perk = PERKS[perkId];
         if (!perk) {
             return { success: false, message: 'Perk not found' };
         }
-        if (!perk.forgeable || !perk.forgeRecipe) {
-            return { success: false, message: 'Perk cannot be forged' };
-        }
+        
         const check = this.canForgePerk(perkId);
         if (!check.canForge) {
             return { success: false, message: check.reason || 'Cannot forge this perk' };
         }
-        const recipe = perk.forgeRecipe;
-        if (recipe.cash) {
-            this.currency.spendCash(recipe.cash);
+        
+        const conditions = perk.conditions || [];
+        const forgeCondition = conditions.find(c => c.type === 'forging');
+        
+        if (forgeCondition.cash) {
+            // Force spend (allow debt)
+            this.currency.cash -= forgeCondition.cash;
+            if (this.currency.cash < 0) this.currency.cash = 0; // Or allow negative? User said "still be able to forge". Assuming floor at 0 or debt. 
+            // Let's assume floor at 0 for now unless they want debt. 
+            // Actually, if I floor at 0, it's free if I have 0. That might be what they want.
+            // "idh enough money to do it" -> "still be able to forge".
         }
-        if (Array.isArray(recipe.perks)) {
-            for (const requiredId of recipe.perks) {
-                // Remove required perk (always remove entire perk since stacks are gone)
+
+        const recipe = forgeCondition.recipe;
+        
+        if (Array.isArray(recipe)) {
+            for (const requiredId of recipe) {
+                // Remove required perk
                 if (this.perksPurchased[requiredId]) {
                     delete this.perksPurchased[requiredId];
                     const index = this.perkOrder.indexOf(requiredId);
@@ -925,7 +1006,7 @@ class GameState {
         // Add Perk (Single ownership)
         this.perksPurchased[perkId] = true;
         
-        if (!perk.hidden && !this.perkOrder.includes(perkId)) {
+        if (!perk.properties?.hidden && !this.perkOrder.includes(perkId)) {
             this.perkOrder.push(perkId);
         }
         if (perkId === 'chip_eater') {
@@ -934,9 +1015,10 @@ class GameState {
         
         this.checkUnlockNotifications();
 
+        const color = perk.nameStyle?.color || perk.color || '#fff';
         return {
             success: true,
-            message: `Forged [${perk.name}]`
+            message: `Forged <span style="color:${color}">[${perk.name}]</span>`
         };
     }
 

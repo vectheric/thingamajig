@@ -13,7 +13,3 @@ just a hobby project.
 - **BOSSES:** every 5th wave, you gonna meet a boss waiting for your barefoot to enter his home
 - **INDEX system:** i mean it's cool to see stuff
 - **MOD, SIZE:** taking inspirations from DIG and Fisch on ROBLOX (my childhood)
-
-# Code of Conduct
-- lol i think putting this here for cool
-
