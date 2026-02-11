@@ -97,7 +97,7 @@ class CurrencySystem {
     /**
      * Calculate and apply round completion rewards
      * Called after successfully completing a round
-     * @param {number} maxInterestStacks - max interest stacks from perks
+     * @param {number} maxInterestStacks - max interest stacks from augments
      * @param {Object} modifiers - { multiCash, addCash, subtractCash, divideCash }
      * @returns {Object} rewards breakdown
      */

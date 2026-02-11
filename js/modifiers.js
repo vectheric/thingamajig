@@ -18,19 +18,22 @@ const ATTRIBUTE = {
         name: 'Small',
         value: 0.8,
         rarity: 40,
-        color: '#f14f3aff'
+        color: '#f14f3aff',
+        allowedRoutes: [1] // Only available in Route 2
     },
     tiny: {
         name: 'Tiny',
         value: 0.6,
         rarity: 33,
-        color: '#f14f3aff'
+        color: '#f14f3aff',
+        allowedRoutes: [1] // Only available in Route 2
     },
     microscopic: {
         name: 'Microscopic',
-        value: 0.35,
+        value: 0.4,
         rarity: 120,
-        color: '#fa1515ff'
+        color: '#fa1515ff',
+        allowedRoutes: [1] // Only available in Route 2
     },
     big: {
         name: 'Big',
@@ -120,7 +123,7 @@ const MODS = {
         color: '#a3e635',
         rarity: 18,
         description: '+25% value (risky)',
-        requiresPerk: 'hazmat_suit'
+        requiresAUGMENT: 'hazmat_suit'
     },
     prismatic: {
         name: 'Prismatic',
@@ -142,7 +145,7 @@ const MODS = {
         color: '#2dd4bf',
         rarity: 18,
         description: '+20% value',
-        requiresPerk: 'spirit_sight'
+        requiresAUGMENT: 'spirit_sight'
     },
     blessed: {
         name: 'Blessed',
@@ -164,7 +167,7 @@ const MODS = {
         rarity: 0,
         color: '#d8b4fe',
         description: '1000% value',
-        requiresPerk: 'enchanted_table'
+        requiresAUGMENT: 'enchanted_table'
     }
 };
 
@@ -177,13 +180,24 @@ Object.keys(MODS).forEach(key => {
  * Get random size modification based on chance weights
  * @param {Function} rng - random number generator
  * @param {number} luck - luck stat for better sizes
+ * @param {number} routeIndex - current route index (optional)
  * @returns {Object} size modification object
  */
-function getRandomAttribute(rng = Math.random, luck = 0) {
+function getRandomAttribute(rng = Math.random, luck = 0, routeIndex = null) {
     const mods = Object.values(ATTRIBUTE);
     
+    // Filter by route availability
+    const availableMods = mods.filter(mod => {
+        if (mod.allowedRoutes) {
+            // If restricted to routes, must match current route
+            // If routeIndex is missing, these mods shouldn't spawn
+            return routeIndex !== null && routeIndex !== undefined && mod.allowedRoutes.includes(routeIndex);
+        }
+        return true;
+    });
+    
     // Calculate total chance with luck adjustments
-    const weightedMods = mods.map(mod => {
+    const weightedMods = availableMods.map(mod => {
         let rarity = mod.rarity || 10;
         
         // Luck affects size selection (modifying rarity)
@@ -236,14 +250,14 @@ function getRandomMods(options = {}) {
         guaranteedMods = [], 
         luck = 0, 
         rarityMultipliers = {}, 
-        ownedPerks = {},
+        ownedAUGMENTs = {},
         worldEffects = null
     } = options;
 
     const modArray = Object.values(MODS);
     const selectedMods = [];
 
-    // Pre-select guaranteed modifiers from Perks
+    // Pre-select guaranteed modifiers from AUGMENTs
     if (guaranteedMods && guaranteedMods.length > 0) {
         guaranteedMods.forEach(modId => {
             const mod = MODS[modId] || modArray.find(m => m.id === modId);
@@ -279,8 +293,8 @@ function getRandomMods(options = {}) {
         // Prevent spawning if rarity is 0 (disabled)
         if (m.rarity === 0) return false;
 
-        // Check for required perk to unlock this mod
-        if (m.requiresPerk && !ownedPerks[m.requiresPerk]) return false;
+        // Check for required augment to unlock this mod
+        if (m.requiresAUGMENT && !ownedAUGMENTs[m.requiresAUGMENT]) return false;
 
         return !selectedMods.some(sm => sm.id === m.id);
     });
@@ -309,7 +323,7 @@ function getRandomMods(options = {}) {
                  else if (effect.type === 'increase') rarity *= effect.value;
             }
 
-            // Apply rarity multipliers from perks (e.g. Hex Breaker increases rarity of Cursed items)
+            // Apply rarity multipliers from augments (e.g. Hex Breaker increases rarity of Cursed items)
             if (rarityMultipliers[mod.id]) {
                 rarity *= rarityMultipliers[mod.id];
             }
@@ -355,10 +369,10 @@ function getRandomMods(options = {}) {
  * @returns {Object} modified thing
  */
 function applyModifications(thing, options) {
-    const { rng = Math.random, luck = 0, valueBonus = 0 } = options;
+    const { rng = Math.random, luck = 0, valueBonus = 0, routeIndex } = options;
 
     // 1. Roll for Size/Attribute
-    const attribute = getRandomAttribute(rng, luck);
+    const attribute = getRandomAttribute(rng, luck, routeIndex);
     
     // 2. Roll for Mods
     const mods = getRandomMods(options);
@@ -374,7 +388,7 @@ function applyModifications(thing, options) {
     
     // Calculate Rarity Score
     // Formula: itemBaseRarity * attributeRarity * modifierRarity
-    // Note: Don't add guaranteed modifiers rarity (from perks)
+    // Note: Don't add guaranteed modifiers rarity (from augments)
     
     const itemBaseRarity = thing.rarity || 1;
     const attributeRarity = attribute.rarity || 1;

@@ -33,7 +33,7 @@ class GameState {
         return {
             loot: mk('loot'),
             mods: mk('mods'),
-            perks: mk('perks'),
+            augments: mk('augments'),
             luck: mk('luck')
         };
     }
@@ -42,8 +42,8 @@ class GameState {
         this.round = 1;
         this.currency = new CurrencySystem();
         this.inventory = [];
-        this.perksPurchased = {};
-        this.perkOrder = []; // order of perk ids for topbar display
+        this.augmentsPurchased = {};
+        this.augmentOrder = []; // order of augment ids for topbar display
         this.rollsUsed = 0;
         this.rareItemStreak = 0;
         this.pendingBossReward = null;
@@ -70,32 +70,35 @@ class GameState {
         // History tracking for unlock requirements
         this.itemHistory = [];
 
-        // Perk-specific tracking
+        // Augment-specific tracking
         this.chipEaterStartValue = 0;
         
-        // Track unlocked perks to show notifications only once per run
-        this.unlockedPerks = new Set();
+        // Reroll System
+        this.freeRerolls = 0;
+        
+        // Track unlocked augments to show notifications only once per run
+        this.unlockedAugments = new Set();
     }
 
     /**
-     * Check for newly unlocked perks and notify
+     * Check for newly unlocked augments and notify
      */
     checkUnlockNotifications() {
-        if (typeof PERKS === 'undefined' || typeof checkPerkConditions !== 'function' || typeof game === 'undefined' || !game.ui) return;
+        if (typeof AUGMENTS === 'undefined' || typeof checkAugmentConditions !== 'function' || typeof game === 'undefined' || !game.ui) return;
 
-        for (const perkId in PERKS) {
-            const perk = PERKS[perkId];
-            if (!perk.conditions) continue;
+        for (const augmentId in AUGMENTS) {
+            const augment = AUGMENTS[augmentId];
+            if (!augment.conditions) continue;
             
             // Only check if it has unlock conditions OR requirements (like Virus/Exodia) and we haven't unlocked it yet this run
-            const hasUnlock = perk.conditions.some(c => c.type === 'unlock');
-            const hasRequirement = perk.conditions.some(c => c.type === 'requires_perk');
+            const hasUnlock = augment.conditions.some(c => c.type === 'unlock');
+            const hasRequirement = augment.conditions.some(c => c.type === 'requires_augment');
             
-            if ((hasUnlock || hasRequirement) && !this.unlockedPerks.has(perkId)) {
-                if (checkPerkConditions(perk, this, this.perksPurchased)) {
-                    this.unlockedPerks.add(perkId);
-                    const color = perk.nameStyle?.color || perk.color || '#fff';
-                    game.ui.showMessage(`Unlocked <span style="color:${color}">[${perk.name}]</span>`, 'unlock');
+            if ((hasUnlock || hasRequirement) && !this.unlockedAugments.has(augmentId)) {
+                if (checkAugmentConditions(augment, this, this.augmentsPurchased)) {
+                    this.unlockedAugments.add(augmentId);
+                    const color = augment.nameStyle?.color || augment.color || '#fff';
+                    game.ui.showMessage(`Unlocked <span style="color:${color}">[${augment.name}]</span>`, 'unlock');
                 }
             }
         }
@@ -204,11 +207,8 @@ class GameState {
 
                 switch (type) {
                     case 'add':
-                        targetAttributes[statName] = (targetAttributes[statName] || 0) + (value * multiplier);
-                        break;
                     case 'sub':
-                    case 'subtract':
-                        targetAttributes[statName] = (targetAttributes[statName] || 0) - (value * multiplier);
+                        targetAttributes[statName] = (targetAttributes[statName] || 0) + (value * multiplier);
                         break;
                     case 'multi':
                     case 'mult':
@@ -243,7 +243,7 @@ class GameState {
     }
 
     /**
-     * Calculate current attributes from purchased perks
+     * Calculate current attributes from purchased augments
      * @returns {Object} calculated attributes
      */
     getAttributes() {
@@ -269,7 +269,7 @@ class GameState {
             // But for 'valueBonus', if we mix add and multi, we need to be careful.
             // Usually: (Base + Add) * Multi.
             // Our simple _applyAttributeSet does operations sequentially.
-            // This might depend on order of perks.
+            // This might depend on order of augments.
             // Ideally we separate add and multi. But for now let's stick to simple accumulator.
             
             // Chip modifiers
@@ -285,50 +285,50 @@ class GameState {
 
         const activeSets = {}; // { setName: { count: 0, bonuses: {} } }
 
-        for (const perkId in this.perksPurchased) {
-            let count = this.perksPurchased[perkId];
-            let perk = typeof getPerkById === 'function' ? getPerkById(perkId) : PERKS[perkId];
-            if (!perk && typeof getBossPerkById === 'function') perk = getBossPerkById(perkId);
+        for (const augmentId in this.augmentsPurchased) {
+            let count = this.augmentsPurchased[augmentId];
+            let augment = typeof getAugmentById === 'function' ? getAugmentById(augmentId) : AUGMENTS[augmentId];
+            if (!augment && typeof getBossAugmentById === 'function') augment = getBossAugmentById(augmentId);
             
             // Special handling for Nullification (Removed/Commented out as requested, but logic exists)
-            // User said "remove NULLIFICAT0N". It's not in PERKS anymore.
+            // User said "remove NULLIFICAT0N". It's not in AUGMENTS anymore.
             // So we can skip special handling or leave it as dead code.
-            // But if it's in perksPurchased from save, we might want to ignore it?
+            // But if it's in augmentsPurchased from save, we might want to ignore it?
             // User said "remove it", implies it shouldn't exist.
 
             // Special handling for Chip Eater
-            if (perkId === 'chip_eater') {
+            if (augmentId === 'chip_eater') {
                 continue;
             }
 
-            if (perk) {
+            if (augment) {
                 // Standardize count
-                const maxStack = (perk.properties && perk.properties.stack) || 1;
-                // If it's a stackable perk (maxStack > 1 or specific property), count is accurate.
+                const maxStack = (augment.properties && augment.properties.stack) || 1;
+                // If it's a stackable augment (maxStack > 1 or specific property), count is accurate.
                 // If maxStack is 1, count should be 1.
-                // But perksPurchased stores count.
+                // But augmentsPurchased stores count.
                 
                 // 1. Apply Base Stats
-                if (perk.stats) {
-                    this._applyAttributeSet(attributes, perk.stats, count);
+                if (augment.stats) {
+                    this._applyAttributeSet(attributes, augment.stats, count);
                 }
 
                 // 2. Track Sets
-                if (perk.properties && perk.properties.set) {
-                    const setName = perk.properties.set;
+                if (augment.properties && augment.properties.set) {
+                    const setName = augment.properties.set;
                     if (!activeSets[setName]) {
                         activeSets[setName] = { count: 0, bonuses: null };
                     }
                     activeSets[setName].count += count; // Count stacks or instances?
                     
-                    if (perk.properties.setBonuses) {
-                        activeSets[setName].bonuses = perk.properties.setBonuses;
+                    if (augment.properties.setBonuses) {
+                        activeSets[setName].bonuses = augment.properties.setBonuses;
                     }
                 }
 
                 // 3. Apply Conditions (Bonus Triggers)
-                if (perk.conditions) {
-                    for (const condition of perk.conditions) {
+                if (augment.conditions) {
+                    for (const condition of augment.conditions) {
                         if (condition.type === 'bonus_trigger' && condition.condition) {
                             const cond = condition.condition;
                             let met = false;
@@ -352,8 +352,8 @@ class GameState {
                 }
 
                 // 4. Handle Special Properties (Guaranteed Mods)
-                if (perk.special) {
-                    for (const key in perk.special) {
+                if (augment.special) {
+                    for (const key in augment.special) {
                         if (key.startsWith('guaranteed_mod_')) {
                             const modId = key.replace('guaranteed_mod_', '');
                             // Only add if not already present to avoid duplicates
@@ -379,6 +379,28 @@ class GameState {
             }
         }
 
+        if (this.augmentsPurchased["wishing_star"]) {
+            // Convert Luck to Rolls
+            const luck = attributes.luck || 0;
+            if (luck > 0) {
+                attributes.rolls = (attributes.rolls || 0) + luck;
+                attributes.luck = 0;
+            }
+        } else if (this.augmentsPurchased['transcendence']) {
+            // Convert Rolls to Luck, keep 1 Roll.
+            // Base Rolls = 3. Total Rolls = 3 + attributes.rolls.
+            // We want Total Rolls = 1.
+            const currentExtraRolls = attributes.rolls || 0;
+            const baseRolls = 3;
+            const totalRolls = baseRolls + currentExtraRolls;
+            
+            if (totalRolls > 1) {
+                const rollsToConvert = totalRolls - 1;
+                attributes.luck = (attributes.luck || 0) + rollsToConvert;
+                attributes.rolls = -2; // Sets Total Rolls to 1 (3 - 2)
+            }
+        }
+
         return attributes;
     }
 
@@ -394,21 +416,21 @@ class GameState {
         // Bad luck streak persists across rounds until a high tier item is found
 
         // Nullification Scaling: Increment active rounds count
-        if (this.perksPurchased['nullificati0n']) {
+        if (this.augmentsPurchased['nullificati0n']) {
              // Store start round if not present (legacy support or first run)
              // But actually, we need to track how many rounds passed.
              // Let's use a specific counter for Nullification stacks.
-             // We can store it in perksPurchased as a value? No, perksPurchased is usually boolean or stack count.
-             // For Nullification, it's not "stacks" of the perk, it's "rounds active".
-             // Let's create a separate counter in stats or just use perksPurchased value if it's not boolean.
-             // Actually, for Nullification, we can use perksPurchased['nullificati0n'] as the counter.
+             // We can store it in augmentsPurchased as a value? No, augmentsPurchased is usually boolean or stack count.
+             // For Nullification, it's not "stacks" of the augment, it's "rounds active".
+             // Let's create a separate counter in stats or just use augmentsPurchased value if it's not boolean.
+             // Actually, for Nullification, we can use augmentsPurchased['nullificati0n'] as the counter.
              // Initial purchase sets it to 1 (or 0). Each round start increments it.
-             // Wait, purchasePerk sets it to true. Let's change purchase logic for this specific perk or check here.
+             // Wait, purchaseAugment sets it to true. Let's change purchase logic for this specific augment or check here.
              
-             if (this.perksPurchased['nullificati0n'] === true) {
-                 this.perksPurchased['nullificati0n'] = 0; // Initialize counter
+             if (this.augmentsPurchased['nullificati0n'] === true) {
+                 this.augmentsPurchased['nullificati0n'] = 0; // Initialize counter
              }
-             this.perksPurchased['nullificati0n']++;
+             this.augmentsPurchased['nullificati0n']++;
         }
     }
 
@@ -439,9 +461,9 @@ class GameState {
         return typeof getBossByRound === 'function' ? getBossByRound(this.round) : null;
     }
 
-    /** True if player has auto-roll common perk */
+    /** True if player has auto-roll common augment */
     hasAutoRollCommon() {
-        return !!this.perksPurchased['auto_roll_common'];
+        return !!this.augmentsPurchased['auto_roll_common'];
     }
 
     /**
@@ -510,6 +532,15 @@ class GameState {
             ? this.worldSystem.getEffectiveWorldEffects() 
             : null;
 
+        // Build Context for Item Rarity Logic
+        const context = {
+            biome: this.world ? this.world.currentBiomeId : null,
+            time: this.time ? this.time.minuteOfDay : null,
+            events: (this.world && this.world.activeEvents) 
+                ? this.world.activeEvents.map(e => e.id) 
+                : []
+        };
+
         if (effectiveLuck !== 0) {
             // Boost Tiers based on effective luck
             // We DIVIDE the rarity score to make them MORE common (lower score = higher probability)
@@ -542,7 +573,7 @@ class GameState {
             });
         }
 
-        let thing = rollThing(this.round, this.rngStreams.loot, adjustedWeights, worldEffects);
+        let thing = rollThing(this.round, this.rngStreams.loot, adjustedWeights, worldEffects, context);
         
         // Update Bad Luck Streak
         // Reset on Rare or better
@@ -556,7 +587,7 @@ class GameState {
         const guaranteedMods = attrs.guaranteedMods || [];
         const rarityMultipliers = {};
         
-        // Use calculated modifiers from attributes (populated via perk.stats.modify)
+        // Use calculated modifiers from attributes (populated via augment.stats.modify)
         if (attrs.modifiers) {
             Object.assign(rarityMultipliers, attrs.modifiers);
         }
@@ -568,15 +599,16 @@ class GameState {
             luck: effectiveLuck,
             rarityMultipliers: rarityMultipliers,
             valueBonus: attrs.valueBonus || 0,
-            ownedPerks: this.perksPurchased,
-            worldEffects: worldEffects
+            ownedAugments: this.augmentsPurchased,
+            worldEffects: worldEffects,
+            routeIndex: this.getRouteIndex()
         };
 
         thing = applyModifications(thing, modOptions);
         
         // Luck-based extra roll (chance to reroll entirely if lucky)
         if (this.rngStreams.luck() < (attrs.luck || 0) * 0.05) {
-            let newThing = rollThing(this.round, this.rngStreams.loot, adjustedWeights, worldEffects);
+            let newThing = rollThing(this.round, this.rngStreams.loot, adjustedWeights, worldEffects, context);
             newThing = applyModifications(newThing, modOptions);
             
             // Keep the one with higher value
@@ -647,7 +679,7 @@ class GameState {
 
     /**
      * Complete a round and earn rewards
-     * Awards cash and applies interest, including cash bonuses from perks
+     * Awards cash and applies interest, including cash bonuses from augments
      * @returns {Object} rewards breakdown
      */
     completeRound() {
@@ -668,7 +700,7 @@ class GameState {
 
         const maxStacks = attrs.max_interest_stacks || 5;
         const modifiers = {
-            multiCash: attrs.multiCash,
+            multiCash: (attrs.multiCash || 1) + (attrs.cashBonus || 0),
             addCash: attrs.addCash,
             subtractCash: attrs.subtractCash,
             divideCash: attrs.divideCash,
@@ -696,11 +728,11 @@ class GameState {
         if (nowOnBoss) {
             const boss = typeof getBossByRound === 'function' ? getBossByRound(this.round) : null;
             if (boss) {
-                const owned = Object.keys(this.perksPurchased).filter(id => this.perksPurchased[id]);
-                const options = typeof getBossPerkOptions === 'function'
-                    ? getBossPerkOptions(boss.id, CONFIG.BOSS_PERK_OFFER_COUNT, owned)
+                const owned = Object.keys(this.augmentsPurchased).filter(id => this.augmentsPurchased[id]);
+                const options = typeof getBossAugmentOptions === 'function'
+                    ? getBossAugmentOptions(boss.id, CONFIG.BOSS_AUGMENT_OFFER_COUNT, owned)
                     : [];
-                this.pendingBossReward = { bossId: boss.id, boss, perkOptions: options };
+                this.pendingBossReward = { bossId: boss.id, boss, augmentOptions: options };
                 this.startRound();
                 return { success: true, message: 'Boss defeated', isBossReward: true };
             }
@@ -709,7 +741,7 @@ class GameState {
         return { success: true, message: `Advanced to round ${this.round}` };
     }
 
-    /** After confirming 3 boss perks, advance to next round and clear pending */
+    /** After confirming 3 boss augments, advance to next round and clear pending */
     confirmBossReward() {
         if (!this.pendingBossReward) return;
         this.pendingBossReward = null;
@@ -717,66 +749,66 @@ class GameState {
         this.startRound();
     }
 
-    /** After defeating boss: pick a perk from boss reward (call 3 times). Returns false if already picked 3 or invalid. */
-    chooseBossPerk(perkId) {
+    /** After defeating boss: pick a augment from boss reward (call 3 times). Returns false if already picked 3 or invalid. */
+    chooseBossAugment(augmentId) {
         if (!this.pendingBossReward) return false;
-        const { perkOptions } = this.pendingBossReward;
-        const perk = typeof getBossPerkById === 'function' ? getBossPerkById(perkId) : null;
-        if (!perk || !perkOptions.some(p => p.id === perkId)) return false;
-        if (this.perksPurchased[perkId]) return false;
-        const picked = Object.keys(this.perksPurchased).filter(id => perkOptions.some(p => p.id === id)).length;
-        if (picked >= CONFIG.BOSS_PERK_PICK_COUNT) return false;
-        this.perksPurchased[perkId] = true;
-        if (!this.perkOrder.includes(perkId)) this.perkOrder.push(perkId);
+        const { augmentOptions } = this.pendingBossReward;
+        const augment = typeof getBossAugmentById === 'function' ? getBossAugmentById(augmentId) : null;
+        if (!augment || !augmentOptions.some(p => p.id === augmentId)) return false;
+        if (this.augmentsPurchased[augmentId]) return false;
+        const picked = Object.keys(this.augmentsPurchased).filter(id => augmentOptions.some(p => p.id === id)).length;
+        if (picked >= CONFIG.BOSS_AUGMENT_PICK_COUNT) return false;
+        this.augmentsPurchased[augmentId] = true;
+        if (!this.augmentOrder.includes(augmentId)) this.augmentOrder.push(augmentId);
         return true;
     }
 
-    /** Returns number of boss perks picked this reward round */
-    getBossPerksPickedCount() {
+    /** Returns number of boss augments picked this reward round */
+    getBossAugmentsPickedCount() {
         if (!this.pendingBossReward) return 0;
-        return Object.keys(this.perksPurchased).filter(id =>
-            this.pendingBossReward.perkOptions.some(p => p.id === id)).length;
+        return Object.keys(this.augmentsPurchased).filter(id =>
+            this.pendingBossReward.augmentOptions.some(p => p.id === id)).length;
     }
 
 
     /**
-     * Purchase a perk (one-time only, costs CASH not chips)
-     * @param {string} perkId
+     * Purchase a augment (one-time only, costs CASH not chips)
+     * @param {string} augmentId
      * @returns {Object} { success: boolean, message: string }
      */
-    purchasePerk(perkId) {
-        // Find the perk first
-        const perk = PERKS[perkId];
-        if (!perk) return { success: false, message: 'Perk not found' };
+    purchaseAugment(augmentId) {
+        // Find the augment first
+        const augment = AUGMENTS[augmentId];
+        if (!augment) return { success: false, message: 'Augment not found' };
 
-        const props = perk.properties || {};
-        const conditions = perk.conditions || [];
+        const props = augment.properties || {};
+        const conditions = augment.conditions || [];
 
         // Check conflicts
         if (props.conflict) {
             const conflicts = Array.isArray(props.conflict) ? props.conflict : [props.conflict];
             for (const conflictId of conflicts) {
-                if (this.perksPurchased[conflictId]) {
-                    const conflictName = PERKS[conflictId] ? PERKS[conflictId].name : conflictId;
+                if (this.augmentsPurchased[conflictId]) {
+                    const conflictName = AUGMENTS[conflictId] ? AUGMENTS[conflictId].name : conflictId;
                     return { success: false, message: `Conflicts with ${conflictName}` };
                 }
             }
         }
 
         // Check if already purchased (Stackable check)
-        if (this.perksPurchased[perkId]) {
+        if (this.augmentsPurchased[augmentId]) {
             const stackLimit = props.stack || 1;
             
             // If stackLimit is 1, you can't buy again
             if (stackLimit === 1) {
                 return { 
                     success: false, 
-                    message: 'You already own this perk' 
+                    message: 'You already own this augment' 
                 };
             }
             
-            // Check limits for stackable perks
-            const currentCount = this.perksPurchased[perkId] || 0;
+            // Check limits for stackable augments
+            const currentCount = this.augmentsPurchased[augmentId] || 0;
             
             if (currentCount >= stackLimit) {
                 return {
@@ -787,22 +819,22 @@ class GameState {
         }
 
         // Check Shop Limit (global limit for this run, separate from stack limit logic if needed)
-        // Usually stack limit IS the shop limit for self-stacking perks.
-        // But shopLimit might be for non-stacking perks that can be bought multiple times?
+        // Usually stack limit IS the shop limit for self-stacking augments.
+        // But shopLimit might be for non-stacking augments that can be bought multiple times?
         // Let's assume shopLimit and stack are similar for now, but respect shopLimit if present.
         if (props.shopLimit) {
-             const currentCount = this.perksPurchased[perkId] || 0;
+             const currentCount = this.augmentsPurchased[augmentId] || 0;
              if (currentCount >= props.shopLimit) {
                  return { success: false, message: `Shop limit reached (${props.shopLimit})` };
              }
         }
 
         // Check Requirements
-        const reqCondition = conditions.find(c => c.type === 'requirePerk');
+        const reqCondition = conditions.find(c => c.type === 'requireAugment');
         if (reqCondition) {
-            const requiredId = reqCondition.perkId;
-            if (!this.perksPurchased[requiredId]) {
-                const requiredName = PERKS[requiredId] ? PERKS[requiredId].name : requiredId;
+            const requiredId = reqCondition.augmentId;
+            if (!this.augmentsPurchased[requiredId]) {
+                const requiredName = AUGMENTS[requiredId] ? AUGMENTS[requiredId].name : requiredId;
                 return {
                     success: false,
                     message: `Requires ${requiredName}`
@@ -810,9 +842,9 @@ class GameState {
             }
         }
 
-        const cost = perk.cost;
+        const cost = augment.cost;
 
-        // Perks cost CASH (persistent currency), not chips
+        // Augments cost CASH (persistent currency), not chips
         if (this.cash < cost) {
             return {
                 success: false,
@@ -820,16 +852,16 @@ class GameState {
             };
         }
 
-        // Handle Overwrites (Mutually Exclusive Perks)
+        // Handle Overwrites (Mutually Exclusive Augments)
         if (props.overwrite) {
             const overwrites = Array.isArray(props.overwrite) ? props.overwrite : [props.overwrite];
             overwrites.forEach(overwrittenId => {
-                if (this.perksPurchased[overwrittenId]) {
-                    delete this.perksPurchased[overwrittenId];
-                    // Remove from perkOrder to update UI correctly
-                    const index = this.perkOrder.indexOf(overwrittenId);
+                if (this.augmentsPurchased[overwrittenId]) {
+                    delete this.augmentsPurchased[overwrittenId];
+                    // Remove from augmentOrder to update UI correctly
+                    const index = this.augmentOrder.indexOf(overwrittenId);
                     if (index > -1) {
-                        this.perkOrder.splice(index, 1);
+                        this.augmentOrder.splice(index, 1);
                     }
                 }
             });
@@ -837,52 +869,52 @@ class GameState {
 
         this.currency.spendCash(cost);
 
-        // Add Perk (Single ownership or increment)
-        if (this.perksPurchased[perkId]) {
+        // Add Augment (Single ownership or increment)
+        if (this.augmentsPurchased[augmentId]) {
             // Must be stackable if we reached here
-            if (this.perksPurchased[perkId] === true) {
-                this.perksPurchased[perkId] = 2; // Convert boolean to number
+            if (this.augmentsPurchased[augmentId] === true) {
+                this.augmentsPurchased[augmentId] = 2; // Convert boolean to number
             } else {
-                this.perksPurchased[perkId]++;
+                this.augmentsPurchased[augmentId]++;
             }
         } else {
             // First purchase
-            if (props.stack > 1 || perk.type === 'subperk') {
-                this.perksPurchased[perkId] = 1;
+            if (props.stack > 1 || augment.type === 'subaugment') {
+                this.augmentsPurchased[augmentId] = 1;
             } else {
-                this.perksPurchased[perkId] = true; // Use true for single-stack for legacy compatibility? 
+                this.augmentsPurchased[augmentId] = true; // Use true for single-stack for legacy compatibility? 
                 // Or should we move to numbers everywhere? 
                 // Let's stick to true for single stack to avoid breaking other checks that expect boolean
                 // But wait, my getAttributes uses 'count' which defaults to 1.
                 // If I use number everywhere, it's cleaner.
-                // But legacy checks might use `if (perksPurchased[id])`. 1 is truthy.
+                // But legacy checks might use `if (augmentsPurchased[id])`. 1 is truthy.
                 // So using 1 is fine.
                 // However, let's keep `true` for consistency with legacy if it matters.
                 // Actually, let's use 1 if stackable, true if not.
                 if (props.stack > 1) {
-                    this.perksPurchased[perkId] = 1;
+                    this.augmentsPurchased[augmentId] = 1;
                 } else {
-                    this.perksPurchased[perkId] = true;
+                    this.augmentsPurchased[augmentId] = true;
                 }
             }
         }
 
         // Initialize Chip Eater tracking
-        if (perkId === 'chip_eater') {
+        if (augmentId === 'chip_eater') {
             this.chipEaterStartValue = this.stats.totalChipsEarned || 0;
         }
 
         // Add to order for UI (unless hidden or already there)
-        if (!props.hidden && !this.perkOrder.includes(perkId)) {
-            this.perkOrder.push(perkId);
+        if (!props.hidden && !this.augmentOrder.includes(augmentId)) {
+            this.augmentOrder.push(augmentId);
         }
 
         this.checkUnlockNotifications();
 
-        const color = perk.nameStyle?.color || perk.color || '#fff';
+        const color = augment.nameStyle?.color || augment.color || '#fff';
         return {
             success: true,
-            message: `Purchased <span style="color:${color}">[${perk.name}]</span>`
+            message: `Purchased <span style="color:${color}">[${augment.name}]</span>`
         };
     }
 
@@ -909,20 +941,20 @@ class GameState {
         return result;
     }
 
-    canForgePerk(perkId) {
-        const perk = PERKS[perkId];
-        if (!perk) {
-            return { canForge: false, reason: 'Perk not found' };
+    canForgeAugment(augmentId) {
+        const augment = AUGMENTS[augmentId];
+        if (!augment) {
+            return { canForge: false, reason: 'Augment not found' };
         }
         
-        const conditions = perk.conditions || [];
+        const conditions = augment.conditions || [];
         const forgeCondition = conditions.find(c => c.type === 'forging');
         
         if (!forgeCondition) {
-            return { canForge: false, reason: 'Perk cannot be forged' };
+            return { canForge: false, reason: 'Augment cannot be forged' };
         }
         
-        if (this.perksPurchased[perkId]) {
+        if (this.augmentsPurchased[augmentId]) {
             return { canForge: false, reason: 'Already owned' };
         }
 
@@ -934,7 +966,7 @@ class GameState {
         const recipe = forgeCondition.recipe;
         if (Array.isArray(recipe)) {
             for (const requiredId of recipe) {
-                if (!this.perksPurchased[requiredId]) {
+                if (!this.augmentsPurchased[requiredId]) {
                     return { canForge: false, reason: 'Missing Recipes' };
                 }
             }
@@ -945,20 +977,20 @@ class GameState {
 
     getForgeableOptions() {
         const options = [];
-        for (const [id, perk] of Object.entries(PERKS)) {
-            const conditions = perk.conditions || [];
+        for (const [id, augment] of Object.entries(AUGMENTS)) {
+            const conditions = augment.conditions || [];
             const forgeCondition = conditions.find(c => c.type === 'forging');
             
             if (forgeCondition) {
-                const check = this.canForgePerk(id);
+                const check = this.canForgeAugment(id);
                 options.push({
                     id: id,
-                    name: perk.name,
-                    description: perk.description,
-                    rarity: perk.tier,
-                    tier: perk.tier,
-                    icon: perk.icon,
-                    nameStyle: perk.nameStyle,
+                    name: augment.name,
+                    description: augment.description,
+                    rarity: augment.tier,
+                    tier: augment.tier,
+                    icon: augment.icon,
+                    nameStyle: augment.nameStyle,
                     recipe: forgeCondition.recipe,
                     canForge: check.canForge,
                     reason: check.reason
@@ -968,18 +1000,18 @@ class GameState {
         return options;
     }
 
-    forgePerk(perkId) {
-        const perk = PERKS[perkId];
-        if (!perk) {
-            return { success: false, message: 'Perk not found' };
+    forgeAugment(augmentId) {
+        const augment = AUGMENTS[augmentId];
+        if (!augment) {
+            return { success: false, message: 'Augment not found' };
         }
         
-        const check = this.canForgePerk(perkId);
+        const check = this.canForgeAugment(augmentId);
         if (!check.canForge) {
-            return { success: false, message: check.reason || 'Cannot forge this perk' };
+            return { success: false, message: check.reason || 'Cannot forge this augment' };
         }
         
-        const conditions = perk.conditions || [];
+        const conditions = augment.conditions || [];
         const forgeCondition = conditions.find(c => c.type === 'forging');
         
         if (forgeCondition.cash) {
@@ -995,42 +1027,42 @@ class GameState {
         
         if (Array.isArray(recipe)) {
             for (const requiredId of recipe) {
-                // Remove required perk
-                if (this.perksPurchased[requiredId]) {
-                    let count = this.perksPurchased[requiredId];
+                // Remove required augment
+                if (this.augmentsPurchased[requiredId]) {
+                    let count = this.augmentsPurchased[requiredId];
                     if (count === true) count = 1;
 
                     if (count > 2) {
-                        this.perksPurchased[requiredId] = count - 1;
+                        this.augmentsPurchased[requiredId] = count - 1;
                     } else if (count === 2) {
-                        this.perksPurchased[requiredId] = true;
+                        this.augmentsPurchased[requiredId] = true;
                     } else {
-                        delete this.perksPurchased[requiredId];
-                        const index = this.perkOrder.indexOf(requiredId);
+                        delete this.augmentsPurchased[requiredId];
+                        const index = this.augmentOrder.indexOf(requiredId);
                         if (index > -1) {
-                            this.perkOrder.splice(index, 1);
+                            this.augmentOrder.splice(index, 1);
                         }
                     }
                 }
             }
         }
         
-        // Add Perk (Single ownership)
-        this.perksPurchased[perkId] = true;
+        // Add Augment (Single ownership)
+        this.augmentsPurchased[augmentId] = true;
         
-        if (!perk.properties?.hidden && !this.perkOrder.includes(perkId)) {
-            this.perkOrder.push(perkId);
+        if (!augment.properties?.hidden && !this.augmentOrder.includes(augmentId)) {
+            this.augmentOrder.push(augmentId);
         }
-        if (perkId === 'chip_eater') {
+        if (augmentId === 'chip_eater') {
             this.chipEaterStartValue = this.stats.totalChipsEarned || 0;
         }
         
         this.checkUnlockNotifications();
 
-        const color = perk.nameStyle?.color || perk.color || '#fff';
+        const color = augment.nameStyle?.color || augment.color || '#fff';
         return {
             success: true,
-            message: `Forged <span style="color:${color}">[${perk.name}]</span>`
+            message: `Forged <span style="color:${color}">[${augment.name}]</span>`
         };
     }
 

@@ -5,26 +5,59 @@ const CONFIG = {
     /** Rounds between bosses (boss on round 5, 10, 15, 20, 25) */
     BOSS_ROUND_INTERVAL: 5,
 
-    /** Normal round chip costs: [round] => chips required to advance */
+    /**
+     * Round Cost Scaling Framework
+     * Modify these values to tune the difficulty curve
+     */
+    ROUND_COST_SCALING: {
+        // Normal Rounds
+        NORMAL_BASE: 10,          // Starting cost for Round 1
+        NORMAL_GROWTH: 5,         // Linear increase per round (easy early game)
+        NORMAL_EXPONENT: 1.5,    // 15% compounding growth per round after threshold
+        EXPONENTIAL_START_ROUND: 20, // Exponential growth kicks in after Route 3 (Round 15)
+        
+        // Boss Rounds
+        BOSS_BASE: 50,           // Base cost for first boss
+        BOSS_GROWTH: 50,          // Increase per route/boss
+        BOSS_EXPONENT: 1.0        // Multiplier for boss scaling
+    },
+
+    /** Normal round chip costs: calculated dynamically based on scaling config */
     getNormalRoundCost(round) {
-        if (round <= 3) return 15;
-        if (round <= 6) return 25 + (round - 4) * 5;
-        return 40 + (round - 7) * 10;
+        // Use the scaling config
+        const { NORMAL_BASE, NORMAL_GROWTH, NORMAL_EXPONENT, EXPONENTIAL_START_ROUND } = this.ROUND_COST_SCALING;
+        
+        // Base Linear Cost (Easy scaling)
+        let cost = NORMAL_BASE + ((round - 1) * NORMAL_GROWTH);
+        
+        // Apply Exponential Scaling only after the "Easy Routes" are done
+        // Default: After Round 15 (End of Route 3)
+        if (round > EXPONENTIAL_START_ROUND) {
+            const exponentialSteps = round - EXPONENTIAL_START_ROUND;
+            // Compound the cost: CurrentLinearCost * (Exponent ^ Steps)
+            cost = cost * Math.pow(NORMAL_EXPONENT, exponentialSteps);
+        }
+
+        return Math.floor(cost / 5) * 5; // Round to nearest 5 for clean numbers
     },
 
     /** Boss round chip cost = base for that route × multiplier (scales with route) */
     getBossChipCost(routeIndex) {
-        const base = 100;
-        const perRoute = 50;
-        return base + routeIndex * perRoute; // Route 1: 150, R2: 200, R3: 250, R4: 300, R5: 350
+        const { BOSS_BASE, BOSS_GROWTH, BOSS_EXPONENT } = this.ROUND_COST_SCALING;
+        
+        // Base + (Route * Growth) * (Exponent ^ Route)
+        const linearPart = routeIndex * BOSS_GROWTH;
+        const finalCost = BOSS_BASE + (linearPart * Math.pow(BOSS_EXPONENT, routeIndex));
+        
+        return Math.floor(finalCost / 10) * 10; // Round to nearest 10
     },
 
-    /** Number of exclusive perk choices offered after boss (player picks 3) */
-    BOSS_PERK_OFFER_COUNT: 6,
-    BOSS_PERK_PICK_COUNT: 3,
+    /** Number of exclusive augment choices offered after boss (player picks 3) */
+    BOSS_AUGMENT_OFFER_COUNT: 6,
+    BOSS_AUGMENT_PICK_COUNT: 3,
 
     /** Roll animation duration (ms) */
-    ROLL_ANIMATION_MS: 800,
+    ROLL_ANIMATION_MS: 1200,
 
     /** Auto-roll common: max free rerolls per roll to prevent infinite loop */
     AUTO_ROLL_COMMON_MAX_REROLLS: 5,

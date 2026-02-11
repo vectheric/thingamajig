@@ -6,13 +6,13 @@
 class Shop {
     constructor(gameState) {
         this.gameState = gameState;
-        this.currentShopPerks = [];
+        this.currentShopAugments = [];
     }
 
     /**
-     * Get random shop perks for current round (starts at 4 perks, unowned only)
+     * Get random shop augments for current round (starts at 4 augments, unowned only)
      */
-    generateShopPerks() {
+    generateShopAugments() {
         const attrs = this.gameState.getAttributes();
         const luck = attrs.luck || 0;
         
@@ -22,60 +22,60 @@ class Shop {
         let shopSize = 4;
         
 
-        const rng = (this.gameState.rngStreams && typeof this.gameState.rngStreams.perks === 'function') 
-            ? this.gameState.rngStreams.perks 
+        const rng = (this.gameState.rngStreams && typeof this.gameState.rngStreams.augments === 'function') 
+            ? this.gameState.rngStreams.augments 
             : Math.random;
 
-        this.currentShopPerks = getRandomShopPerks(
+        this.currentShopAugments = getRandomShopAugments(
             targetRound,
             shopSize,
-            this.gameState.perksPurchased,
+            this.gameState.augmentsPurchased,
             rng,
             luck,
             this.gameState
         );
 
-        return this.currentShopPerks;
+        return this.currentShopAugments;
     }
 
     /**
-     * Get all available shop items for purchase (only random perks from current round)
+     * Get all available shop items for purchase (only random augments from current round)
      */
     getAvailableItems() {
-        // If no shop perks generated, generate them
-        if (this.currentShopPerks.length === 0) {
-            this.generateShopPerks();
+        // If no shop augments generated, generate them
+        if (this.currentShopAugments.length === 0) {
+            this.generateShopAugments();
         }
 
         const worldEffects = (this.gameState.worldSystem && this.gameState.worldSystem.getEffectiveWorldEffects) 
             ? this.gameState.worldSystem.getEffectiveWorldEffects() 
             : null;
 
-        return this.currentShopPerks.map(perk => {
-            const ownedCount = this.gameState.perksPurchased[perk.id] || 0;
-            const maxStack = (perk.properties && perk.properties.stack) || 1;
+        return this.currentShopAugments.map(augment => {
+            const ownedCount = this.gameState.augmentsPurchased[augment.id] || 0;
+            const maxStack = (augment.properties && augment.properties.stack) || 1;
             const isMaxed = ownedCount >= maxStack;
 
             // Check for conflicts
             let isConflicted = false;
             let conflictReason = null;
-            if (perk.properties && perk.properties.conflict) {
-                const conflicts = Array.isArray(perk.properties.conflict) ? perk.properties.conflict : [perk.properties.conflict];
+            if (augment.properties && augment.properties.conflict) {
+                const conflicts = Array.isArray(augment.properties.conflict) ? augment.properties.conflict : [augment.properties.conflict];
                 for (const conflictId of conflicts) {
-                    if (this.gameState.perksPurchased[conflictId]) {
+                    if (this.gameState.augmentsPurchased[conflictId]) {
                         isConflicted = true;
-                        // Try to find name of conflicting perk
-                        const conflictPerk = typeof getPerkById === 'function' ? getPerkById(conflictId) : null;
-                        conflictReason = conflictPerk ? conflictPerk.name : conflictId;
+                        // Try to find name of conflicting augment
+                        const conflictAugment = typeof getAugmentById === 'function' ? getAugmentById(conflictId) : null;
+                        conflictReason = conflictAugment ? conflictAugment.name : conflictId;
                         break;
                     }
                 }
             }
 
             // Apply Price Effects
-            let finalCost = perk.cost;
-            if (worldEffects && worldEffects.perkPrice) {
-                worldEffects.perkPrice.forEach(effect => {
+            let finalCost = augment.cost;
+            if (worldEffects && worldEffects.augmentPrice) {
+                worldEffects.augmentPrice.forEach(effect => {
                     if (effect.type === 'set') finalCost = effect.value;
                     else if (effect.type === 'add') finalCost += effect.value;
                     else if (effect.type === 'multi') finalCost *= effect.value;
@@ -85,15 +85,15 @@ class Shop {
             }
 
             return {
-                id: perk.id,
-                name: perk.name,
-                description: perk.description,
+                id: augment.id,
+                name: augment.name,
+                description: augment.description,
                 cost: finalCost,
-                rarity: perk.rarity || perk.tier, // Fallback to tier if rarity is missing
-                type: perk.type,
-                icon: perk.icon,
-                special: perk.special,
-                nameStyle: perk.nameStyle,
+                rarity: augment.rarity || augment.tier, // Fallback to tier if rarity is missing
+                type: augment.type,
+                icon: augment.icon,
+                special: augment.special,
+                nameStyle: augment.nameStyle,
                 owned: isMaxed, // Only show as owned (disabled) if maxed out
                 conflicted: isConflicted,
                 conflictReason: conflictReason,
@@ -106,28 +106,28 @@ class Shop {
 
 
     /**
-     * Try to purchase a perk
+     * Try to purchase a augment
      */
-    purchasePerk(perkId, instanceId = null) {
-        const result = this.gameState.purchasePerk(perkId);
+    purchaseAugment(augmentId, instanceId = null) {
+        const result = this.gameState.purchaseAugment(augmentId);
         
-        // If success and it's a subperk/special, remove from shop to prevent multiple purchases in one go
+        // If success and it's a subaugment/special, remove from shop to prevent multiple purchases in one go
         // (It will reappear next time it's generated)
         if (result.success) {
             let index = -1;
             
             // If instanceId is provided, look for exact match
             if (instanceId) {
-                index = this.currentShopPerks.findIndex(p => p.instanceId === instanceId);
+                index = this.currentShopAugments.findIndex(p => p.instanceId === instanceId);
             } 
             // Fallback to finding first matching ID (legacy behavior)
             if (index === -1) {
-                index = this.currentShopPerks.findIndex(p => p.id === perkId);
+                index = this.currentShopAugments.findIndex(p => p.id === augmentId);
             }
 
             if (index !== -1) {
-                // Remove purchased perk from shop (single stock per card)
-                this.currentShopPerks.splice(index, 1);
+                // Remove purchased augment from shop (single stock per card)
+                this.currentShopAugments.splice(index, 1);
             }
         }
 
@@ -149,16 +149,16 @@ class Shop {
     }
 
     /**
-     * Get list of owned perks
+     * Get list of owned augments
      */
-    getOwnedPerks() {
-        const order = this.gameState.perkOrder || [];
-        const entries = Object.entries(this.gameState.perksPurchased)
+    getOwnedAugments() {
+        const order = this.gameState.augmentOrder || [];
+        const entries = Object.entries(this.gameState.augmentsPurchased)
             .filter(([_, owned]) => owned)
-            .map(([perkId, _]) => {
-                let perk = typeof getPerkById === 'function' ? getPerkById(perkId) : null;
-                if (!perk && typeof getBossPerkById === 'function') perk = getBossPerkById(perkId);
-                return perk ? { id: perkId, name: perk.name } : null;
+            .map(([augmentId, _]) => {
+                let augment = typeof getAugmentById === 'function' ? getAugmentById(augmentId) : null;
+                if (!augment && typeof getBossAugmentById === 'function') augment = getBossAugmentById(augmentId);
+                return augment ? { id: augmentId, name: augment.name } : null;
             })
             .filter(p => p !== null);
         if (order.length) {

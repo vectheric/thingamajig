@@ -1,8 +1,8 @@
 /**
- * Boss and Route system - every 5th round is a boss; defeat to gain route and choose exclusive perks
+ * Boss and Route system - every 5th round is a boss; defeat to gain route and choose exclusive augments
  */
 
-const BOSS_EXCLUSIVE_PERKS = {
+const BOSS_EXCLUSIVE_AUGMENTS = {
     // Boss 1 - Chip Hoarder (Round 5)
     boss1_chip_surge: {
         id: 'boss1_chip_surge',
@@ -261,7 +261,7 @@ const BOSSES = [
         name: 'Ȼ Hoarder',
         description: 'Collect enough Ȼ to overwhelm the hoard.',
         round: 5,
-        perkIds: Object.keys(BOSS_EXCLUSIVE_PERKS).filter(id => BOSS_EXCLUSIVE_PERKS[id].source === 'boss1'),
+        augmentIds: Object.keys(BOSS_EXCLUSIVE_AUGMENTS).filter(id => BOSS_EXCLUSIVE_AUGMENTS[id].source === 'boss1'),
     },
     {
         id: 'boss2',
@@ -269,7 +269,7 @@ const BOSSES = [
         name: 'Value Guardian',
         description: 'Prove your worth in Ȼ.',
         round: 10,
-        perkIds: Object.keys(BOSS_EXCLUSIVE_PERKS).filter(id => BOSS_EXCLUSIVE_PERKS[id].source === 'boss2'),
+        augmentIds: Object.keys(BOSS_EXCLUSIVE_AUGMENTS).filter(id => BOSS_EXCLUSIVE_AUGMENTS[id].source === 'boss2'),
     },
     {
         id: 'boss3',
@@ -277,7 +277,7 @@ const BOSSES = [
         name: 'Fortune Keeper',
         description: 'Fortune demands a tribute.',
         round: 15,
-        perkIds: Object.keys(BOSS_EXCLUSIVE_PERKS).filter(id => BOSS_EXCLUSIVE_PERKS[id].source === 'boss3'),
+        augmentIds: Object.keys(BOSS_EXCLUSIVE_AUGMENTS).filter(id => BOSS_EXCLUSIVE_AUGMENTS[id].source === 'boss3'),
     },
     {
         id: 'boss4',
@@ -285,7 +285,7 @@ const BOSSES = [
         name: 'Greed Lord',
         description: 'Only immense wealth can satisfy.',
         round: 20,
-        perkIds: Object.keys(BOSS_EXCLUSIVE_PERKS).filter(id => BOSS_EXCLUSIVE_PERKS[id].source === 'boss4'),
+        augmentIds: Object.keys(BOSS_EXCLUSIVE_AUGMENTS).filter(id => BOSS_EXCLUSIVE_AUGMENTS[id].source === 'boss4'),
     },
     {
         id: 'boss5',
@@ -293,7 +293,7 @@ const BOSSES = [
         name: 'Supreme Collector',
         description: 'The ultimate Ȼ challenge.',
         round: 25,
-        perkIds: Object.keys(BOSS_EXCLUSIVE_PERKS).filter(id => BOSS_EXCLUSIVE_PERKS[id].source === 'boss5'),
+        augmentIds: Object.keys(BOSS_EXCLUSIVE_AUGMENTS).filter(id => BOSS_EXCLUSIVE_AUGMENTS[id].source === 'boss5'),
     },
 ];
 
@@ -306,18 +306,18 @@ function getBossById(bossId) {
 }
 
 /**
- * Get N random exclusive perks for a boss (no duplicates, not already owned)
+ * Get N random exclusive augments for a boss (no duplicates, not already owned)
  */
-function getBossPerkOptions(bossId, count, ownedPerkIds) {
+function getBossAugmentOptions(bossId, count, ownedAugmentIds) {
     const boss = getBossById(bossId);
     if (!boss) return [];
-    const pool = boss.perkIds
-        .map(id => BOSS_EXCLUSIVE_PERKS[id])
-        .filter(p => p && !ownedPerkIds.includes(p.id));
+    const pool = boss.augmentIds
+        .map(id => BOSS_EXCLUSIVE_AUGMENTS[id])
+        .filter(p => p && !ownedAugmentIds.includes(p.id));
     const shuffled = [...pool].sort(() => Math.random() - 0.5);
     return shuffled.slice(0, Math.min(count, shuffled.length));
 }
 
-function getBossPerkById(perkId) {
-    return BOSS_EXCLUSIVE_PERKS[perkId] || null;
+function getBossAugmentById(augmentId) {
+    return BOSS_EXCLUSIVE_AUGMENTS[augmentId] || null;
 }

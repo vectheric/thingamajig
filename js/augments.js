@@ -1,10 +1,10 @@
 /**
- * Perks System
+ * Augments System
  * One-time purchases that permanently buff your gameplay
  */
 
-const PERKS = {
-    // AFFINITY PERKS
+const AUGMENTS = {
+    // AFFINITY AUGMENTS
     'ice_affinity': {
         name: 'Ice Affinity',
         description: 'You are cold as ice. Prevents Fire Affinity from spawning.',
@@ -31,7 +31,7 @@ const PERKS = {
     },
     'chip_vision': {
         name: 'Ȼ Vision',
-        description: 'Allows you to see your Ȼ when hovering over the perks topbar.',
+        description: 'Allows you to see your Ȼ when hovering over the augments topbar.',
         cost: 10,
         tier: 'common',
         icon: '👁️',
@@ -41,10 +41,10 @@ const PERKS = {
         stats: {}
     },
 
-    // COMMON PERKS (15-25$ - ultra cheap early game)
+    // COMMON AUGMENTS (15-25$ - ultra cheap early game)
     'old_tire': {
         name: 'Old Tire',
-        description: "Sadly, it's too old to be use again, +1 Roll",
+        description: "Sadly, it's too old to be used again, +1 Roll",
         cost: 2,
         tier: 'common',
         icon: '',
@@ -93,8 +93,20 @@ const PERKS = {
         },
         stats: {}
     },
+    'sol': {
+        name: 'Sol',
+        description: 'Gain +1 Free Shop Reroll at the start of each round. Free rerolls stack.',
+        cost: 40,
+        tier: 'legendary',
+        icon: '☀',
+        properties: {
+            stack: 1
+        },
+        stats: {}
+    },
     
-    // FORGEABLE PERKS
+    
+    // FORGEABLE AUGMENTS
     '57_leaf_clover': {
         name: '57 Leaf Clover',
         description: 'The ultimate symbol of luck. Massive boost to all stats. Can only be forged.',
@@ -384,7 +396,7 @@ const PERKS = {
         }
     },
 
-    // UNCOMMON PERKS (35-65$ - accessible early)
+    // UNCOMMON AUGMENTS (35-65$ - accessible early)
     'interest_rate_2': {
         name: 'Interest Rate 2',
         description: 'Gain +3Ȼ at end of round.',
@@ -414,7 +426,7 @@ const PERKS = {
     },
     'thunder_strike': {
         name: 'Thunder Strike',
-        description: 'x1.6 Luck',
+        description: '+1.6 Luck',
         cost: 5,
         tier: 'uncommon',
         icon: '⚡',
@@ -422,12 +434,12 @@ const PERKS = {
             stack: 50
         },
         stats: {
-            luck: { type: 'multi', value: 1.6 }
+            luck: { type: 'add', value: 1.6 }
         }
     },
     'treasure_hunter': {
         name: 'Treasure Hunter',
-        description: '+2 Value multiplier, makes Golden/Ancient items more common',
+        description: '+1 Value, makes Ancient items more common',
         cost: 5,
         tier: 'uncommon',
         icon: '👑',
@@ -468,7 +480,7 @@ const PERKS = {
         }
     },
 
-    // RARE PERKS (80-120$ - mid game targets)
+    // RARE AUGMENTS (80-120$ - mid game targets)
     'hex_breaker': {
         name: 'Hex Breaker',
         description: 'Makes Cursed, Corrupted, and Shadowy items much rarer',
@@ -488,7 +500,7 @@ const PERKS = {
     },
     'master_collector': {
         name: 'Master Collector',
-        description: '+3 Value multiplier, +1 Luck',
+        description: '+3 Value for items, +1 Luck',
         cost: 8,
         tier: 'rare',
         icon: '🎩',
@@ -531,7 +543,7 @@ const PERKS = {
     },
     'mega_roller': {
         name: 'Mega Roller',
-        description: '+2 Rolls, +2 Value multiplier',
+        description: '+2 Rolls, +2 Value for items',
         cost: 110,
         tier: 'rare',
         icon: '🎲',
@@ -545,7 +557,7 @@ const PERKS = {
     },
     'revenue_stream': {
         name: 'Revenue Stream',
-        description: '+50% round reward cash, +1Ȼ multiplier',
+        description: '+50% round reward cash, +1Ȼ',
         cost: 40,
         tier: 'rare',
         icon: '💸',
@@ -553,7 +565,7 @@ const PERKS = {
             stack: 50
         },
         stats: {
-            cashBonus: { type: 'add', value: 0.5 },
+            cashBonus: { type: 'mult', value: 0.5 },
             chipBonus: { type: 'add', value: 1.0 }
         }
     },
@@ -571,10 +583,10 @@ const PERKS = {
         stats: {}
     },
 
-    // EPIC PERKS (140-200$ - late game investments)
+    // EPIC AUGMENTS (140-200$ - late game investments)
     'jackpot': {
         name: 'Jackpot',
-        description: '+7Ȼ multiplier, +7 Rolls',
+        description: '+77Ȼ, +7 Rolls',
         cost: 77,
         tier: 'epic',
         icon: '🎰',
@@ -582,7 +594,7 @@ const PERKS = {
             stack: 50
         },
         stats: {
-            chipBonus: { type: 'add', value: 6.0 },
+            chipBonus: { type: 'add', value: 77 },
             rolls: { type: 'add', value: 7 }
         }
     },
@@ -629,10 +641,10 @@ const PERKS = {
         }
     },
 
-    // LEGENDARY PERKS (250-350$ - ultimate endgame)
+    // LEGENDARY AUGMENTS (250-350$ - ultimate endgame)
     'chip_eater': {
         name: 'Ȼ Eater',
-        description: 'Bonus +0.5% Item Value Bonus for every 1Ȼ earned AFTER purchasing this perk.',
+        description: 'Bonus +0.5% Item Value Bonus for every 1Ȼ earned AFTER purchasing this augment.',
         cost: 1,
         tier: 'common',
         icon: '👾',
@@ -645,7 +657,31 @@ const PERKS = {
         stats: {} // Dynamic
     },
 
-    // SPECIAL PERKS
+    // SPECIAL AUGMENTS
+    'wishing_star': {
+        name: 'Wishing star',
+        description: 'Converts ALL Luck into Bonus Rolls. (Luck becomes 0)',
+        cost: 120,
+        tier: 'epic',
+        icon: '🎲',
+        properties: {
+            stack: 1,
+            conflict: ['transcendence']
+        },
+        stats: {} // Handled specially in game-state.js
+    },
+    'transcendence': {
+        name: 'Transcendence',
+        description: 'Converts ALL Rolls into Luck, keeping only 1 Roll.',
+        cost: 77,
+        tier: 'epic',
+        icon: '',
+        properties: {
+            stack: 1,
+            conflict: ['gamblers_fallacy']
+        },
+        stats: {} // Handled specially in game-state.js
+    },
     'm4Lw4r3_zer01': {
         name: "m4Lw4r3_zer01",
         description: "A virus generator. Enables VIRUS upgrades. ",
@@ -672,12 +708,12 @@ const PERKS = {
         tier: 'special',
         icon: '₪',
         properties: {
-            subperk: true,
+            subaugment: true,
             shopLimit: 3,
             stack: 50
         },
         conditions: [
-            { type: 'requirePerk', perkId: ['M4LW4R3_ZER01'] }
+            { type: 'requireAugment', augmentId: ['M4LW4R3_ZER01'] }
         ],
         stats: {
             luck: { type: 'add', value: 0.66 }
@@ -710,14 +746,14 @@ const PERKS = {
             stack: 1
         },
         conditions: [
-            { type: 'requirePerk', perkId: ['auto_roll_common'] }
+            { type: 'requireAugment', augmentId: ['auto_roll_common'] }
         ],
         stats: {
             rolls: { type: 'add', value: 1 }
         }
     },
     
-    // MODIFICATION PERKS
+    // MODIFICATION AUGMENTS
     'MINECRAFT_MODS': {
         name: 'Minecraft Mods',
         description: '+50% chance for item modifications',
@@ -747,9 +783,9 @@ const PERKS = {
         }
     },
 
-    // LEGENDARY MODIFICATION PERK
-    'PRISMA': {
-        name: 'PRISMA',
+    // LEGENDARY MODIFICATION AUGMENT
+    'prisma': {
+        name: 'prisma',
         description: '+200% mod chance, +3 Rolls, +4 Value, +2 Luck, +3Ȼ - Guaranteed special items. Prismatic items common',
         cost: 777,
         tier: 'legendary',
@@ -772,7 +808,7 @@ const PERKS = {
         }
     },
 
-    // ALIGNMENT PERKS (Mutually Exclusive)
+    // ALIGNMENT AUGMENTS (Mutually Exclusive)
     'daybreaker': {
         name: 'Daybreaker',
         description: '+3 Luck, +1 Value to every items. Overwrites Trial of Twilight.',
@@ -788,6 +824,20 @@ const PERKS = {
             luck: { type: 'add', value: 3 },
             addValue: { type: 'add', value: 1 }
         }
+    },
+    'prismaticket': {
+        name: 'Prismaticket',
+        description: '50% chance to gain a Free Shop Reroll whenever you reroll the shop.',
+        cost: 7,
+        tier: 'ultimate',
+        icon: '🎟️',
+        properties: {
+            stack: 1
+        },
+        conditions: [
+            { type: 'requireAugment', augmentId: ['prisma'] }
+        ],
+        stats: {}
     },
     'trial_of_twilight': {
         name: 'Trial of Twilight',
@@ -837,10 +887,10 @@ const PERKS = {
             stack: 1,
             set: 'exodia',
             dynamictooltips: 'set_collection',
-            subperk: true
+            subaugment: true
         },
         conditions: [
-            { type: 'requirePerk', perkId: ['forbidden_one'] }
+            { type: 'requireAugment', augmentId: ['forbidden_one'] }
         ],
         stats: {
             rolls: { type: 'add', value: 1 }
@@ -856,10 +906,10 @@ const PERKS = {
             stack: 1,
             set: 'exodia',
             dynamictooltips: 'set_collection',
-            subperk: true
+            subaugment: true
         },
         conditions: [
-            { type: 'requirePerk', perkId: ['forbidden_one'] }
+            { type: 'requireAugment', augmentId: ['forbidden_one'] }
         ],
         stats: {
             rolls: { type: 'add', value: 1 }
@@ -875,10 +925,10 @@ const PERKS = {
             stack: 1,
             set: 'exodia',
             dynamictooltips: 'set_collection',
-            subperk: true
+            subaugment: true
         },
         conditions: [
-            { type: 'requirePerk', perkId: ['forbidden_one'] }
+            { type: 'requireAugment', augmentId: ['forbidden_one'] }
         ],
         stats: {
             luck: { type: 'add', value: 1 }
@@ -894,10 +944,10 @@ const PERKS = {
             stack: 1,
             set: 'exodia',
             dynamictooltips: 'set_collection',
-            subperk: true
+            subaugment: true
         },
         conditions: [
-            { type: 'requirePerk', perkId: ['forbidden_one'] }
+            { type: 'requireAugment', augmentId: ['forbidden_one'] }
         ],
         stats: {
             luck: { type: 'add', value: 1 }
@@ -906,62 +956,62 @@ const PERKS = {
 };
 
 /**
- * Get perk by ID
+ * Get augment by ID
  * @param {string} id 
  * @returns {Object|undefined}
  */
-function getPerkById(id) {
-    if (!PERKS[id]) return undefined;
+function getAugmentById(id) {
+    if (!AUGMENTS[id]) return undefined;
     // Inject ID into object for backward compatibility if needed, though we should prefer using the key
-    return { ...PERKS[id], id };
+    return { ...AUGMENTS[id], id };
 }
 
 /**
- * Get perk cost (flat, one-time purchase)
- * @param {string} perkId
+ * Get augment cost (flat, one-time purchase)
+ * @param {string} augmentId
  * @returns {number} cost in chips
  */
-function getPerkCost(perkId) {
-    const perk = PERKS[perkId];
-    if (!perk) return 0;
-    return perk.cost;
+function getAugmentCost(augmentId) {
+    const augment = AUGMENTS[augmentId];
+    if (!augment) return 0;
+    return augment.cost;
 }
 
 /**
- * Get all available perks
- * @returns {Array} perk info for shop display
+ * Get all available augments
+ * @returns {Array} augment info for shop display
  */
-function getShopPerks() {
-    return Object.entries(PERKS)
-        .filter(([id, perk]) => {
-            const isForgeable = perk.conditions && perk.conditions.some(c => c.type === 'forging');
+function getShopAugments() {
+    return Object.entries(AUGMENTS)
+        .filter(([id, augment]) => {
+            const isForgeable = augment.conditions && augment.conditions.some(c => c.type === 'forging');
             return !isForgeable;
         })
-        .map(([id, perk]) => ({
+        .map(([id, augment]) => ({
             id: id,
-            name: perk.name,
-            description: perk.description,
-            cost: perk.cost,
-            tier: perk.tier,
-            rarity: perk.tier, // Backward compatibility
-            properties: perk.properties,
-            stats: perk.stats,
-            special: perk.special || null,
-            nameStyle: perk.nameStyle,
-            icon: perk.icon
+            name: augment.name,
+            description: augment.description,
+            cost: augment.cost,
+            tier: augment.tier,
+            rarity: augment.tier, // Backward compatibility
+            properties: augment.properties,
+            stats: augment.stats,
+            special: augment.special || null,
+            nameStyle: augment.nameStyle,
+            icon: augment.icon
         }));
 }
 
 /**
- * Get random shop perks based on round
- * Higher rounds have better chance at rare/epic/legendary perks
+ * Get random shop augments based on round
+ * Higher rounds have better chance at rare/epic/legendary augments
  * @param {number} round - current round
- * @param {number} count - number of perks to return
- * @param {Object} owned - owned perks object
- * @returns {Array} random perks filtered by round
+ * @param {number} count - number of augments to return
+ * @param {Object} owned - owned augments object
+ * @returns {Array} random augments filtered by round
  */
-function getRandomShopPerks(round, count = 4, owned = {}, rng = Math.random, luck = 0, gameState = null) {
-    const availablePerks = [];
+function getRandomShopAugments(round, count = 4, owned = {}, rng = Math.random, luck = 0, gameState = null) {
+    const availableAugments = [];
     
     // Helper to check unlock conditions
     const checkUnlockCondition = (condition) => {
@@ -988,116 +1038,116 @@ function getRandomShopPerks(round, count = 4, owned = {}, rng = Math.random, luc
         return true;
     };
 
-    // Helper to check if perk is unlocked/available
-    const isPerkAvailable = (id, perk) => {
+    // Helper to check if augment is unlocked/available
+    const isAugmentAvailable = (id, augment) => {
         // 1. Check conflicts
-        if (perk.properties && perk.properties.conflict) {
-            const conflicts = Array.isArray(perk.properties.conflict) ? perk.properties.conflict : [perk.properties.conflict];
+        if (augment.properties && augment.properties.conflict) {
+            const conflicts = Array.isArray(augment.properties.conflict) ? augment.properties.conflict : [augment.properties.conflict];
             for (const conflictId of conflicts) {
                 if (owned[conflictId]) return false;
             }
         }
 
         // 2. Check prerequisites/conditions
-        if (perk.conditions) {
-            // Check for 'requirePerk'
-            const reqPerk = perk.conditions.find(c => c.type === 'requirePerk' || c.type === 'requires_perk');
-            if (reqPerk) {
-                const requiredIds = Array.isArray(reqPerk.perkId) ? reqPerk.perkId : [reqPerk.perkId];
+        if (augment.conditions) {
+            // Check for 'requireAugment'
+            const reqAugment = augment.conditions.find(c => c.type === 'requireAugment' || c.type === 'requires_augment');
+            if (reqAugment) {
+                const requiredIds = Array.isArray(reqAugment.augmentId) ? reqAugment.augmentId : [reqAugment.augmentId];
                 const hasRequirement = requiredIds.every(reqId => owned[reqId]);
                 if (!hasRequirement) return false;
             }
             
             // Check for 'unlock' conditions
-            const unlockCond = perk.conditions.find(c => c.type === 'unlock');
+            const unlockCond = augment.conditions.find(c => c.type === 'unlock');
             if (unlockCond) {
                 if (!checkUnlockCondition(unlockCond.condition)) return false;
             }
 
-            // Forging perks shouldn't appear in random shop
-            if (perk.conditions.some(c => c.type === 'forging')) return false;
+            // Forging augments shouldn't appear in random shop
+            if (augment.conditions.some(c => c.type === 'forging')) return false;
         }
 
         // 3. Check stack limit
         const currentStack = owned[id] || 0;
-        const maxStack = (perk.properties && perk.properties.stack !== undefined && perk.properties.stack !== null) ? perk.properties.stack : 1;
+        const maxStack = (augment.properties && augment.properties.stack !== undefined && augment.properties.stack !== null) ? augment.properties.stack : 1;
         if (currentStack >= maxStack) return false;
 
         // 4. Check round constraint
-        if (perk.properties && perk.properties.round) {
-            const r = perk.properties.round;
+        if (augment.properties && augment.properties.round) {
+            const r = augment.properties.round;
             if (r.min !== undefined && round < r.min) return false;
             if (r.max !== undefined && round > r.max) return false;
         }
 
-        // 5. Check subperk property (implicit logic: subperks only appear if requirements met, which we checked above)
-        // But if it's a subperk WITHOUT requirements (weird), maybe hide it?
-        // Usually subperks have 'subperk: true' in properties.
-        if (perk.properties && perk.properties.subperk && !perk.conditions) {
-             // If it's a subperk with NO conditions, it probably shouldn't be in the general pool?
-             // Or maybe it's just a "special" perk. 
+        // 5. Check subaugment property (implicit logic: subaugments only appear if requirements met, which we checked above)
+        // But if it's a subaugment WITHOUT requirements (weird), maybe hide it?
+        // Usually subaugments have 'subaugment: true' in properties.
+        if (augment.properties && augment.properties.subaugment && !augment.conditions) {
+             // If it's a subaugment with NO conditions, it probably shouldn't be in the general pool?
+             // Or maybe it's just a "special" augment. 
              // Let's assume if it passed requirements check, it's fine.
         }
 
         return true;
     };
 
-    for (const [id, perk] of Object.entries(PERKS)) {
-        if (isPerkAvailable(id, perk)) {
-            availablePerks.push({ ...perk, id });
+    for (const [id, augment] of Object.entries(AUGMENTS)) {
+        if (isAugmentAvailable(id, augment)) {
+            availableAugments.push({ ...augment, id });
         }
     }
 
     // Weighting logic
-    const weightedPerks = availablePerks.map(perk => {
+    const weightedAugments = availableAugments.map(augment => {
         let weight = 100;
-        if (perk.tier === 'common') weight = 100;
-        if (perk.tier === 'uncommon') weight = 60;
-        if (perk.tier === 'rare') weight = 30;
-        if (perk.tier === 'epic') weight = 10;
-        if (perk.tier === 'legendary') weight = 5;
-        if (perk.tier === 'mythical') weight = 1;
-        if (perk.tier === 'special') weight = 1; 
+        if (augment.tier === 'common') weight = 100;
+        if (augment.tier === 'uncommon') weight = 60;
+        if (augment.tier === 'rare') weight = 30;
+        if (augment.tier === 'epic') weight = 10;
+        if (augment.tier === 'legendary') weight = 5;
+        if (augment.tier === 'mythical') weight = 1;
+        if (augment.tier === 'special') weight = 1; 
         
         // Luck influence
         if (luck > 0) {
-            if (perk.tier !== 'common') weight *= (1 + luck * 0.1);
+            if (augment.tier !== 'common') weight *= (1 + luck * 0.1);
         }
 
-        return { perk, weight };
+        return { augment, weight };
     });
 
     const selected = [];
     
     // Helper to count occurrences in current selection
-    const countInSelection = (perkId) => selected.filter(p => p.id === perkId).length;
+    const countInSelection = (augmentId) => selected.filter(p => p.id === augmentId).length;
 
     for (let i = 0; i < count; i++) {
-        if (weightedPerks.length === 0) break;
+        if (weightedAugments.length === 0) break;
         
-        const totalWeight = weightedPerks.reduce((sum, item) => sum + item.weight, 0);
+        const totalWeight = weightedAugments.reduce((sum, item) => sum + item.weight, 0);
         let random = rng() * totalWeight;
         
-        for (let j = 0; j < weightedPerks.length; j++) {
-            random -= weightedPerks[j].weight;
+        for (let j = 0; j < weightedAugments.length; j++) {
+            random -= weightedAugments[j].weight;
             if (random <= 0) {
-                const selectedPerk = weightedPerks[j].perk;
+                const selectedAugment = weightedAugments[j].augment;
                 
                 // Check shop limit
-                const shopLimit = (selectedPerk.properties && selectedPerk.properties.shopLimit) || 1;
-                const currentCount = countInSelection(selectedPerk.id);
+                const shopLimit = (selectedAugment.properties && selectedAugment.properties.shopLimit) || 1;
+                const currentCount = countInSelection(selectedAugment.id);
                 
                 if (currentCount < shopLimit) {
-                    selected.push(selectedPerk);
+                    selected.push(selectedAugment);
                     
-                    // If we reached the limit for this perk in this shop session, remove it from pool
+                    // If we reached the limit for this augment in this shop session, remove it from pool
                     if (currentCount + 1 >= shopLimit) {
-                        weightedPerks.splice(j, 1);
+                        weightedAugments.splice(j, 1);
                     }
                     // Else: leave it in the pool so it can be picked again
                 } else {
                     // Should not happen if logic below is correct, but safe guard
-                    weightedPerks.splice(j, 1);
+                    weightedAugments.splice(j, 1);
                     i--; // Retry this iteration since we didn't pick anything
                 }
                 

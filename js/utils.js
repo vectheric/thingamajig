@@ -1,10 +1,10 @@
 
-// Helper functions for Perk System
+// Helper functions for Augment System
 
-function checkPerkConditions(perk, gameState, ownedPerks) {
-    if (!perk || !perk.conditions) return true;
+function checkAugmentConditions(augment, gameState, ownedAugments) {
+    if (!augment || !augment.conditions) return true;
     
-    for (const condition of perk.conditions) {
+    for (const condition of augment.conditions) {
         // Unlock Conditions (stats, items, etc.)
         if (condition.type === 'unlock') {
             const cond = condition.condition;
@@ -52,11 +52,11 @@ function checkPerkConditions(perk, gameState, ownedPerks) {
                 if (!hasMod) return false;
             }
         } 
-        // Requirement Conditions (other perks)
-        else if (condition.type === 'requirePerk') {
-            const reqIds = Array.isArray(condition.perkId) ? condition.perkId : [condition.perkId];
+        // Requirement Conditions (other augments)
+        else if (condition.type === 'requireAugment') {
+            const reqIds = Array.isArray(condition.augmentId) ? condition.augmentId : [condition.augmentId];
             for (const id of reqIds) {
-                if (!ownedPerks[id]) return false;
+                if (!ownedAugments[id]) return false;
             }
         }
         // Note: 'bonus_trigger' and 'forging' are not "unlock" conditions in the sense of visibility/availability logic here
@@ -67,21 +67,21 @@ function checkPerkConditions(perk, gameState, ownedPerks) {
     return true;
 }
 
-function getPerkById(perkId) {
-    if (typeof PERKS !== 'undefined') {
+function getAugmentById(augmentId) {
+    if (typeof AUGMENTS !== 'undefined') {
         // First try direct access (if key matches ID)
-        if (PERKS[perkId]) return PERKS[perkId];
+        if (AUGMENTS[augmentId]) return AUGMENTS[augmentId];
         // Then try finding by id property
-        return Object.values(PERKS).find(p => p.id === perkId);
+        return Object.values(AUGMENTS).find(p => p.id === augmentId);
     }
     return null;
 }
 
-function getBossPerkById(perkId) {
-    // Assuming boss perks might be in a separate BOSS_PERKS object or mixed in PERKS
-    // For now, check PERKS
-    if (typeof PERKS !== 'undefined') {
-        return PERKS[perkId];
+function getBossAugmentById(augmentId) {
+    // Assuming boss augments might be in a separate BOSS_AUGMENTS object or mixed in AUGMENTS
+    // For now, check AUGMENTS
+    if (typeof AUGMENTS !== 'undefined') {
+        return AUGMENTS[augmentId];
     }
     return null;
 }

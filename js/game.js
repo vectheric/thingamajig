@@ -21,7 +21,7 @@ class Game {
         this.gameRunning = false;
         this._rollTimeoutId = null;
         this._animationInProgress = false;
-        this.selectedShopPerkId = null;
+        this.selectedShopAugmentId = null;
         this.shopRerollCost = 5; // Starting reroll cost
     }
 
@@ -162,6 +162,11 @@ class Game {
             this.gameState.resetGame();
         }
 
+        // Re-initialize WorldSystem to ensure it uses the new seed
+        if (this.worldSystem && typeof this.worldSystem.init === 'function') {
+            this.worldSystem.init();
+        }
+
         this.gameRunning = true;
         this.handleStartRound();
     }
@@ -222,6 +227,13 @@ class Game {
             }
             this.gameState.startRound();
             
+            // Add Free Rerolls from Augments
+            const solCount = this.gameState.augmentsPurchased['sol'] || 0;
+            if (solCount > 0) {
+                this.gameState.freeRerolls = (this.gameState.freeRerolls || 0) + solCount;
+                if (this.ui) this.ui.showMessage(`Solar power granted you ${solCount} free reroll!`, 'success');
+            }
+            
             // Only generate new biome at start of a Route (every 5 rounds)
             // Round 1, 6, 11, etc.
             if ((this.gameState.round - 1) % 5 === 0) {
@@ -231,7 +243,7 @@ class Game {
             this.gameState.resetLootPage(); // Reset loot pagination when starting new round
             this.ui.renderGameScreen();
 
-            // Check if goal is already met (e.g. via perks or carry-over)
+            // Check if goal is already met (e.g. via augments or carry-over)
             if (this.gameState.hasReachedRoundGoal()) {
                 this.triggerRoundCompletion();
             }
@@ -659,70 +671,70 @@ class Game {
     }
 
     /** Shop: click once to select, click twice to purchase */
-    handleShopPerkClick(perkId, instanceId) {
-        if (!perkId) return;
+    handleShopAugmentClick(augmentId, instanceId) {
+        if (!augmentId) return;
         if (!this.ui || this.ui.currentScreen !== 'shop') return;
 
-        const targetId = instanceId || perkId;
+        const targetId = instanceId || augmentId;
 
-        if (this.selectedShopPerkId !== targetId) {
-            this.selectedShopPerkId = targetId;
+        if (this.selectedShopAugmentId !== targetId) {
+            this.selectedShopAugmentId = targetId;
             const grid = document.getElementById('shop-grid');
             if (grid) grid.innerHTML = this.ui.renderShop();
-            this.ui.attachPerkTooltips();
+            this.ui.attachAugmentTooltips();
             return;
         }
 
         // Second click confirms purchase
-        this.handleBuyPerk(perkId, instanceId);
+        this.handleBuyAugment(augmentId, instanceId);
     }
 
     /**
-     * Handle purchasing a perk from shop with enhanced animation
+     * Handle purchasing a augment from shop with enhanced animation
      */
-    handleBuyPerk(perkId, instanceId) {
+    handleBuyAugment(augmentId, instanceId) {
         if (!this.ui || this.ui.currentScreen !== 'shop') return;
         
         try {
-            // Check if it's a subperk before purchase to handle animation correctly
+            // Check if it's a subaugment before purchase to handle animation correctly
             const shopGrid = document.getElementById('shop-grid');
-            let selector = `.perk-card[data-perk-id="${perkId}"]`;
+            let selector = `.augment-card[data-augment-id="${augmentId}"]`;
             if (instanceId) {
-                selector = `.perk-card[data-perk-instance-id="${instanceId}"]`;
+                selector = `.augment-card[data-augment-instance-id="${instanceId}"]`;
             }
             const card = shopGrid ? shopGrid.querySelector(selector) : null;
-            const isSubperk = card && (card.querySelector('.rarity-special') || card.querySelector('.rarity-subperk') || perkId === 'virus');
+            const isSubaugment = card && (card.querySelector('.rarity-special') || card.querySelector('.rarity-subaugment') || augmentId === 'virus');
 
-            // Use shop.purchasePerk to ensure it gets removed from the shop list if it's a subperk
-            const result = this.shop.purchasePerk(perkId, instanceId);
+            // Use shop.purchaseAugment to ensure it gets removed from the shop list if it's a subaugment
+            const result = this.shop.purchaseAugment(augmentId, instanceId);
             
             if (result.success) {
                 this.ui.showMessage(result.message, 'success');
                 
-                if (isSubperk) {
-                    this.animateSubperkPurchase(perkId, instanceId);
+                if (isSubaugment) {
+                    this.animateSubaugmentPurchase(augmentId, instanceId);
                 } else {
-                    this.animatePerkPurchase(perkId);
+                    this.animateAugmentPurchase(augmentId);
                 }
                 
                 this.updateShopDisplays();
-                this.selectedShopPerkId = null;
+                this.selectedShopAugmentId = null;
             } else {
                 this.ui.showMessage(result.message, 'error');
             }
         } catch (error) {
-            console.error('Error purchasing perk:', error);
-            this.ui.showMessage('Failed to purchase perk. Please try again', 'error');
+            console.error('Error purchasing augment:', error);
+            this.ui.showMessage('Failed to purchase augment. Please try again', 'error');
         }
     }
 
-    createSubperkParticles(card) {
+    createSubaugmentParticles(card) {
         const rect = card.getBoundingClientRect();
         const count = 10;
         
         for (let i = 0; i < count; i++) {
             const p = document.createElement('div');
-            p.classList.add('subperk-particle');
+            p.classList.add('subaugment-particle');
             
             // Random start position within card
             const x = Math.random() * rect.width;
@@ -747,13 +759,13 @@ class Game {
         }
     }
 
-    animateSubperkPurchase(perkId, instanceId) {
+    animateSubaugmentPurchase(augmentId, instanceId) {
         const shopGrid = document.getElementById('shop-grid');
         if (!shopGrid) return;
         
-        let selector = `.perk-card[data-perk-id="${perkId}"]`;
+        let selector = `.augment-card[data-augment-id="${augmentId}"]`;
         if (instanceId) {
-            selector = `.perk-card[data-perk-instance-id="${instanceId}"]`;
+            selector = `.augment-card[data-augment-instance-id="${instanceId}"]`;
         }
         const card = shopGrid.querySelector(selector);
         if (card) {
@@ -770,7 +782,7 @@ class Game {
             setTimeout(() => {
                 // Re-render shop to reflect removal from array
                 shopGrid.innerHTML = this.ui.renderShop();
-                this.ui.attachPerkTooltips();
+                this.ui.attachAugmentTooltips();
                 this.attachTiltEffect();
             }, 500);
         }
@@ -779,13 +791,13 @@ class Game {
 
 
     /**
-     * Animate perk purchase with visual effects
+     * Animate augment purchase with visual effects
      */
-    animatePerkPurchase(perkId) {
+    animateAugmentPurchase(augmentId) {
         const shopGrid = document.getElementById('shop-grid');
         if (!shopGrid) return;
         
-        const card = shopGrid.querySelector(`.perk-card[data-perk-id="${perkId}"]`);
+        const card = shopGrid.querySelector(`.augment-card[data-augment-id="${augmentId}"]`);
         if (card) {
             // Enhanced Animation: Expand then Fade
             // 1. Remove tilt effect to prevent interference
@@ -799,7 +811,7 @@ class Game {
 
             // 3. Trigger expansion
             requestAnimationFrame(() => {
-                const rarity = card.dataset.perkRarity || 'common';
+                const rarity = card.dataset.augmentRarity || 'common';
                 
                 card.style.transform = 'scale(1.2)'; // Expand
                 // Glow color based on rarity would be nice here too, but gold is fine for "purchase" event
@@ -817,7 +829,7 @@ class Game {
             
             setTimeout(() => {
                 shopGrid.innerHTML = this.ui.renderShop();
-                this.ui.attachPerkTooltips();
+                this.ui.attachAugmentTooltips();
                 this.attachTiltEffect();
             }, 600); // Increased delay slightly to allow animation to finish
         }
@@ -833,10 +845,10 @@ class Game {
             stats.innerHTML = this.generateStatsHTML();
         }
         
-        // Update owned perks topbar
-        const topbar = document.querySelector('.topbar-perks');
+        // Update owned augments topbar
+        const topbar = document.querySelector('.topbar-augments');
         if (topbar) {
-            topbar.innerHTML = this.ui.renderTopbarPerks();
+            topbar.innerHTML = this.ui.renderTopbarAugments();
         }
     }
 
@@ -850,25 +862,25 @@ class Game {
         this.ui.renderShopScreen();
     }
 
-    handleForgeSelect(perkId) {
+    handleForgeSelect(augmentId) {
         if (!this.ui || this.ui.currentScreen !== 'forging') return;
-        this.ui.renderForgingScreen(perkId);
+        this.ui.renderForgingScreen(augmentId);
     }
 
-    handleForgePerk(perkId) {
+    handleForgeAugment(augmentId) {
         if (!this.ui) return;
-        if (!perkId) return;
+        if (!augmentId) return;
         try {
-            const result = this.gameState.forgePerk(perkId);
+            const result = this.gameState.forgeAugment(augmentId);
             if (result.success) {
                 this.ui.showMessage(result.message, 'success');
                 const stats = document.querySelector('.game-stats');
                 if (stats) {
                     stats.innerHTML = this.generateStatsHTML();
                 }
-                const topbar = document.querySelector('.topbar-perks');
+                const topbar = document.querySelector('.topbar-augments');
                 if (topbar) {
-                    topbar.innerHTML = this.ui.renderTopbarPerks();
+                    topbar.innerHTML = this.ui.renderTopbarAugments();
                 }
                 this.ui.renderForgingScreen();
             } else {
@@ -876,8 +888,8 @@ class Game {
                 this.ui.renderForgingScreen();
             }
         } catch (error) {
-            console.error('Error forging perk:', error);
-            this.ui.showMessage('Failed to forge perk. Please try again', 'error');
+            console.error('Error forging augment:', error);
+            this.ui.showMessage('Failed to forge augment. Please try again', 'error');
         }
     }
 
@@ -911,7 +923,7 @@ class Game {
         const centerY = rect.top + rect.height / 2;
         
         // Get rarity color
-        const rarity = element.dataset.perkRarity ? element.dataset.perkRarity.toLowerCase() : 'common';
+        const rarity = element.dataset.augmentRarity ? element.dataset.augmentRarity.toLowerCase() : 'common';
         const colors = {
             'common': '#71717a',
             'uncommon': '#22c55e',
@@ -921,7 +933,7 @@ class Game {
             'mythical': '#d946ef',
             'godlike': '#ef4444',
             'special': '#fbbf24',
-            'subperk': '#210041ff' // Treat subperk as special/gold
+            'subaugment': '#210041ff' // Treat subaugment as special/gold
         };
         const color = colors[rarity] || colors['common'];
 
@@ -970,33 +982,51 @@ class Game {
     }
 
     /**
-     * Handle rerolling shop perks
+     * Handle rerolling shop augments
      */
     handleRerollShop() {
         if (!this.ui || this.ui.currentScreen !== 'shop') return;
         
         try {
             const cost = this.shopRerollCost;
-            if (this.gameState.cash < cost) {
+            let isFreeReroll = false;
+
+            if (this.gameState.freeRerolls > 0) {
+                this.gameState.freeRerolls--;
+                isFreeReroll = true;
+            } else if (this.gameState.cash < cost) {
                 this.ui.showMessage(`Need ${cost}$ to reroll`, 'error');
                 return;
+            } else {
+                // Spend cash only if not free
+                this.gameState.currency.spendCash(cost);
+                this.shopRerollCost += 2; // Increase cost for next time
             }
             
-            // Spend cash and reroll
-            this.gameState.currency.spendCash(cost);
-            this.shopRerollCost += 2; // Increase cost for next time
+            // Generate new augments
+            this.shop.generateShopAugments();
+            this.selectedShopAugmentId = null;
             
-            // Generate new perks
-            this.shop.generateShopPerks();
-            this.selectedShopPerkId = null;
-            
-            // Update shop display
-            this.refreshShopDisplay();
-            
-            // Trigger text rolling for subperks
+            // Trigger text rolling for subaugments
             this.ui.startTextRollingAnimation();
             
-            this.ui.showMessage('Shop rerolled', 'success');
+            // Check for Prismaticket (50% chance for free reroll)
+            const prismaticketCount = this.gameState.augmentsPurchased['prismaticket'] || 0;
+            if (prismaticketCount > 0) {
+                if (Math.random() < 0.5) {
+                    this.gameState.freeRerolls = (this.gameState.freeRerolls || 0) + 1;
+                    this.ui.showMessage('You rolled a Prismatic Ticket', 'success');
+                }
+            }
+
+            if (isFreeReroll) {
+                this.ui.showMessage('Rerolled', 'success');
+            } else {
+                this.ui.showMessage('Rerolled', 'success');
+            }
+            
+            // Update shop display (must be after free reroll logic to show correct button state)
+            this.refreshShopDisplay();
             
         } catch (error) {
             console.error('Error rerolling shop:', error);
@@ -1012,7 +1042,7 @@ class Game {
         const shopGrid = document.getElementById('shop-grid');
         if (shopGrid) {
             shopGrid.innerHTML = this.ui.renderShop();
-            this.ui.attachPerkTooltips();
+            this.ui.attachAugmentTooltips();
             this.attachTiltEffect();
         }
         
@@ -1039,12 +1069,17 @@ class Game {
     updateRerollButton() {
         const rerollBtn = document.getElementById('reroll-btn');
         const rerollCost = document.getElementById('reroll-cost');
-        if (rerollBtn && rerollCost) {
-            rerollBtn.disabled = this.gameState.cash < this.shopRerollCost;
-            rerollCost.textContent = this.shopRerollCost;
-        } else if (rerollBtn) {
-            rerollBtn.disabled = this.gameState.cash < this.shopRerollCost;
-            rerollBtn.innerHTML = `Reroll (<span id="reroll-cost">${this.shopRerollCost}</span>$)`;
+        if (rerollBtn) {
+            if (this.gameState.freeRerolls > 0) {
+                rerollBtn.disabled = false;
+                rerollBtn.innerHTML = `Reroll (Free: ${this.gameState.freeRerolls})`;
+                rerollBtn.classList.add('free-reroll'); // Add styling hook
+                // Ensure cost display is handled if button structure changes
+            } else {
+                rerollBtn.disabled = this.gameState.cash < this.shopRerollCost;
+                rerollBtn.innerHTML = `Reroll (<span id="reroll-cost">${this.shopRerollCost}</span>$)`;
+                rerollBtn.classList.remove('free-reroll');
+            }
         }
     }
 
@@ -1052,7 +1087,7 @@ class Game {
      * Reset reroll cost when entering new shop
      */
     resetRerollCost() {
-        if (this.gameState && this.gameState.perksPurchased && this.gameState.perksPurchased['vip_card']) {
+        if (this.gameState && this.gameState.augmentsPurchased && this.gameState.augmentsPurchased['vip_card']) {
             this.shopRerollCost = 0;
         } else {
             this.shopRerollCost = 5;
@@ -1073,9 +1108,9 @@ class Game {
         try {
             this.gameState.pendingNextRound = this.gameState.round + 1;
             this.resetRerollCost();
-            this.shop.generateShopPerks();
+            this.shop.generateShopAugments();
             this.ui.renderShopScreen();
-            // Trigger text rolling for subperks
+            // Trigger text rolling for subaugments
             this.ui.startTextRollingAnimation();
         } catch (error) {
             console.error('Error in handleContinueFromRewards:', error);
@@ -1093,32 +1128,32 @@ class Game {
         this.ui.renderStartScreen();
     }
 
-    /** Boss reward: select a perk (call when clicking a perk card) */
-    handleBossPerkSelect(perkId) {
-        const result = this.gameState.chooseBossPerk(perkId);
+    /** Boss reward: select a augment (call when clicking a augment card) */
+    handleBossAugmentSelect(augmentId) {
+        const result = this.gameState.chooseBossAugment(augmentId);
         if (result) {
-            this.ui.showMessage('Perk acquired', 'success');
+            this.ui.showMessage('Augment acquired', 'success');
             this.ui.updateBossRewardScreen();
         }
     }
 
-    /** Boss reward: confirm after picking 3 perks */
+    /** Boss reward: confirm after picking 3 augments */
     handleConfirmBossReward() {
-        if (this.gameState.getBossPerksPickedCount() < CONFIG.BOSS_PERK_PICK_COUNT) {
-            this.ui.showMessage(`Pick ${CONFIG.BOSS_PERK_PICK_COUNT} perks first`, 'error');
+        if (this.gameState.getBossAugmentsPickedCount() < CONFIG.BOSS_AUGMENT_PICK_COUNT) {
+            this.ui.showMessage(`Pick ${CONFIG.BOSS_AUGMENT_PICK_COUNT} augments first`, 'error');
             return;
         }
         this.gameState.confirmBossReward();
         this.resetRerollCost();
-        this.shop.generateShopPerks();
+        this.shop.generateShopAugments();
         this.ui.renderShopScreen();
     }
 
     /**
-     * Attach 3D tilt effect to inventory items, loot items, and perk cards
+     * Attach 3D tilt effect to inventory items, loot items, and augment cards
      */
     attachTiltEffect() {
-        const items = document.querySelectorAll('.inventory-item-minimal, .perk-card-shop:not(.perk-purchased):not(.perk-locked)');
+        const items = document.querySelectorAll('.inventory-item-minimal, .augment-card-shop:not(.augment-purchased):not(.augment-locked)');
         items.forEach(item => {
             item.addEventListener('mousemove', (e) => this.handleTilt(e, item));
             item.addEventListener('mouseleave', () => this.resetTilt(item));
@@ -1205,8 +1240,8 @@ document.addEventListener('keydown', (e) => {
     if (e.code !== 'Space') return;
     e.preventDefault();
     
-    // Check for 'Ancient Tablet' perk for space skip
-    const canSkip = game.gameState && game.gameState.perksPurchased && game.gameState.perksPurchased['ancient_tablet'];
+    // Check for 'Ancient Tablet' augment for space skip
+    const canSkip = game.gameState && game.gameState.augmentsPurchased && game.gameState.augmentsPurchased['ancient_tablet'];
 
     // Spam Space to skip roll animation
     if (game._rollTimeoutId) {

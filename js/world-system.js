@@ -5,81 +5,77 @@
  */
 
 const BIOMES = {
-    PLAINS: {
-        id: 'plains',
+    'plains': {
         name: 'Grassy Plains',
         description: 'A peaceful meadow. Standard luck.',
         color: '#90EE90', // LightGreen
         modifiers: { luck: 1.0, eventRate: 1.0 },
-        weight: 10
+        rarity: 10
     },
-    FOREST: {
-        id: 'forest',
+    'forest': {
         name: 'Mystic Forest',
         description: 'Dense trees obscure secrets. Slightly higher event rate.',
         color: '#228B22', // ForestGreen
         modifiers: { luck: 1.1, eventRate: 1.2 },
-        weight: 8
+        rarity: 15
     },
-    DESERT: {
-        id: 'desert',
+    'desert': {
         name: 'Scorched Desert',
         description: 'Harsh conditions. Lower event rate, but better loot.',
         color: '#F4A460', // SandyBrown
         modifiers: { luck: 1.2, eventRate: 0.8 },
-        weight: 6
+        rarity: 25
     },
-    TUNDRA: {
-        id: 'tundra',
+    'tundra': {
         name: 'Frozen Tundra',
         description: 'Bitter cold. Slows down time (events last longer).',
         color: '#E0FFFF', // LightCyan
         modifiers: { luck: 1.0, eventRate: 1.0, durationMod: 1.5 },
-        weight: 6
+        rarity: 25
     },
-    VOLCANO: {
-        id: 'volcano',
+    'volcano': {
         name: 'Volcanic Wastes',
         description: 'Dangerous and rich. High risk, high reward.',
         color: '#CD5C5C', // IndianRed
         modifiers: { luck: 1.5, eventRate: 1.5 },
-        weight: 3
+        rarity: 50
     }
 };
 
 const EVENTS = {
-    GOLD_RUSH: {
-        id: 'gold_rush',
+    'gold_rush': {
         name: 'Gold Rush',
-        description: 'Cash earnings doubled for a short time!',
-        flavorText: 'The rivers shimmer with gold dust...',
-        textStroke: '1px #FFD700', // Gold stroke
-        color: '#FFF', // White text
-        duration: 60, // minutes (seconds)
-        chance: 0.05, // 5% check per minute
-        effect: (gameState) => { /* Logic handled in hooks */ }
+        description: 'Gold prices skyrocket.',
+        flavorText: 'GOLD FEVER!',
+        duration: 120, // 2 minutes (game time)
+        rarity: 20, // 5% base chance (1/20)
+        color: '#FFD700', // Gold
+        textStroke: '1px #000000',
+        eventEffect: {
+            item: {
+                specific: {
+                    gold_nugget: { type: 'set', value: 5 } // Make gold common
+                }
+            }
+        }
     },
-    LUCKY_STREAK: {
-        id: 'lucky_streak',
-        name: 'Lucky Streak',
-        description: 'Luck increased significantly!',
-        flavorText: 'You feel the skibidi sigma boosting the fortune 69 around you btw gang haha 6 7 LOL i FEEL so schzizophrenia i use arch btw gang, lol skibidi dynamo of fate is a cool ore but shit joke get used to the new w0 ores dude i hate it but LOREM IPSUM bro i vibecoded this game but with a brain lol do you get the joke ? gang why is there a "..." in the end...',
-        textStroke: '1px #00FF00', // Green stroke
-        color: '#FFD700', // Gold Text
-        duration: 45,
-        chance: 0.03,
-        effect: (gameState) => { /* Logic handled in hooks */ }
-    },
-    MARKET_CRASH: {
-        id: 'market_crash',
-        name: 'Market Crash',
-        description: 'Shop prices dropped by 50%!',
-        flavorText: 'Panic in the market! Prices are plummeting...',
-        textStroke: null, // Red stroke
-        color: '#ff0a0aff', // Black text
-        duration: 30,  
-        chance: 0.02,
-        effect: (gameState) => { /* Logic handled in hooks */ }
+    'eclipse': {
+        name: 'Eclipse',
+        description: 'The sun vanishes. Shadows lengthen.',
+        flavorText: 'TOTAL DARKNESS',
+        duration: 999999, // Long duration, handled by round count
+        durationRounds: 2,
+        rarity: 33, // ~3% base chance (1/33)
+        color: '#4B0082', // Indigo
+        textStroke: '1px #000000',
+        eventEffect: {
+            itemValue: {
+                tags: {
+                    dark: { type: 'multi', value: 3.0 },
+                    light: { type: 'multi', value: 0.5 }
+                }
+            }
+        }
     }
 };
 
@@ -118,11 +114,11 @@ class WorldSystem {
 
     /**
      * Get effective world effects from Biome and Active Events
-     * Merges effects for perkPrice, modifiers, items, etc.
+     * Merges effects for augmentPrice, modifiers, items, etc.
      */
     getEffectiveWorldEffects() {
         const effects = {
-            perkPrice: [], // Array of { type, value }
+            augmentPrice: [], // Array of { type, value }
             modifier: {
                 universal: [], // Array of { type, value }
                 specific: {}   // Map of modId -> { guaranteed, type, value }
@@ -144,9 +140,7 @@ class WorldSystem {
         // Add Active Event Effects
         const activeEvents = this.getActiveEvents();
         activeEvents.forEach(event => {
-            const eventDef = (typeof EVENTS !== 'undefined') 
-                ? Object.values(EVENTS).find(e => e.id === event.id) 
-                : null;
+            const eventDef = (typeof EVENTS !== 'undefined') ? EVENTS[event.id] : null;
             if (eventDef && eventDef.eventEffect) {
                 sources.push(eventDef.eventEffect);
             }
@@ -154,9 +148,9 @@ class WorldSystem {
 
         // Merge Effects
         sources.forEach(source => {
-            // Perk Price
-            if (source.perkPrice) {
-                effects.perkPrice.push(source.perkPrice);
+            // Augment Price
+            if (source.augmentPrice) {
+                effects.augmentPrice.push(source.augmentPrice);
             }
 
             // Modifiers
@@ -184,15 +178,48 @@ class WorldSystem {
                     }
                 });
             }
+
+            // Item Values (e.g. Eclipse)
+            if (source.itemValue) {
+                if (!effects.itemValue) effects.itemValue = { tags: {} };
+                if (source.itemValue.tags) {
+                    Object.entries(source.itemValue.tags).forEach(([tag, effect]) => {
+                        effects.itemValue.tags[tag] = effect;
+                    });
+                }
+            }
         });
 
         return effects;
     }
 
     /**
+     * Manually set the current biome
+     * Useful for testing or gameplay overrides without affecting the PRNG stream
+     * @param {string} biomeId - The ID or Key of the biome (e.g., 'plains', 'forest')
+     */
+    setBiome(biomeId) {
+        // Normalize input to find the correct biome
+        const key = String(biomeId).toLowerCase();
+        const selectedBiome = BIOMES[key];
+
+        if (selectedBiome) {
+            this.gameState.world.currentBiomeId = key;
+
+            if (typeof game !== 'undefined' && game.ui) {
+                game.ui.showMessage(`Biome changed to [${selectedBiome.name}]`, 'system');
+            }
+            return true;
+        } else {
+            console.warn(`Biome '${biomeId}' not found.`);
+            return false;
+        }
+    }
+
+    /**
      * Change Biome based on Route (Round)
      * Called when advancing to next round
-     * Affected by PRNG, Perks, and Luck
+     * Affected by PRNG, Augments, and Luck
      */
     generateBiome() {
         const biomeKeys = Object.keys(BIOMES);
@@ -201,10 +228,10 @@ class WorldSystem {
         let totalWeight = 0;
         const weights = [];
         
-        // Player stats/perks can influence weights
+        // Player stats/augments can influence weights
         const attrs = this.gameState.getAttributes ? this.gameState.getAttributes() : { luck: 0 };
         const playerLuck = attrs.luck || 0;
-        const hasCompass = this.gameState.perksPurchased['explorers_compass'];
+        const hasCompass = this.gameState.augmentsPurchased['explorers_compass'];
 
         // Initialize Bad Luck Streak if missing
         if (typeof this.gameState.world.biomeBadLuckStreak === 'undefined') {
@@ -218,22 +245,24 @@ class WorldSystem {
 
         for (const key of biomeKeys) {
             const biome = BIOMES[key];
-            let weight = biome.weight || 10;
+            // Inverse Weighting: Higher Rarity = Lower Weight (1000 / rarity)
+            // Plains (10) -> 100, Volcano (50) -> 20
+            let weight = 1000 / (biome.rarity || 10);
             
-            // Luck Modifier: Rare biomes (lower base weight) get a boost from luck
-            // Logic: If weight <= 6 (Desert, Tundra, Volcano), Luck increases it
-            if (weight <= 6) {
+            // Luck Modifier: Rare biomes (higher rarity) get a boost from luck
+            // Logic: If rarity >= 25 (Desert, Tundra, Volcano), Luck increases it
+            if ((biome.rarity || 10) >= 25) {
                 // Boost factor: 10% per luck point
-                // For Very Rare (Volcano, weight <= 3): 20% boost
-                const boost = (weight <= 3) ? 0.2 : 0.1;
+                // For Very Rare (Volcano, rarity >= 50): 20% boost
+                const boost = ((biome.rarity || 10) >= 50) ? 0.2 : 0.1;
                 
                 if (effectiveLuck > 0) {
                     weight *= (1 + effectiveLuck * boost);
                 }
             }
             
-            // Perk Modifier
-            if (hasCompass && (key === 'CYBER_CITY' || key === 'VOLCANO')) {
+            // Augment Modifier
+            if (hasCompass && (key === 'cyber_city' || key === 'volcano')) {
                 weight *= 2.0; // Double chance for rare biomes with Compass
             }
             
@@ -244,7 +273,7 @@ class WorldSystem {
         // Weighted Random Selection using Seeded PRNG
         const roll = this.biomeRng() * totalWeight;
         let cumulative = 0;
-        let selectedBiomeKey = 'PLAINS';
+        let selectedBiomeKey = 'plains';
         
         for (const item of weights) {
             cumulative += item.weight;
@@ -254,15 +283,15 @@ class WorldSystem {
             }
         }
         
-        // Store the KEY (e.g. 'PLAINS') so we can look it up in BIOMES later
+        // Store the KEY (e.g. 'plains') so we can look it up in BIOMES later
         this.gameState.world.currentBiomeId = selectedBiomeKey;
         
         const selectedBiome = BIOMES[selectedBiomeKey];
 
         // Update Bad Luck Streak
-        // If we got a Rare biome (base weight <= 6), reset streak
+        // If we got a Rare biome (rarity >= 25), reset streak
         // Otherwise increment
-        if ((selectedBiome.weight || 10) <= 6) {
+        if ((selectedBiome.rarity || 10) >= 25) {
              this.gameState.world.biomeBadLuckStreak = 0;
         } else {
              this.gameState.world.biomeBadLuckStreak++;
@@ -276,13 +305,10 @@ class WorldSystem {
     }
 
     getCurrentBiome() {
-        // Handle both Key (PLAINS) and ID (plains) just in case, but prefer Key lookup
+        // Handle both Key (plains) and ID (plains) just in case, but prefer Key lookup
         const id = this.gameState.world.currentBiomeId;
         if (BIOMES[id]) return BIOMES[id];
-        
-        // Fallback: search by id property (slow but safe)
-        const found = Object.values(BIOMES).find(b => b.id === id);
-        return found || BIOMES.PLAINS;
+        return BIOMES['plains'];
     }
 
     /**
@@ -293,15 +319,24 @@ class WorldSystem {
         const biome = this.getCurrentBiome();
         let eventRateMod = biome.modifiers.eventRate || 1.0;
         
-        // Apply Perk Modifiers
-        if (this.gameState.perksPurchased['explorers_compass']) {
+        // Apply Augment Modifiers
+        if (this.gameState.augmentsPurchased['explorers_compass']) {
             eventRateMod *= 1.2;
         }
 
         // Check for event expiration
         const currentTime = this.gameState.time.totalMinutes;
+        const currentRound = this.gameState.round;
         this.gameState.world.activeEvents = this.gameState.world.activeEvents.filter(evt => {
-            if (currentTime >= evt.endTime) {
+            let expired = false;
+            if (evt.endRound) {
+                // Expire if current round >= end round
+                if (currentRound >= evt.endRound) expired = true;
+            } else {
+                if (currentTime >= evt.endTime) expired = true;
+            }
+
+            if (expired) {
                 if (typeof game !== 'undefined' && game.ui) {
                     game.ui.showMessage(`Event Ended: ${EVENTS[evt.id].name}`, 'system');
                 }
@@ -311,7 +346,7 @@ class WorldSystem {
         });
 
         // Try to trigger new event
-        // Base chance modified by biome and perks
+        // Base chance modified by biome and augments
         // Limit to 1 active event for now to keep it simple
         if (this.gameState.world.activeEvents.length === 0) {
             this.gameState.world.minutesSinceLastEvent++;
@@ -328,8 +363,12 @@ class WorldSystem {
 
             for (const eventId in EVENTS) {
                 const event = EVENTS[eventId];
-                // Final Chance = (Base + Pity) * BiomeMod * PerkMod * Luck
-                const chance = (event.chance + pityBonus) * eventRateMod * luckMult;
+                // Calculate Base Chance from Rarity (1 / rarity)
+                // Rarity 20 -> 0.05 (5%)
+                const baseChance = 1 / (event.rarity || 20);
+                
+                // Final Chance = (Base + Pity) * BiomeMod * AugmentMod * Luck
+                const chance = (baseChance + pityBonus) * eventRateMod * luckMult;
                 
                 if (this.eventRng() < chance) {
                     this.triggerEvent(eventId);
@@ -341,15 +380,25 @@ class WorldSystem {
     }
 
     triggerEvent(eventId) {
-        const event = EVENTS[eventId];
+        const event = EVENTS[String(eventId).toLowerCase()];
         const currentTime = this.gameState.time.totalMinutes;
-        const duration = event.duration * (this.getCurrentBiome().modifiers.durationMod || 1.0);
         
-        this.gameState.world.activeEvents.push({
+        const activeEvent = {
             id: eventId,
-            startTime: currentTime,
-            endTime: currentTime + duration
-        });
+            startTime: currentTime
+        };
+
+        if (event.durationRounds) {
+            const currentRound = this.gameState.round || 1;
+            activeEvent.startRound = currentRound;
+            activeEvent.endRound = currentRound + event.durationRounds;
+            activeEvent.endTime = currentTime + 9999999; // Fallback
+        } else {
+            const duration = event.duration * (this.getCurrentBiome().modifiers.durationMod || 1.0);
+            activeEvent.endTime = currentTime + duration;
+        }
+        
+        this.gameState.world.activeEvents.push(activeEvent);
         
         if (typeof game !== 'undefined' && game.ui) {
         // Trigger UI update to show flavor text in header
@@ -358,6 +407,10 @@ class WorldSystem {
     }
 
     getActiveEvents() {
-        return this.gameState.world.activeEvents.map(evt => EVENTS[evt.id]);
+        return this.gameState.world.activeEvents.map(evt => {
+            const def = EVENTS[evt.id];
+            // Return merged object: definition + runtime properties (id, startTime, endTime)
+            return Object.assign({}, def, evt);
+        });
     }
 }

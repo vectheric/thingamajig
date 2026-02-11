@@ -81,6 +81,13 @@ class UI {
         
         const timeStr = game.timeSystem.getDisplayTime();
         const dayStr = game.timeSystem.getDisplayDay();
+        
+        // Color logic for time
+        const minutes = game.gameState.time.minuteOfDay;
+        // Day: 5AM (300) to 7PM (1140)
+        const isDay = minutes >= 300 && minutes < 1140; 
+        const timeColor = isDay ? '#FACC15' : '#A78BFA'; // Yellow : Purple
+
         const biome = game.worldSystem.getCurrentBiome();
         const events = game.worldSystem.getActiveEvents();
         
@@ -90,13 +97,13 @@ class UI {
             const event = events[0];
             // Find event definition by ID
             const eventDef = (typeof EVENTS !== 'undefined') 
-                ? Object.values(EVENTS).find(e => e.id === event.id) 
+                ? EVENTS[event.id] 
                 : null;
 
             // Use flavor text if available, otherwise name
             const flavor = (eventDef && eventDef.flavorText) 
                 ? eventDef.flavorText 
-                : `Event: ${event.name}`;
+                : `${event.flavorText}`;
             
             // Apply custom styles if available
             let style = '';
@@ -106,7 +113,7 @@ class UI {
             }
             // Dynamic animation steps based on character count
             // Added extra steps (+10) for smoother finish
-            style += `animation: type-writer 12s steps(${flavor.length + 1000}) 1 normal both;`;
+            style += `animation: type-writer 12s steps(${flavor.length + 1000000}) 1 normal both;`;
 
             eventHtml = `<div class="header-event-text" style="${style}">${flavor}</div>`;
             eventClass = 'has-event';
@@ -117,7 +124,7 @@ class UI {
                 <div class="header-meta">
                     <span id="header-day">${dayStr}</span>
                     <span class="separator">•</span>
-                    <span id="header-time">${timeStr}</span>
+                    <span id="header-time" style="color: ${timeColor}; text-shadow: 0 0 5px ${timeColor}40;">${timeStr}</span>
                 </div>
                 <div class="header-biome-title" style="color: ${biome.color}" id="header-biome">
                     ${biome.name}
@@ -138,7 +145,16 @@ class UI {
         const biomeEl = document.getElementById('header-biome');
         const container = document.querySelector('.header-world-info');
         
-        if (timeEl) timeEl.textContent = game.timeSystem.getDisplayTime();
+        if (timeEl) {
+            timeEl.textContent = game.timeSystem.getDisplayTime();
+            
+            // Update color
+            const minutes = game.gameState.time.minuteOfDay;
+            const isDay = minutes >= 300 && minutes < 1140;
+            const timeColor = isDay ? '#FACC15' : '#A78BFA';
+            timeEl.style.color = timeColor;
+            timeEl.style.textShadow = `0 0 5px ${timeColor}40`;
+        }
         if (dayEl) dayEl.textContent = game.timeSystem.getDisplayDay();
         
         // Check for biome/event changes
@@ -178,10 +194,10 @@ class UI {
         const isNextRoundBoss = typeof isBossRound === 'function' && isBossRound(this.gameState.round + 1);
         
         const html = `
-                <div class="perk-topbar">
+                <div class="augment-topbar">
                     
-                    <div class="topbar-perks" id="topbar-perks">
-                        ${this.renderTopbarPerks()}
+                    <div class="topbar-augments" id="topbar-augments">
+                        ${this.renderTopbarAugments()}
                     </div>
                     <button class="stats-button" onclick="game.toggleStats()">Stats</button>
                     <button class="index-button" onclick="game.toggleIndex()">Index</button>
@@ -281,9 +297,9 @@ class UI {
         this.attachHoldToSeeTooltips();
         this.attachLootHoverTooltips();
         this.attachInterestTooltip();
-        this.attachPerkTooltips();
+        this.attachAugmentTooltips();
         this.attachInventoryDrag();
-        this.attachTopbarPerkDrag();
+        this.attachTopbarAugmentDrag();
         this.attachIndexTabs();
         this.attachIndexInteractions();
     }
@@ -480,11 +496,11 @@ class UI {
         }, true);
     }
 
-    getDynamicTooltipText(perkId) {
-        const perkDef = typeof getPerkById === 'function' ? getPerkById(perkId) : null;
-        if (!perkDef) return null;
+    getDynamicTooltipText(augmentId) {
+        const augmentDef = typeof getAugmentById === 'function' ? getAugmentById(augmentId) : null;
+        if (!augmentDef) return null;
         
-        const dynamicType = perkDef.properties ? perkDef.properties.dynamictooltips : perkDef.dynamicTooltip;
+        const dynamicType = augmentDef.properties ? augmentDef.properties.dynamictooltips : augmentDef.dynamicTooltip;
         if (!dynamicType) return null;
 
         switch (dynamicType) {
@@ -492,21 +508,21 @@ class UI {
                 const chips = typeof this.gameState.getInventoryValue === 'function' ? this.gameState.getInventoryValue() : 0;
                 return `<br><span style="color:var(--success)">Current Ȼ: ${chips}</span>`;
             case 'virus_count':
-                let virus = this.gameState.perksPurchased['VIRUS'] || 0;
+                let virus = this.gameState.augmentsPurchased['VIRUS'] || 0;
                 if (virus === true) virus = 1;
                 return `<br><span style="color:var(--warning)">VIRUS: ${virus}</span>`;
             case 'set_collection':
-                const set = perkDef.properties ? perkDef.properties.set : perkDef.set;
+                const set = augmentDef.properties ? augmentDef.properties.set : augmentDef.set;
                 if (!set) return null;
-                const setPerks = Object.values(PERKS).filter(p => (p.properties && p.properties.set === set) || p.set === set);
-                if (setPerks.length === 0) return null;
+                const setAugments = Object.values(AUGMENTS).filter(p => (p.properties && p.properties.set === set) || p.set === set);
+                if (setAugments.length === 0) return null;
                 
                 let html = '<div style="margin-top:8px; border-top:1px solid #444; padding-top:4px;">';
                 html += '<div style="font-weight:bold; color:#a855f7; margin-bottom:4px;">Set Collection:</div>';
                 html += '<div style="display:flex; flex-wrap:wrap; gap:4px; justify-content:center;">';
                 
-                setPerks.forEach(p => {
-                    const owned = this.gameState.perksPurchased[p.id];
+                setAugments.forEach(p => {
+                    const owned = this.gameState.augmentsPurchased[p.id];
                     const opacity = owned ? '1' : '0.3';
                     const border = owned ? '1px solid #a855f7' : '1px solid #444';
                     const bg = owned ? 'rgba(168, 85, 247, 0.2)' : 'rgba(0,0,0,0.3)';
@@ -516,11 +532,11 @@ class UI {
                 html += '</div>';
                 
                 // Show active bonus
-                const ownedCount = setPerks.filter(p => this.gameState.perksPurchased[p.id]).length;
-                const bonusPerk = setPerks.find(p => p.properties && p.properties.setBonuses) || setPerks.find(p => p.setBonuses);
+                const ownedCount = setAugments.filter(p => this.gameState.augmentsPurchased[p.id]).length;
+                const bonusAugment = setAugments.find(p => p.properties && p.properties.setBonuses) || setAugments.find(p => p.setBonuses);
                 
-                if (bonusPerk) {
-                     const bonuses = (bonusPerk.properties && bonusPerk.properties.setBonuses) || bonusPerk.setBonuses;
+                if (bonusAugment) {
+                     const bonuses = (bonusAugment.properties && bonusAugment.properties.setBonuses) || bonusAugment.setBonuses;
                      if (bonuses) {
                          let currentBonus = null;
                          let nextBonus = null;
@@ -561,49 +577,49 @@ class UI {
         }
     }
 
-    attachPerkTooltips() {
-        let perkTooltip = document.getElementById('floating-perk-tooltip');
-        if (!perkTooltip) {
-            perkTooltip = document.createElement('div');
-            perkTooltip.id = 'floating-perk-tooltip';
-            perkTooltip.className = 'floating-tooltip perk-tooltip';
-            document.body.appendChild(perkTooltip);
+    attachAugmentTooltips() {
+        let augmentTooltip = document.getElementById('floating-augment-tooltip');
+        if (!augmentTooltip) {
+            augmentTooltip = document.createElement('div');
+            augmentTooltip.id = 'floating-augment-tooltip';
+            augmentTooltip.className = 'floating-tooltip augment-tooltip';
+            document.body.appendChild(augmentTooltip);
         }
         this.container.addEventListener('mouseenter', (e) => {
-            // Chip Vision Perk Logic (Legacy - Topbar Title)
-            const topbar = e.target.closest('.perk-topbar');
-            if (topbar && this.gameState.perksPurchased['chip_vision']) {
+            // Chip Vision Augment Logic (Legacy - Topbar Title)
+            const topbar = e.target.closest('.augment-topbar');
+            if (topbar && this.gameState.augmentsPurchased['chip_vision']) {
                 const chips = typeof this.gameState.getInventoryValue === 'function' ? this.gameState.getInventoryValue() : 0;
                 topbar.title = `Ȼ: ${chips}`;
             }
 
-            const anchor = e.target.closest('.perk-tooltip-anchor');
+            const anchor = e.target.closest('.augment-tooltip-anchor');
             if (!anchor) return;
-            const perkId = anchor.getAttribute('data-perk-id');
-            const name = anchor.getAttribute('data-perk-name') || '';
-            const rarity = anchor.getAttribute('data-perk-rarity') || '';
-            const desc = anchor.getAttribute('data-perk-desc') || '';
-            const special = anchor.getAttribute('data-perk-special') || '';
+            const augmentId = anchor.getAttribute('data-augment-id');
+            const name = anchor.getAttribute('data-augment-name') || '';
+            const rarity = anchor.getAttribute('data-augment-rarity') || '';
+            const desc = anchor.getAttribute('data-augment-desc') || '';
+            const special = anchor.getAttribute('data-augment-special') || '';
             const esc = (s) => (typeof escapeHtml === 'function' ? escapeHtml(s || '') : (s || ''));
 
             let descHtml = esc(desc);
-            const dynamicText = this.getDynamicTooltipText(perkId);
+            const dynamicText = this.getDynamicTooltipText(augmentId);
             if (dynamicText) {
                 descHtml += dynamicText;
             }
 
-            perkTooltip.innerHTML = `<span class="pt-name">${esc(name)}</span><span class="pt-rarity">${esc(rarity.toUpperCase())}</span><span class="pt-desc">${descHtml}</span>${special ? `<span class="pt-special">✨ ${esc(special)}</span>` : ''}`;
-            perkTooltip.classList.add('visible');
-            this.positionTooltipNearMouse(perkTooltip, e);
+            augmentTooltip.innerHTML = `<span class="pt-name">${esc(name)}</span><span class="pt-rarity">${esc(rarity.toUpperCase())}</span><span class="pt-desc">${descHtml}</span>${special ? `<span class="pt-special"> ${esc(special)}</span>` : ''}`;
+            augmentTooltip.classList.add('visible');
+            this.positionTooltipNearMouse(augmentTooltip, e);
         }, true);
         this.container.addEventListener('mousemove', (e) => {
-            const anchor = e.target.closest('.perk-tooltip-anchor');
-            if (anchor && perkTooltip.classList.contains('visible')) this.positionTooltipNearMouse(perkTooltip, e);
+            const anchor = e.target.closest('.augment-tooltip-anchor');
+            if (anchor && augmentTooltip.classList.contains('visible')) this.positionTooltipNearMouse(augmentTooltip, e);
         }, true);
         this.container.addEventListener('mouseleave', (e) => {
-            if (!e.relatedTarget || !e.relatedTarget.closest('#floating-perk-tooltip')) perkTooltip.classList.remove('visible');
+            if (!e.relatedTarget || !e.relatedTarget.closest('#floating-augment-tooltip')) augmentTooltip.classList.remove('visible');
         }, true);
-        perkTooltip.addEventListener('mouseleave', () => perkTooltip.classList.remove('visible'));
+        augmentTooltip.addEventListener('mouseleave', () => augmentTooltip.classList.remove('visible'));
     }
 
     attachInventoryDrag() {
@@ -644,13 +660,13 @@ class UI {
         });
     }
 
-    attachTopbarPerkDrag() {
-        const topbar = document.getElementById('topbar-perks');
+    attachTopbarAugmentDrag() {
+        const topbar = document.getElementById('topbar-augments');
         if (!topbar) return;
         topbar.addEventListener('dragstart', (e) => {
-            const badge = e.target.closest('.topbar-perk-badge');
+            const badge = e.target.closest('.topbar-augment-badge');
             if (!badge) return;
-            e.dataTransfer.setData('text/plain', badge.getAttribute('data-perk-id'));
+            e.dataTransfer.setData('text/plain', badge.getAttribute('data-augment-id'));
             e.dataTransfer.effectAllowed = 'move';
         });
         topbar.addEventListener('dragover', (e) => {
@@ -659,20 +675,20 @@ class UI {
         });
         topbar.addEventListener('drop', (e) => {
             e.preventDefault();
-            const perkId = e.dataTransfer.getData('text/plain');
-            if (!perkId || !game.gameState.perkOrder) return;
-            const order = game.gameState.perkOrder;
-            const idx = order.indexOf(perkId);
+            const augmentId = e.dataTransfer.getData('text/plain');
+            if (!augmentId || !game.gameState.augmentOrder) return;
+            const order = game.gameState.augmentOrder;
+            const idx = order.indexOf(augmentId);
             if (idx === -1) return;
-            const target = e.target.closest('.topbar-perk-badge');
+            const target = e.target.closest('.topbar-augment-badge');
             if (!target) return;
-            const targetId = target.getAttribute('data-perk-id');
+            const targetId = target.getAttribute('data-augment-id');
             const toIdx = order.indexOf(targetId);
             if (toIdx === -1 || idx === toIdx) return;
             order.splice(toIdx, 0, order.splice(idx, 1)[0]);
-            topbar.innerHTML = game.ui.renderTopbarPerks();
-            game.ui.attachPerkTooltips();
-            game.ui.attachTopbarPerkDrag();
+            topbar.innerHTML = game.ui.renderTopbarAugments();
+            game.ui.attachAugmentTooltips();
+            game.ui.attachTopbarAugmentDrag();
         });
     }
 
@@ -702,16 +718,16 @@ class UI {
     }
 
     /**
-     * Render perks in topbar (with tooltip data; hold to see desc/special/rarity)
+     * Render augments in topbar (with tooltip data; hold to see desc/special/rarity)
      */
-    renderTopbarPerks() {
-        const ownedPerks = this.shop.getOwnedPerks();
-        if (ownedPerks.length === 0) {
-            return '<span class="no-perks">no perks found</span>';
+    renderTopbarAugments() {
+        const ownedAugments = this.shop.getOwnedAugments();
+        if (ownedAugments.length === 0) {
+            return '<span class="no-augments">no augments found</span>';
         }
-        return ownedPerks.map((perk) => {
-            const full = typeof getBossPerkById === 'function' ? getBossPerkById(perk.id) : null;
-            const p = full || (typeof getPerkById === 'function' ? getPerkById(perk.id) : null);
+        return ownedAugments.map((augment) => {
+            const full = typeof getBossAugmentById === 'function' ? getBossAugmentById(augment.id) : null;
+            const p = full || (typeof getAugmentById === 'function' ? getAugmentById(augment.id) : null);
             const desc = (p && p.description) || '';
             let specialText = '';
             if (p && p.special) {
@@ -727,11 +743,11 @@ class UI {
             if (typeof rarity !== 'string') {
                 rarity = String(rarity);
             }
-            const nameStyle = typeof getPerkNameStyle === 'function' ? getPerkNameStyle(p) : {};
+            const nameStyle = typeof getAugmentNameStyle === 'function' ? getAugmentNameStyle(p) : {};
             const nameCss = typeof nameStyleToCss === 'function' ? nameStyleToCss(nameStyle) : '';
             
-            let displayName = perk.name;
-            let count = this.gameState.perksPurchased[perk.id] || 0;
+            let displayName = augment.name;
+            let count = this.gameState.augmentsPurchased[augment.id] || 0;
             if (count === true) count = 1;
             
             // Check stackability
@@ -743,8 +759,8 @@ class UI {
             
             if (maxStack > 1 && count > 0) {
                  displayName += ` x${count}`;
-            } else if (p && p.type === 'subperk' && count > 0) {
-                 // Keep subperk logic just in case
+            } else if (p && p.type === 'subaugment' && count > 0) {
+                 // Keep subaugment logic just in case
                  if (p.maxStacks) {
                      displayName += ` (${count}/${p.maxStacks})`;
                  } else {
@@ -753,7 +769,7 @@ class UI {
             }
             
             const safeName = typeof escapeHtml === 'function' ? escapeHtml(displayName) : displayName;
-            return `<span class="topbar-perk-badge perk-tooltip-anchor rarity-${rarity.toLowerCase()}" draggable="true" data-perk-id="${perk.id}" data-perk-name="${escapeAttr(perk.name)}" data-perk-rarity="${escapeAttr(rarity)}" data-perk-desc="${escapeAttr(desc)}" data-perk-special="${escapeAttr(special)}"><span class="topbar-perk-name"${nameCss}>${safeName}</span></span>`;
+            return `<span class="topbar-augment-badge augment-tooltip-anchor rarity-${rarity.toLowerCase()}" draggable="true" data-augment-id="${augment.id}" data-augment-name="${escapeAttr(augment.name)}" data-augment-rarity="${escapeAttr(rarity)}" data-augment-desc="${escapeAttr(desc)}" data-augment-special="${escapeAttr(special)}"><span class="topbar-augment-name"${nameCss}>${safeName}</span></span>`;
         }).join('');
     }
 
@@ -781,7 +797,8 @@ class UI {
             // For loot card view: User requested to remove Mod names, only show Attribute (handled in fullNameHtml)
             const prefixHtml = '';
 
-            const nameStyle = typeof getItemNameStyle === 'function' ? getItemNameStyle(item) : {};
+            let nameStyle = typeof getItemNameStyle === 'function' ? getItemNameStyle(item) : {};
+            if (nameStyle) nameStyle = { ...nameStyle, fontStyle: 'normal' };
             const nameCss = typeof nameStyleToCss === 'function' ? nameStyleToCss(nameStyle) : '';
             
             // Build the full name HTML: [Attribute Name] [Base Name]
@@ -854,13 +871,13 @@ class UI {
     }
 
 
-    getPerkIcon(perk) {
-        if (perk.icon) return perk.icon;
+    getAugmentIcon(augment) {
+        if (augment.icon) return augment.icon;
         
-        // Fallback: Try to look up in global PERKS definitions if available
-        if (typeof PERKS !== 'undefined') {
-            const perkDef = Object.values(PERKS).find(p => p.id === perk.id);
-            if (perkDef && perkDef.icon) return perkDef.icon;
+        // Fallback: Try to look up in global AUGMENTS definitions if available
+        if (typeof AUGMENTS !== 'undefined') {
+            const augmentDef = Object.values(AUGMENTS).find(p => p.id === augment.id);
+            if (augmentDef && augmentDef.icon) return augmentDef.icon;
         }
         
         return '📦';
@@ -873,18 +890,18 @@ class UI {
         if (!this.shop) return '';
         const shopItems = this.shop.getAvailableItems();
         const cash = this.shop.getCash();
-        const selectedId = (typeof game !== 'undefined' && game.selectedShopPerkId) ? game.selectedShopPerkId : null;
+        const selectedId = (typeof game !== 'undefined' && game.selectedShopAugmentId) ? game.selectedShopAugmentId : null;
 
         return shopItems.map((item, index) => {
             const canAfford = cash >= item.cost;
             const isOwned = item.owned;
-            const nameStyle = typeof getPerkNameStyle === 'function' ? getPerkNameStyle(item) : {};
+            const nameStyle = typeof getAugmentNameStyle === 'function' ? getAugmentNameStyle(item) : {};
             const nameCss = typeof nameStyleToCss === 'function' ? nameStyleToCss(nameStyle) : '';
             
-            // Subperk Name Logic
+            // Subaugment Name Logic
             let displayName = item.name;
-            if (item.type === 'subperk') {
-                 let count = this.gameState.perksPurchased[item.id] || 0;
+            if (item.type === 'subaugment') {
+                 let count = this.gameState.augmentsPurchased[item.id] || 0;
                  if (count === true) count = 1;
                  displayName += ` (${count + 1})`;
             }
@@ -897,7 +914,7 @@ class UI {
 
             const isSelected = selectedId && (item.instanceId ? selectedId === item.instanceId : selectedId === item.id);
             const locked = !canAfford; // Allow purchase of duplicates/stackables if in shop
-            const icon = this.getPerkIcon(item);
+            const icon = this.getAugmentIcon(item);
             const isLegendary = item.rarity === 'legendary';
             const isMythical = item.rarity === 'mythical';
             const isGodlike = item.rarity === 'godlike';
@@ -907,20 +924,20 @@ class UI {
             // Check Requirement
             let reqHtml = '';
             let reqLocked = false;
-            let reqPerk = null;
-            const perkDef = typeof getPerkById === 'function' ? getPerkById(item.id) : null;
+            let reqAugment = null;
+            const augmentDef = typeof getAugmentById === 'function' ? getAugmentById(item.id) : null;
             
-            if (perkDef && perkDef.conditions) {
-                const reqCond = perkDef.conditions.find(c => c.type === 'requirePerk');
+            if (augmentDef && augmentDef.conditions) {
+                const reqCond = augmentDef.conditions.find(c => c.type === 'requireAugment');
                 if (reqCond) {
-                    const reqIds = Array.isArray(reqCond.perkId) ? reqCond.perkId : [reqCond.perkId];
-                    const missingId = reqIds.find(id => !this.gameState.perksPurchased[id]);
+                    const reqIds = Array.isArray(reqCond.augmentId) ? reqCond.augmentId : [reqCond.augmentId];
+                    const missingId = reqIds.find(id => !this.gameState.augmentsPurchased[id]);
                     
                     if (missingId) {
                         reqLocked = true;
-                        const reqP = typeof getPerkById === 'function' ? getPerkById(missingId) : null;
-                        reqPerk = reqP ? reqP.name : missingId;
-                        reqHtml = `<div class="perk-req-warning">Requires: ${reqPerk}</div>`;
+                        const reqP = typeof getAugmentById === 'function' ? getAugmentById(missingId) : null;
+                        reqAugment = reqP ? reqP.name : missingId;
+                        reqHtml = `<div class="augment-req-warning">Requires: ${reqAugment}</div>`;
                     }
                 }
             }
@@ -928,7 +945,7 @@ class UI {
             // Check Nullification Lock
             // If we own Nullification, everything else is locked
             let nullificationLocked = false;
-            if (this.gameState.perksPurchased['nullificati0n'] && !isOwned && item.id !== 'nullificati0n') {
+            if (this.gameState.augmentsPurchased['nullificati0n'] && !isOwned && item.id !== 'nullificati0n') {
                 nullificationLocked = true;
             }
 
@@ -939,25 +956,25 @@ class UI {
             const conflictReason = item.conflictReason;
 
             const lockedOverlay = (locked && !isOwned) || reqLocked || nullificationLocked || conflicted
-                ? `<div class="perk-locked-overlay">${nullificationLocked ? '⛔ NULLIFIED' : (conflicted ? (conflictReason ? '⛔ ' + conflictReason.toUpperCase() : '⛔ CONFLICT') : (reqLocked ? '🔒 LOCKED' : '🔒 LOCKED'))}</div>`
+                ? `<div class="augment-locked-overlay">${nullificationLocked ? '⛔ NULLIFIED' : (conflicted ? (conflictReason ? '⛔ ' + conflictReason.toUpperCase() : '⛔ CONFLICT') : (reqLocked ? '🔒 LOCKED' : '🔒 LOCKED'))}</div>`
                 : '';
                 
             let showPurchased = false;
             let overlayText = '';
             
-            if (isOwned && item.type !== 'subperk') {
-                // Always show purchased since stacking is removed (except for subperks)
+            if (isOwned && item.type !== 'subaugment') {
+                // Always show purchased since stacking is removed (except for subaugments)
                 showPurchased = true;
                 overlayText = '✓ PURCHASED';
             }
 
             const purchasedOverlay = showPurchased
-                ? `<div class="perk-purchased-overlay">${overlayText}</div>` 
+                ? `<div class="augment-purchased-overlay">${overlayText}</div>` 
                 : '';
 
-            // Add animation classes for subperks
-            const rollingClass = item.type === 'subperk' ? ' rolling-text' : '';
-            const rollingAttr = item.type === 'subperk' ? ` data-final-text="${safeName}"` : '';
+            // Add animation classes for subaugments
+            const rollingClass = item.type === 'subaugment' ? ' rolling-text' : '';
+            const rollingAttr = item.type === 'subaugment' ? ` data-final-text="${safeName}"` : '';
 
             let specialText = '';
             if (item.special) {
@@ -969,24 +986,24 @@ class UI {
             }
 
             return `
-                <div class="perk-card perk-card-shop perk-tooltip-anchor rarity-${item.rarity} ${showPurchased ? 'perk-purchased' : ''} ${isSelected ? 'perk-selected' : ''} ${locked || reqLocked || nullificationLocked || conflicted ? 'perk-locked' : ''} ${isNullification ? 'perk-glitch' : ''}" data-perk-id="${item.id}" data-perk-instance-id="${item.instanceId || ''}" data-perk-name="${escapeAttr(item.name)}" data-perk-rarity="${escapeAttr(item.rarity)}" data-perk-desc="${escapeAttr(safeDesc)}" data-perk-special="${escapeAttr(specialText)}" data-perk-cost="${item.cost}" onclick="game.handleShopPerkClick('${item.id}', '${item.instanceId || ''}')" style="animation-delay: ${index * 0.1}s">
+                <div class="augment-card augment-card-shop augment-tooltip-anchor rarity-${item.rarity} ${showPurchased ? 'augment-purchased' : ''} ${isSelected ? 'augment-selected' : ''} ${locked || reqLocked || nullificationLocked || conflicted ? 'augment-locked' : ''} ${isNullification ? 'augment-glitch' : ''}" data-augment-id="${item.id}" data-augment-instance-id="${item.instanceId || ''}" data-augment-name="${escapeAttr(item.name)}" data-augment-rarity="${escapeAttr(item.rarity)}" data-augment-desc="${escapeAttr(safeDesc)}" data-augment-special="${escapeAttr(specialText)}" data-augment-cost="${item.cost}" onclick="game.handleShopAugmentClick('${item.id}', '${item.instanceId || ''}')" style="animation-delay: ${index * 0.1}s">
                     ${purchasedOverlay}
             ${lockedOverlay}
             ${isLegendary || isMythical || isGodlike || isUltimate ? `
-                <div class="perk-card-particles">
+                <div class="augment-card-particles">
                     <span></span><span></span><span></span>
                 </div>
             ` : ''}
-                    <div class="perk-rarity-badge">${item.rarity}</div>
-                    <div class="perk-card-art">
-                        <div class="perk-card-icon">${icon}</div>
+                    <div class="augment-rarity-badge">${item.rarity}</div>
+                    <div class="augment-card-art">
+                        <div class="augment-card-icon">${icon}</div>
                     </div>
-                    <div class="perk-card-info">
-                        <div class="perk-card-name${rollingClass}"${nameCss}${rollingAttr}>${item.type === 'subperk' ? this.scrambleText(safeName) : safeName}</div>
+                    <div class="augment-card-info">
+                        <div class="augment-card-name${rollingClass}"${nameCss}${rollingAttr}>${item.type === 'subaugment' ? this.scrambleText(safeName) : safeName}</div>
                         ${reqHtml}
                         ${overwriteHtml}
-                        <div class="perk-card-footer">
-                            <div class="perk-card-cost">${item.cost}$</div>
+                        <div class="augment-card-footer">
+                            <div class="augment-card-cost">${item.cost}$</div>
                         </div>
                     </div>
                 </div>
@@ -1129,6 +1146,8 @@ class UI {
         let footerHtml = '';
         let clickHandler = '';
         let screenStyle = '';
+        let lootListContainer = '';
+        let augmentsListContainer = '';
 
         if (type === 'round_complete') {
             title = `Round ${round} Complete`;
@@ -1146,7 +1165,7 @@ class UI {
                     </div>
                     ${chipsBonus ? `
                     <div class="reward-card">
-                        <div class="reward-label">Perk Ȼ</div>
+                        <div class="reward-label">Augment Ȼ</div>
                         <div class="reward-value">+${chipsBonus}${this.renderChipIcon()}</div>
                     </div>
                     ` : ''}
@@ -1254,53 +1273,53 @@ class UI {
             }).join('');
 
             // Container for loot items
-            const lootListContainer = `
+            lootListContainer = `
                 <div class="rolled-items-container" style="margin-top: 24px; width: 100%;">
-                    <div class="rolled-items-title" style="font-weight: 700; margin-bottom: 12px; text-align: center; font-size: 1.1rem; color: var(--text-muted);">Items Collected (${history.length})</div>
+                    <div class="rolled-items-title" style="font-weight: 700; margin-bottom: 12px; text-align: center; font-size: 1.1rem; color: var(--text-muted);">Items (${history.length})</div>
                     <div class="loot-list" id="loot-list">
-                        ${lootItemsHtml || '<div class="loot-empty-msg">No items collected</div>'}
+                        ${lootItemsHtml || '<div class="loot-empty-msg">Nothing collected...</div>'}
                     </div>
                 </div>
             `;
 
-            // Perks Section (New)
-            const ownedPerks = this.shop.getOwnedPerks();
-            const perksHtml = ownedPerks.map(p => {
-                const full = typeof getBossPerkById === 'function' ? getBossPerkById(p.id) : null;
-                const perk = full || (typeof getPerkById === 'function' ? getPerkById(p.id) : null);
-                if (!perk) return '';
+            // Augments Section (New)
+            const ownedAugments = this.shop.getOwnedAugments();
+            const augmentsHtml = ownedAugments.map(p => {
+                const full = typeof getBossAugmentById === 'function' ? getBossAugmentById(p.id) : null;
+                const augment = full || (typeof getAugmentById === 'function' ? getAugmentById(p.id) : null);
+                if (!augment) return '';
                 
-                const rarity = perk.rarity || 'common';
+                const rarity = augment.rarity || 'common';
                 const rarityClass = `rarity-${rarity}`;
-                const nameStyle = typeof getPerkNameStyle === 'function' ? getPerkNameStyle(perk) : {};
+                const nameStyle = typeof getAugmentNameStyle === 'function' ? getAugmentNameStyle(augment) : {};
                 const nameCss = typeof nameStyleToCss === 'function' ? nameStyleToCss(nameStyle) : '';
-                const icon = perk.icon || '📦';
+                const icon = augment.icon || '📦';
                 
-                let count = this.gameState.perksPurchased[perk.id];
+                let count = this.gameState.augmentsPurchased[augment.id];
                 if (count === true) count = 1;
                 const countBadge = count > 1 ? `<div class="item-count-badge" style="position:absolute; bottom:4px; right:4px; background:rgba(0,0,0,0.8); padding:2px 6px; border-radius:10px; font-size:0.7em; color:#fff;">x${count}</div>` : '';
 
                 return `
                     <div class="loot-item loot-item-minimal ${rarityClass}">
                         <div class="loot-item-name"${nameCss}>
-                            ${icon} ${perk.name}
+                            ${icon} ${augment.name}
                         </div>
                         ${countBadge}
                         <div class="loot-item-tooltip">
-                            <div class="tooltip-name"${nameCss}>${perk.name}</div>
+                            <div class="tooltip-name"${nameCss}>${augment.name}</div>
                             <div class="tooltip-rarity rarity-color rarity-${rarity}">${rarity.toUpperCase()}</div>
-                            <div class="tooltip-desc">${perk.description || ''}</div>
-                            ${perk.special ? `<div class="tooltip-special" style="margin-top:4px; color:#fbbf24; font-size:0.85em;">✨ ${typeof perk.special === 'string' ? perk.special : Object.keys(perk.special).join(', ')}</div>` : ''}
+                            <div class="tooltip-desc">${augment.description || ''}</div>
+                            ${augment.special ? `<div class="tooltip-special" style="margin-top:4px; color:#fbbf24; font-size:0.85em;">${typeof augment.special === 'string' ? augment.special : Object.keys(augment.special).join(', ')}</div>` : ''}
                         </div>
                     </div>
                 `;
             }).join('');
 
-            const perksListContainer = `
+            augmentsListContainer = `
                 <div class="rolled-items-container" style="margin-top: 24px; width: 100%;">
-                    <div class="rolled-items-title" style="font-weight: 700; margin-bottom: 12px; text-align: center; font-size: 1.1rem; color: var(--text-muted);">Perks Collected (${ownedPerks.length})</div>
-                    <div class="loot-list" id="perks-list">
-                        ${perksHtml || '<div class="loot-empty-msg">No perks collected</div>'}
+                    <div class="rolled-items-title" style="font-weight: 700; margin-bottom: 12px; text-align: center; font-size: 1.1rem; color: var(--text-muted);">Augments (${ownedAugments.length})</div>
+                    <div class="loot-list" id="augments-list">
+                        ${augmentsHtml || '<div class="loot-empty-msg"><div class="empty-icon"></div>No augments obtained.</div>'}
                     </div>
                 </div>
             `;
@@ -1343,29 +1362,51 @@ class UI {
                 </div>
             `;
 
-            // Footer: Button FIRST, then Loot List, then Perks List
+            // Footer: Button Only
             footerHtml = `
                 <button class="btn btn-primary btn-restart" onclick="game.handleRestart()">
                     TRY AGAIN
                 </button>
-                ${lootListContainer}
-                ${perksListContainer}
             `;
         }
 
-        const html = `
-            <div class="screen reward-screen breakdown-screen ${type}" ${clickHandler} style="${screenStyle}">
-                <div class="screen-title">${title}</div>
-                <div class="screen-subtitle">${subtitle}</div>
-                ${contentHtml}
-                ${footerHtml}
-            </div>
-        `;
+        let html;
+        if (type === 'game_over') {
+             html = `
+                <div class="screen reward-screen breakdown-screen ${type}" ${clickHandler} style="${screenStyle}; max-width: 98vw; width: 98vw; padding: 20px;">
+                    <div class="reward-layout-container">
+                        <div class="reward-side-column left-column">
+                             ${lootListContainer}
+                        </div>
+                        <div class="reward-center-column">
+                            <div class="screen-title">${title}</div>
+                            <div class="screen-subtitle">${subtitle}</div>
+                            ${contentHtml}
+                            ${footerHtml}
+                        </div>
+                        <div class="reward-side-column right-column">
+                             ${augmentsListContainer}
+                        </div>
+                    </div>
+                </div>
+            `;
+        } else {
+             html = `
+                <div class="screen reward-screen breakdown-screen ${type}" ${clickHandler} style="${screenStyle}">
+                    <div class="screen-title">${title}</div>
+                    <div class="screen-subtitle">${subtitle}</div>
+                    ${contentHtml}
+                    ${footerHtml}
+                </div>
+            `;
+        }
         this.container.innerHTML = html;
 
         if (type === 'game_over') {
-            this.attachLootHoverTooltips();
-            this.attachHoldToSeeTooltips();
+            this.attachLootHoverTooltips('loot-list');
+            this.attachHoldToSeeTooltips('loot-list');
+            this.attachLootHoverTooltips('augments-list');
+            this.attachHoldToSeeTooltips('augments-list');
         }
 
         // Add keyboard and click navigation
@@ -1446,12 +1487,12 @@ class UI {
     }
 
     /**
-     * Render Knowledge Index (items, perks, bosses)
+     * Render Knowledge Index (items, augments, bosses)
      */
     renderIndex() {
         const tabs = [
             { id: 'items', label: 'Items' },
-            { id: 'perks', label: 'Perks' },
+            { id: 'augments', label: 'Augments' },
             { id: 'bosses', label: 'Bosses' },
         ];
         const itemsHtml = typeof THING_TEMPLATES !== 'undefined'
@@ -1472,10 +1513,10 @@ class UI {
                 `;
             }).join('')
             : '';
-        const perksList = typeof getShopPerks === 'function' ? getShopPerks() : [];
-        const bossPerks = (typeof BOSS_EXCLUSIVE_PERKS !== 'undefined' && BOSS_EXCLUSIVE_PERKS) ? Object.values(BOSS_EXCLUSIVE_PERKS) : [];
-        const perksHtml = [...perksList, ...bossPerks].map((p, i) => {
-            const id = `idx-perk-${i}`;
+        const augmentsList = typeof getShopAugments === 'function' ? getShopAugments() : [];
+        const bossAugments = (typeof BOSS_EXCLUSIVE_AUGMENTS !== 'undefined' && BOSS_EXCLUSIVE_AUGMENTS) ? Object.values(BOSS_EXCLUSIVE_AUGMENTS) : [];
+        const augmentsHtml = [...augmentsList, ...bossAugments].map((p, i) => {
+            const id = `idx-augment-${i}`;
             const name = (p && p.name) || '';
             const rarity = (p && p.rarity) || '';
             const desc = (p && p.description) || '';
@@ -1525,13 +1566,13 @@ class UI {
 
         return `
             <div class="index-search-row">
-                <input id="index-search" class="index-search" type="text" placeholder="Search items, perks, bosses..." />
+                <input id="index-search" class="index-search" type="text" placeholder="Search items, augments, bosses..." />
             </div>
             <div class="index-tabs">
                 ${tabs.map((t, i) => `<button type="button" class="index-tab ${i === 0 ? 'active' : ''}" data-tab="${t.id}">${t.label}</button>`).join('')}
             </div>
             <div class="index-panel" id="index-panel-items">${itemsHtml || '<p class="index-empty">No items data.</p>'}</div>
-            <div class="index-panel" id="index-panel-perks" style="display:none">${perksHtml || '<p class="index-empty">No perks data.</p>'}</div>
+            <div class="index-panel" id="index-panel-augments" style="display:none">${augmentsHtml || '<p class="index-empty">No augments data.</p>'}</div>
             <div class="index-panel" id="index-panel-bosses" style="display:none">${bossesHtml || '<p class="index-empty">No bosses data.</p>'}</div>
         `;
     }
@@ -1604,7 +1645,7 @@ class UI {
         try {
             this.currentScreen = 'shop';
             // Removed automatic generation to prevent rerolling when returning from other screens
-            // this.shop.generateShopPerks();
+            // this.shop.generateShopAugments();
             if (typeof game !== 'undefined' && game.resetRerollCost) {
                 game.resetRerollCost();
             }
@@ -1613,10 +1654,10 @@ class UI {
             const rerollCost = (typeof game !== 'undefined') ? game.shopRerollCost : 5;
 
             const html = `
-                <div class="perk-topbar">
+                <div class="augment-topbar">
                     
-                    <div class="topbar-perks" id="topbar-perks">
-                        ${this.renderTopbarPerks()}
+                    <div class="topbar-augments" id="topbar-augments">
+                        ${this.renderTopbarAugments()}
                     </div>
                     <button class="stats-button" onclick="game.toggleStats()">Stats</button>
                     <button class="index-button" onclick="game.toggleIndex()">Index</button>
@@ -1660,10 +1701,10 @@ class UI {
                 <div class="game-content">
 
 
-                    <!-- Center: Shop Perks -->
+                    <!-- Center: Shop Augments -->
                     <div class="section roll-section" style="overflow-y: auto;">
-                        <div class="section-title">Shop Perks</div>
-                        <div id="shop-grid" class="perk-card-grid">
+                        <div class="section-title">Shop Augments</div>
+                        <div id="shop-grid" class="augment-card-grid">
                             ${this.renderShop()}
                         </div>
                     </div>
@@ -1718,12 +1759,14 @@ class UI {
     /**
      * Show shop between rounds
      */
- renderForgingScreen(perkId = null) {
+ renderForgingScreen(augmentId = null) {
         // Stop any running simulation first
         this.stopForceLayout();
 
         this.currentScreen = 'forging';
-        this.selectedForgePerk = perkId;
+        this.selectedForgeAugment = augmentId;
+        // Always reset centering when selecting a recipe (or clearing)
+        this._centeredOnRoot = false;
         
         // Initialize pan state if not exists
         if (!this.forgePan) {
@@ -1746,13 +1789,13 @@ class UI {
         
         // --- Sidebar: Recipe List ---
         const sidebarHtml = forgeable.map(option => {
-            const isSelected = option.id === this.selectedForgePerk;
+            const isSelected = option.id === this.selectedForgeAugment;
             const canForge = option.canForge;
             // Description
             const desc = typeof escapeHtml === 'function' ? escapeHtml(option.description) : option.description;
             
-            // Use icon from perk definition
-            const icon = this.getPerkIcon(option);
+            // Use icon from augment definition
+            const icon = this.getAugmentIcon(option);
             const rarity = option.tier || 'common';
             const rarityClass = `rarity-${rarity}`;
             
@@ -1762,25 +1805,25 @@ class UI {
                 if (option.nameStyle.textStroke) nameStyleStr += `-webkit-text-stroke: ${option.nameStyle.textStroke};`;
             }
             
-            // Perk Card Style for Sidebar (mimics shop cards)
+            // Augment Card Style for Sidebar (mimics shop cards)
             const isHighTier = ['legendary', 'mythical', 'godlike', 'ultimate'].includes(rarity);
             
             return `
-                    <div class="perk-card perk-card-shop perk-card-forge ${rarityClass} ${isSelected ? 'perk-selected' : ''}" 
+                    <div class="augment-card augment-card-shop augment-card-forge ${rarityClass} ${isSelected ? 'augment-selected' : ''}" 
                          onclick="game.handleForgeSelect('${option.id}')"
                          title="${desc}">
                         ${isHighTier ? `
-                            <div class="perk-card-particles">
+                            <div class="augment-card-particles">
                                 <span></span><span></span><span></span>
                             </div>
                         ` : ''}
-                        <div class="perk-rarity-badge">${rarity.toUpperCase()}</div>
-                        <div class="perk-card-art">
-                            <div class="perk-card-icon">${icon}</div>
+                        <div class="augment-rarity-badge">${rarity.toUpperCase()}</div>
+                        <div class="augment-card-art">
+                            <div class="augment-card-icon">${icon}</div>
                         </div>
-                        <div class="perk-card-info">
-                            <div class="perk-card-name" style="${nameStyleStr}">${option.name}</div>
-                            <div class="perk-card-footer">
+                        <div class="augment-card-info">
+                            <div class="augment-card-name" style="${nameStyleStr}">${option.name}</div>
+                            <div class="augment-card-footer">
                                  <div class="forge-status-text" style="color: #9898a8; font-size: 0.75em; width: 100%; white-space: normal; line-height: 1.2;">
                                     ${desc}
                                  </div>
@@ -1795,19 +1838,19 @@ class UI {
         let mainContentHtml = '';
         let forgeActionHtml = '';
         
-        if (this.selectedForgePerk) {
-            mainContentHtml = this.renderForgeTree(this.selectedForgePerk);
+        if (this.selectedForgeAugment) {
+            mainContentHtml = this.renderForgeTree(this.selectedForgeAugment);
             
             // Floating Forge Action Button
-            const perk = typeof getPerkById === 'function' ? getPerkById(this.selectedForgePerk) : null;
-            if (perk) {
-                const canForge = this.gameState.canForgePerk(this.selectedForgePerk).canForge;
-                const reason = this.gameState.canForgePerk(this.selectedForgePerk).reason;
+            const augment = typeof getAugmentById === 'function' ? getAugmentById(this.selectedForgeAugment) : null;
+            if (augment) {
+                const canForge = this.gameState.canForgeAugment(this.selectedForgeAugment).canForge;
+                const reason = this.gameState.canForgeAugment(this.selectedForgeAugment).reason;
                 
                 forgeActionHtml = `
                     <div class="forge-action-container">
                         <button class="forge-btn-modern ${canForge ? 'ready' : 'locked'}" 
-                            onclick="game.handleForgePerk('${this.selectedForgePerk}')" 
+                            onclick="game.handleForgeAugment('${this.selectedForgeAugment}')" 
                             ${canForge ? '' : 'disabled'}>
                             <span class="btn-text">Forge</span>
                         </button>
@@ -1825,10 +1868,10 @@ class UI {
         }
 
         const html = `
-            <div class="perk-topbar">
+            <div class="augment-topbar">
 
-                <div class="topbar-perks" id="topbar-perks">
-                    ${this.renderTopbarPerks()}
+                <div class="topbar-augments" id="topbar-augments">
+                    ${this.renderTopbarAugments()}
                 </div>
                 <button class="stats-button" onclick="game.toggleStats()">📊 Stats</button>
                 <button class="index-button" onclick="game.toggleIndex()">📖 Index</button>
@@ -1961,8 +2004,8 @@ class UI {
         viewport.addEventListener('wheel', (e) => {
             e.preventDefault();
             const factor = e.deltaY < 0 ? 1.1 : 0.9;
-            const min = 0.5;
-            const max = 2.5;
+            const min = 0.1;
+            const max = 5.0;
             this.forgeZoom = Math.max(min, Math.min(max, this.forgeZoom * factor));
             content.style.transform = `translate(${this.forgePan.x}px, ${this.forgePan.y}px) scale(${this.forgeZoom})`;
         });
@@ -2005,8 +2048,8 @@ class UI {
             // Only drag if clicking background or content wrapper, not buttons/cards directly
             target = e.target;
             while (target && target !== viewport) {
-                if (target.tagName === 'BUTTON' || target.classList.contains('perk-card-tree')) {
-                    // Note: Graph nodes have perk-card-tree inside, but we handled them above.
+                if (target.tagName === 'BUTTON' || target.classList.contains('augment-card-tree')) {
+                    // Note: Graph nodes have augment-card-tree inside, but we handled them above.
                     // If we are here, it means we clicked a card that is NOT inside a graph node (unlikely in this view but possible if mixed)
                     // Or we clicked a button.
                     // To be safe, if we didn't match nodeElement above, we block pan on these.
@@ -2041,20 +2084,42 @@ class UI {
                     const svg = document.getElementById('forge-graph-svg');
                     if (svg) {
                         const links = svg.querySelectorAll('.forge-link');
+                        const connectedNodeIds = new Set([nodeId]); // Start with self
+
                         links.forEach(link => {
                             const source = link.getAttribute('data-source');
                             const targetId = link.getAttribute('data-target');
                             
                             if (source === nodeId || targetId === nodeId) {
                                 link.classList.add('highlight-link');
-                                // Styles handled by CSS class now
+                                // Ensure it's not dimmed
+                                link.classList.remove('dimmed-link');
                                 
                                 // Highlight connected node
                                 const otherId = source === nodeId ? targetId : source;
+                                connectedNodeIds.add(otherId);
+                                
                                 const otherNode = document.getElementById(`node-${otherId}`);
-                                if (otherNode) otherNode.classList.add('highlight-node');
+                                if (otherNode) {
+                                    otherNode.classList.add('highlight-node');
+                                    otherNode.classList.remove('dimmed-node');
+                                }
                             } else {
                                 link.classList.add('dimmed-link');
+                                link.classList.remove('highlight-link');
+                            }
+                        });
+
+                        // Dim unconnected nodes
+                        const allNodes = document.querySelectorAll('.forge-graph-node');
+                        allNodes.forEach(n => {
+                            const nId = n.id.replace('node-', '');
+                            if (!connectedNodeIds.has(nId)) {
+                                n.classList.add('dimmed-node');
+                                n.classList.remove('highlight-node');
+                            } else {
+                                // Ensure connected nodes (including self) are not dimmed
+                                n.classList.remove('dimmed-node');
                             }
                         });
                     }
@@ -2069,7 +2134,10 @@ class UI {
                      
                      // Remove highlights
                      const allNodes = document.querySelectorAll('.forge-graph-node');
-                     allNodes.forEach(n => n.classList.remove('highlight-node'));
+                     allNodes.forEach(n => {
+                        n.classList.remove('highlight-node');
+                        n.classList.remove('dimmed-node');
+                     });
                      
                      const svg = document.getElementById('forge-graph-svg');
                      if (svg) {
@@ -2159,7 +2227,7 @@ class UI {
         }
     }
 
-    renderForgeTree(perkId) {
+    renderForgeTree(augmentId) {
         // Force-Directed Graph Builder
         
         // 1. Build Graph Data (Nodes & Links)
@@ -2167,19 +2235,19 @@ class UI {
         const links = [];
         const addedNodeIds = new Set();
 
-        const addNode = (id, type = 'perk', parentId = null) => {
+        const addNode = (id, type = 'augment', parentId = null) => {
             if (addedNodeIds.has(id)) {
                 // Link even if already added
                 if (parentId) links.push({ source: parentId, target: id });
                 return;
             }
             
-            // Logic to get perk/data
+            // Logic to get augment/data
             let data = {};
-            if (type === 'perk') {
-                const perk = typeof getPerkById === 'function' ? getPerkById(id) : null;
-                if (!perk) return;
-                data = perk;
+            if (type === 'augment') {
+                const augment = typeof getAugmentById === 'function' ? getAugmentById(id) : null;
+                if (!augment) return;
+                data = augment;
             } else if (type === 'cash') {
                 data = { id: 'cash-' + parentId, name: 'Cash', amount: id }; // id passed as amount
             }
@@ -2200,13 +2268,13 @@ class UI {
             }
             
             // Recursively add children
-            if (type === 'perk') {
-                const perk = data;
-                const recipe = perk.forgeRecipe;
+            if (type === 'augment') {
+                const augment = data;
+                const recipe = augment.forgeRecipe;
                 
-                // 1. Recipe Perks
-                if (recipe && Array.isArray(recipe.perks)) {
-                    recipe.perks.forEach(reqId => addNode(reqId, 'perk', node.id));
+                // 1. Recipe Augments
+                if (recipe && Array.isArray(recipe.augments)) {
+                    recipe.augments.forEach(reqId => addNode(reqId, 'augment', node.id));
                 }
                 
                 // 2. Recipe Cash
@@ -2215,14 +2283,14 @@ class UI {
                 }
                 
                 // 3. Fallback: Conditions
-                if (!recipe && perk.conditions) {
-                     const forgeCondition = perk.conditions.find(c => c.type === 'forging');
+                if (!recipe && augment.conditions) {
+                     const forgeCondition = augment.conditions.find(c => c.type === 'forging');
                      if (forgeCondition && forgeCondition.recipe) {
                         const r = forgeCondition.recipe;
-                        const pList = Array.isArray(r) ? r : (r.perks || []);
+                        const pList = Array.isArray(r) ? r : (r.augments || []);
                         const cAmt = r.cash || (forgeCondition.cash);
                         
-                        pList.forEach(reqId => addNode(reqId, 'perk', node.id));
+                        pList.forEach(reqId => addNode(reqId, 'augment', node.id));
                         if (cAmt) addNode(cAmt, 'cash', node.id);
                      }
                 }
@@ -2230,13 +2298,13 @@ class UI {
         };
         
         // Start building from root
-        addNode(perkId);
+        addNode(augmentId);
         
         this.currentGraphData = { nodes, links };
         
         // Render Initial HTML (Nodes only, links via SVG)
         const nodesHtml = nodes.map(node => {
-            const isTarget = node.id === perkId;
+            const isTarget = node.id === augmentId;
             let innerHtml = '';
             let tooltipHtml = '';
             
@@ -2246,9 +2314,9 @@ class UI {
                 
                 // Cash Node - Horizontal Pill Style
                 innerHtml = `
-                    <div class="perk-square-node ${hasCash ? 'status-owned' : 'status-missing'}" style="width: 160px; height: 60px; background: #222; border: 2px solid ${hasCash ? '#4ade80' : '#ef4444'}; border-radius: 8px; display: flex; flex-direction: row; align-items: center; justify-content: flex-start; padding: 5px 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.5); text-align: left;">
+                    <div class="augment-square-node ${hasCash ? 'status-owned' : 'status-missing'}" style="width: 160px; height: 60px; background: #222; border: 2px solid ${hasCash ? '#4ade80' : '#ef4444'}; border-radius: 8px; display: flex; flex-direction: row; align-items: center; justify-content: flex-start; padding: 5px 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.5); text-align: left;">
                         <div style="font-size: 2em; margin-right: 10px;">💵</div>
-                        <div class="perk-name" style="color: #4ade80; font-size: 0.9em; font-weight: bold; line-height: 1.1;">$${amount}</div>
+                        <div class="augment-name" style="color: #4ade80; font-size: 0.9em; font-weight: bold; line-height: 1.1;">$${amount}</div>
                         <div class="node-tooltip-content" style="display: none;">
                             <div class="tooltip-header"><span class="tooltip-name" style="color: #4ade80;">$${amount}</span></div>
                             <div class="tooltip-desc">Required Cash</div>
@@ -2257,13 +2325,13 @@ class UI {
                     </div>
                 `;
             } else {
-                const perk = node.data;
-                const isOwned = (this.gameState.perksPurchased[perk.id] || 0) > 0;
-                const icon = this.getPerkIcon(perk);
-                const rarityClass = perk.tier ? `rarity-${perk.tier}` : 'rarity-common';
-                const desc = typeof escapeHtml === 'function' ? escapeHtml(perk.description) : perk.description;
-                const rarityLabel = perk.tier ? perk.tier.toUpperCase() : 'COMMON';
-                const canForge = isTarget ? this.gameState.canForgePerk(perk.id).canForge : false;
+                const augment = node.data;
+                const isOwned = (this.gameState.augmentsPurchased[augment.id] || 0) > 0;
+                const icon = this.getAugmentIcon(augment);
+                const rarityClass = augment.tier ? `rarity-${augment.tier}` : 'rarity-common';
+                const desc = typeof escapeHtml === 'function' ? escapeHtml(augment.description) : augment.description;
+                const rarityLabel = augment.tier ? augment.tier.toUpperCase() : 'COMMON';
+                const canForge = isTarget ? this.gameState.canForgeAugment(augment.id).canForge : false;
                 
                 // Status class logic
                 let statusClass = 'status-pending';
@@ -2274,7 +2342,7 @@ class UI {
                 // Tooltip HTML (stored for mouse-following)
                 tooltipHtml = `
                     <div class="tooltip-header">
-                         <span class="tooltip-name" style="${perk.nameStyle?.color ? 'color:'+perk.nameStyle.color : ''}">${perk.name}</span>
+                         <span class="tooltip-name" style="${augment.nameStyle?.color ? 'color:'+augment.nameStyle.color : ''}">${augment.name}</span>
                     </div>
                     <div class="tooltip-rarity ${rarityClass}">${rarityLabel}</div>
                     <div class="tooltip-desc">${desc}</div>
@@ -2285,34 +2353,34 @@ class UI {
                 
                 if (isTarget) {
                     // Target Node - Exact Shop Card Style
-                    const specialText = perk.special ? (typeof perk.special === 'string' ? perk.special : Object.keys(perk.special).join(', ')) : '';
-                    const isLegendary = ['legendary', 'mythic', 'godlike', 'ultimate', 'surreal', 'exotic'].includes(perk.tier || 'common');
-                    const isMythical = (perk.tier || 'common') === 'mythical';
-                    const nameStyle = perk.nameStyle || {};
+                    const specialText = augment.special ? (typeof augment.special === 'string' ? augment.special : Object.keys(augment.special).join(', ')) : '';
+                    const isLegendary = ['legendary', 'mythic', 'godlike', 'ultimate', 'surreal', 'exotic'].includes(augment.tier || 'common');
+                    const isMythical = (augment.tier || 'common') === 'mythical';
+                    const nameStyle = augment.nameStyle || {};
                     const nameCss = nameStyle.color ? ` style="color:${nameStyle.color}"` : '';
                     
                     if (isMythical) {
                         // Mythical Shop Card Style (Vertical Rectangle) with Opaque Background
                         innerHtml = `
-                            <div class="perk-card perk-card-shop perk-tooltip-anchor rarity-${perk.tier || 'common'} ${statusClass}" 
-                                 data-perk-id="${perk.id}" 
-                                 data-perk-name="${escapeAttr(perk.name)}" 
-                                 data-perk-rarity="${escapeAttr(rarityLabel)}" 
-                                 data-perk-desc="${escapeAttr(desc)}" 
-                                 data-perk-special="${escapeAttr(specialText)}"
+                            <div class="augment-card augment-card-shop augment-tooltip-anchor rarity-${augment.tier || 'common'} ${statusClass}" 
+                                 data-augment-id="${augment.id}" 
+                                 data-augment-name="${escapeAttr(augment.name)}" 
+                                 data-augment-rarity="${escapeAttr(rarityLabel)}" 
+                                 data-augment-desc="${escapeAttr(desc)}" 
+                                 data-augment-special="${escapeAttr(specialText)}"
                                  style="width: 180px; height: 240px; position: relative; background: #2a0a2a; border: 2px solid #a855f7; z-index: 10;">
                                 
-                                <div class="perk-card-particles">
+                                <div class="augment-card-particles">
                                     <span></span><span></span><span></span>
                                 </div>
                                 
-                                <div class="perk-rarity-badge">${rarityLabel}</div>
-                                <div class="perk-card-art">
-                                    <div class="perk-card-icon">${icon}</div>
+                                <div class="augment-rarity-badge">${rarityLabel}</div>
+                                <div class="augment-card-art">
+                                    <div class="augment-card-icon">${icon}</div>
                                 </div>
-                                <div class="perk-card-info">
-                                    <div class="perk-card-name"${nameCss}>${perk.name}</div>
-                                    <div class="perk-card-footer">
+                                <div class="augment-card-info">
+                                    <div class="augment-card-name"${nameCss}>${augment.name}</div>
+                                    <div class="augment-card-footer">
                                         <!-- Removed FORGE text -->
                                     </div>
                                 </div>
@@ -2321,27 +2389,27 @@ class UI {
                     } else {
                         // Standard Shop Card Style
                         innerHtml = `
-                            <div class="perk-card perk-card-shop perk-tooltip-anchor rarity-${perk.tier || 'common'} ${statusClass}" 
-                                 data-perk-id="${perk.id}" 
-                                 data-perk-name="${escapeAttr(perk.name)}" 
-                                 data-perk-rarity="${escapeAttr(rarityLabel)}" 
-                                 data-perk-desc="${escapeAttr(desc)}" 
-                                 data-perk-special="${escapeAttr(specialText)}"
+                            <div class="augment-card augment-card-shop augment-tooltip-anchor rarity-${augment.tier || 'common'} ${statusClass}" 
+                                 data-augment-id="${augment.id}" 
+                                 data-augment-name="${escapeAttr(augment.name)}" 
+                                 data-augment-rarity="${escapeAttr(rarityLabel)}" 
+                                 data-augment-desc="${escapeAttr(desc)}" 
+                                 data-augment-special="${escapeAttr(specialText)}"
                                  style="width: 180px; height: 240px; position: relative;">
                                 
                                 ${isLegendary ? `
-                                    <div class="perk-card-particles">
+                                    <div class="augment-card-particles">
                                         <span></span><span></span><span></span>
                                     </div>
                                 ` : ''}
                                 
-                                <div class="perk-rarity-badge">${rarityLabel}</div>
-                                <div class="perk-card-art">
-                                    <div class="perk-card-icon">${icon}</div>
+                                <div class="augment-rarity-badge">${rarityLabel}</div>
+                                <div class="augment-card-art">
+                                    <div class="augment-card-icon">${icon}</div>
                                 </div>
-                                <div class="perk-card-info">
-                                    <div class="perk-card-name"${nameCss}>${perk.name}</div>
-                                    <div class="perk-card-footer">
+                                <div class="augment-card-info">
+                                    <div class="augment-card-name"${nameCss}>${augment.name}</div>
+                                    <div class="augment-card-footer">
                                         <!-- Removed FORGE text -->
                                     </div>
                                 </div>
@@ -2350,19 +2418,19 @@ class UI {
                     }
                 } else {
                     // Ingredient Node - Horizontal Pill Style with Name + Tooltip Anchor
-                    const specialText = perk.special ? (typeof perk.special === 'string' ? perk.special : Object.keys(perk.special).join(', ')) : '';
+                    const specialText = augment.special ? (typeof augment.special === 'string' ? augment.special : Object.keys(augment.special).join(', ')) : '';
                     const borderColor = isOwned ? '#4ade80' : '#ef4444';
                     
                     innerHtml = `
-                        <div class="perk-square-node perk-tooltip-anchor ${rarityClass} ${statusClass}" 
-                             data-perk-id="${perk.id}" 
-                             data-perk-name="${escapeAttr(perk.name)}" 
-                             data-perk-rarity="${escapeAttr(rarityLabel)}" 
-                             data-perk-desc="${escapeAttr(desc)}" 
-                             data-perk-special="${escapeAttr(specialText)}"
+                        <div class="augment-square-node augment-tooltip-anchor ${rarityClass} ${statusClass}" 
+                             data-augment-id="${augment.id}" 
+                             data-augment-name="${escapeAttr(augment.name)}" 
+                             data-augment-rarity="${escapeAttr(rarityLabel)}" 
+                             data-augment-desc="${escapeAttr(desc)}" 
+                             data-augment-special="${escapeAttr(specialText)}"
                              style="width: 160px; height: 60px; background: #1a1a1a; border: 2px solid ${borderColor}; border-radius: 8px; display: flex; flex-direction: row; align-items: center; justify-content: flex-start; padding: 5px 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.6); position: relative; text-align: left;">
-                            <div class="perk-icon" style="font-size: 2em; margin-right: 10px; flex-shrink: 0;">${icon}</div>
-                            <div class="perk-name" style="${perk.nameStyle?.color ? 'color:'+perk.nameStyle.color : 'color: #ffffff'}; font-size: 0.8em; font-weight: bold; line-height: 1.1; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; width: 100%;">${perk.name}</div>
+                            <div class="augment-icon" style="font-size: 2em; margin-right: 10px; flex-shrink: 0;">${icon}</div>
+                            <div class="augment-name" style="${augment.nameStyle?.color ? 'color:'+augment.nameStyle.color : 'color: #ffffff'}; font-size: 0.8em; font-weight: bold; line-height: 1.1; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; width: 100%;">${augment.name}</div>
                         </div>
                     `;
                 }
@@ -2408,7 +2476,7 @@ class UI {
                 node.vx = 0; node.vy = 0;
             }
         });
-        const rootId = this.selectedForgePerk;
+        const rootId = this.selectedForgeAugment;
         const root = nodes.find(n => n.id === rootId);
         if (root) {
             root.x = width / 2;
@@ -2434,11 +2502,11 @@ class UI {
         }
 
         // Tuned for MAX SPREAD and FLOATINESS
-        const repulsion = 44000;      // Very strong push
-        const springLength = 560;     // Longer connections to extend line reach
-        const springStrength = 0.03;  // Loose springs
+        const repulsion = 38000;      // Reduced from 44000
+        const springLength = 520;     // Slightly shorter (was 560)
+        const springStrength = 0.05;  // Tighter springs (was 0.03)
         const centerGravity = 0.0005; // Almost zero gravity
-        const damping = 0.92;         // High damping for drift
+        const damping = 0.82;         // Less floaty/drifty (was 0.92)
         
         const tick = () => {
             const svg = document.getElementById('forge-graph-svg');
@@ -2453,6 +2521,10 @@ class UI {
                 for (let j = i + 1; j < nodes.length; j++) {
                     const a = nodes[i];
                     const b = nodes[j];
+                    
+                    // Skip if both are root (unlikely)
+                    if (a.id === rootId && b.id === rootId) continue;
+
                     const dx = a.x - b.x;
                     const dy = a.y - b.y;
                     let d2 = dx*dx + dy*dy;
@@ -2462,8 +2534,9 @@ class UI {
                     const fx = (dx/d)*f;
                     const fy = (dy/d)*f;
                     
-                    if (!a.isDragging) { a.vx += fx; a.vy += fy; }
-                    if (!b.isDragging) { b.vx -= fx; b.vy -= fy; }
+                    // Root node never moves
+                    if (a.id !== rootId && !a.isDragging) { a.vx += fx; a.vy += fy; }
+                    if (b.id !== rootId && !b.isDragging) { b.vx -= fx; b.vy -= fy; }
                 }
             }
             // Springs
@@ -2478,8 +2551,9 @@ class UI {
                 const fx = (dx/d)*f;
                 const fy = (dy/d)*f;
                 
-                if (!s.isDragging) { s.vx += fx; s.vy += fy; }
-                if (!t.isDragging) { t.vx -= fx; t.vy -= fy; }
+                // Root node never moves
+                if (s.id !== rootId && !s.isDragging) { s.vx += fx; s.vy += fy; }
+                if (t.id !== rootId && !t.isDragging) { t.vx -= fx; t.vy -= fy; }
             });
 
             // Collision Detection
@@ -2502,8 +2576,9 @@ class UI {
                         const fx = (dx/d) * force;
                         const fy = (dy/d) * force;
                         
-                        if (!a.isDragging) { a.vx += fx; a.vy += fy; }
-                        if (!b.isDragging) { b.vx -= fx; b.vy -= fy; }
+                        // Root node never moves
+                        if (a.id !== rootId && !a.isDragging) { a.vx += fx; a.vy += fy; }
+                        if (b.id !== rootId && !b.isDragging) { b.vx -= fx; b.vy -= fy; }
                     }
                 }
             }
@@ -2511,6 +2586,16 @@ class UI {
             // Gravity
             nodes.forEach(n => {
                 if (n.isDragging) return;
+                
+                // Root node is pinned
+                if (n.id === rootId) {
+                    n.vx = 0;
+                    n.vy = 0;
+                    n.x = width / 2;
+                    n.y = height / 2;
+                    return;
+                }
+
                 n.vx += (width/2 - n.x) * centerGravity;
                 n.vy += (height/2 - n.y) * centerGravity;
                 n.vx *= damping;
@@ -2566,6 +2651,9 @@ class UI {
                 gap: 20px;
                 align-items: stretch !important; /* Full height */
                 position: relative;
+                overflow: hidden !important; /* Force no scroll */
+                height: 100% !important;
+                max-height: 100vh;
             }
 
             /* Full Screen Grid Background */
@@ -2614,7 +2702,7 @@ class UI {
                 display: flex;
                 flex-direction: column;
                 cursor: grab; /* Pan cursor */
-                min-height: calc(210vh); /* Larger viewport for graph */
+                /* Removed min-height: 210vh to prevent page scroll */
             }
             .forge-main-section:active {
                 cursor: grabbing;
@@ -2728,7 +2816,7 @@ class UI {
             }
 
             /* Horizontal Card Layout for Sidebar */
-            .perk-card-forge {
+            .augment-card-forge {
                 width: 100% !important; 
                 min-height: 90px;
                 height: auto !important;
@@ -2741,13 +2829,13 @@ class UI {
                 transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
             }
             
-            .perk-card-forge:hover {
+            .augment-card-forge:hover {
                 transform: scale(0.95);
                 z-index: 10;
                 box-shadow: 0 4px 12px rgba(0,0,0,0.5);
             }
             
-            .perk-card-forge.perk-selected {
+            .augment-card-forge.augment-selected {
                 border-color: #fff;
                 box-shadow: 0 0 0 2px rgba(255,255,255,0.3), 0 4px 12px rgba(0,0,0,0.5);
                 transform: scale(0.95);
@@ -2760,7 +2848,7 @@ class UI {
             }
             
             /* Ensure opaque backgrounds for cards in tree */
-            .perk-card-tree {
+            .augment-card-tree {
                 background-color: #151515 !important;
                 backdrop-filter: none !important;
             }
@@ -2771,22 +2859,29 @@ class UI {
                 transform: translate(-50%, -50%) scale(1.1) !important;
                 filter: brightness(1.2);
             }
+
+            .dimmed-node {
+                opacity: 1 !important;
+                z-index: 1 !important;
+                filter: grayscale(100%) brightness(0.4);
+                transition: filter 0.2s ease;
+            }
             
             /* Simple Circle Node Hover */
-            .perk-circle-node {
+            .augment-circle-node {
                 transition: box-shadow 0.2s, border-color 0.2s;
             }
-            .perk-circle-node:hover {
+            .augment-circle-node:hover {
                 box-shadow: 0 0 15px rgba(255, 255, 255, 0.4);
                 border-color: #fff !important;
             }
 
             /* Square Node Styling */
-            .perk-square-node {
+            .augment-square-node {
                 transition: box-shadow 0.2s, border-color 0.2s, transform 0.2s;
                 border-radius: 4px; /* Slight rounded corners for squares */
             }
-            .perk-square-node:hover {
+            .augment-square-node:hover {
                 box-shadow: 0 0 15px rgba(255, 255, 255, 0.4);
                 border-color: #fff !important;
                 transform: scale(1.05);
@@ -2798,19 +2893,19 @@ class UI {
                 transition: stroke 0.15s, stroke-width 0.15s, opacity 0.15s;
             }
             .highlight-link {
-                stroke: rgba(255, 255, 255, 1) !important;
-                filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.95));
-                stroke-width: 8px !important;
+                stroke: #9966cc !important; /* Obsidian Purple */
+                filter: drop-shadow(0 0 5px #9966cc);
+                stroke-width: 4px !important;
                 z-index: 5;
             }
             .dimmed-link {
-                opacity: 0.1 !important;
+                opacity: 0 !important;
                 stroke-width: 3px !important;
 
                 stroke: rgba(255, 255, 255, 1) !important;
             }
             
-            .perk-card-forge .perk-card-art {
+            .augment-card-forge .augment-card-art {
                 width: 80px;
                 height: auto !important; /* Allow it to stretch */
                 flex-shrink: 0;
@@ -2822,12 +2917,12 @@ class UI {
                 background: rgba(0,0,0,0.2);
             }
             
-            .perk-card-forge .perk-card-icon {
+            .augment-card-forge .augment-card-icon {
                 font-size: 2.5em !important;
                 transform: none !important;
             }
             
-            .perk-card-forge .perk-card-info {
+            .augment-card-forge .augment-card-info {
                 flex: 1;
                 height: 100%;
                 display: flex;
@@ -2838,7 +2933,7 @@ class UI {
                 min-width: 0; /* Fix flex text overflow */
             }
 
-            .perk-card-forge .perk-card-name {
+            .augment-card-forge .augment-card-name {
                 font-size: 0.9em !important;
                 margin-bottom: 4px;
                 text-align: left !important;
@@ -2849,12 +2944,12 @@ class UI {
                 line-height: 1.2;
             }
 
-            .perk-card-forge .perk-card-footer {
+            .augment-card-forge .augment-card-footer {
                 margin-top: 0 !important;
                 width: 100%;
             }
 
-            .perk-card-forge .perk-rarity-badge {
+            .augment-card-forge .augment-rarity-badge {
                 font-size: 0.6em !important;
                 padding: 2px 6px !important;
                 top: 4px !important;
@@ -2934,7 +3029,7 @@ class UI {
                 align-items: center;
             }
             /* Tree Override for Cards */
-            .perk-card-tree {
+            .augment-card-tree {
                 width: 140px !important;
                 height: 200px !important;
                 flex-direction: column !important;
@@ -3052,31 +3147,31 @@ class UI {
                 box-shadow: 0 0 40px rgba(251, 191, 36, 0.3) !important;
                 margin-bottom: 40px;
             }
-            .target-node-card .perk-card-icon {
+            .target-node-card .augment-card-icon {
                 font-size: 4em !important;
             }
-            .target-node-card .perk-card-name {
+            .target-node-card .augment-card-name {
                 font-size: 1.4em !important;
                 margin-bottom: 10px;
             }
-            .perk-card-tree:hover {
+            .augment-card-tree:hover {
                 transform: scale(1.05);
                 z-index: 10;
             }
-            .perk-card-tree .perk-card-art {
+            .augment-card-tree .augment-card-art {
                 height: 80px !important;
                 border-right: none !important;
                 border-bottom: 1px solid rgba(255,255,255,0.1) !important;
             }
-            .perk-card-tree .perk-card-icon {
+            .augment-card-tree .augment-card-icon {
                 font-size: 2em !important;
             }
-            .perk-card-tree .perk-card-info {
+            .augment-card-tree .augment-card-info {
                 padding: 10px 5px !important;
                 justify-content: flex-start;
                 align-items: center !important;
             }
-            .perk-card-tree .perk-card-name {
+            .augment-card-tree .augment-card-name {
                 font-size: 1.1em !important;
                 text-align: center !important;
                 white-space: normal;
@@ -3085,7 +3180,7 @@ class UI {
                 width: 100%;
                 line-height: 1.2;
             }
-            .perk-card-tree .perk-rarity-badge {
+            .augment-card-tree .augment-rarity-badge {
                 font-size: 0.6em !important;
                 padding: 2px 4px !important;
             }
@@ -3127,15 +3222,15 @@ class UI {
             }
 
             /* Status Styling on Card */
-            .perk-card-tree.status-missing {
+            .augment-card-tree.status-missing {
                 filter: grayscale(0.6);
                 opacity: 0.8;
                 border-color: #ef4444;
             }
-            .perk-card-tree.status-owned {
+            .augment-card-tree.status-owned {
                 /* border-color: #4ade80; */
             }
-            .perk-card-tree.target-node {
+            .augment-card-tree.target-node {
                 transform: scale(1.1);
                 box-shadow: 0 0 20px rgba(251, 191, 36, 0.4);
                 z-index: 5;
@@ -3218,27 +3313,27 @@ class UI {
 
 
     /**
-     * Boss defeated: choose 3 exclusive perks
+     * Boss defeated: choose 3 exclusive augments
      */
     renderBossRewardScreen() {
         this.currentScreen = 'boss_reward';
         const { pendingBossReward } = this.gameState;
         if (!pendingBossReward) return this.renderShopScreen();
-        const { boss, perkOptions } = pendingBossReward;
-        const picked = this.gameState.getBossPerksPickedCount();
-        const need = typeof CONFIG !== 'undefined' ? CONFIG.BOSS_PERK_PICK_COUNT : 3;
+        const { boss, augmentOptions } = pendingBossReward;
+        const picked = this.gameState.getBossAugmentsPickedCount();
+        const need = typeof CONFIG !== 'undefined' ? CONFIG.BOSS_AUGMENT_PICK_COUNT : 3;
 
-        const perksHtml = perkOptions.map(perk => {
-            const owned = !!this.gameState.perksPurchased[perk.id];
-            const selected = owned ? 'boss-perk-selected' : '';
+        const augmentsHtml = augmentOptions.map(augment => {
+            const owned = !!this.gameState.augmentsPurchased[augment.id];
+            const selected = owned ? 'boss-augment-selected' : '';
             return `
-                <div class="perk-card boss-perk-card rarity-${perk.rarity} ${selected}" data-perk-id="${perk.id}" onclick="game.handleBossPerkSelect('${perk.id}')">
-                    ${owned ? '<div class="boss-perk-check">✓</div>' : ''}
-                    <div class="perk-card-header">
-                        <div class="perk-card-name">${perk.name}</div>
-                        <div class="perk-rarity-badge">${perk.rarity.toUpperCase()}</div>
+                <div class="augment-card boss-augment-card rarity-${augment.rarity} ${selected}" data-augment-id="${augment.id}" onclick="game.handleBossAugmentSelect('${augment.id}')">
+                    ${owned ? '<div class="boss-augment-check">✓</div>' : ''}
+                    <div class="augment-card-header">
+                        <div class="augment-card-name">${augment.name}</div>
+                        <div class="augment-rarity-badge">${augment.rarity.toUpperCase()}</div>
                     </div>
-                    <div class="perk-card-description">${perk.description}</div>
+                    <div class="augment-card-description">${augment.description}</div>
                 </div>
             `;
         }).join('');
@@ -3246,10 +3341,10 @@ class UI {
         const html = `
             <div class="screen boss-reward-screen">
                 <div class="boss-reward-title">🏆 ${boss.name} Defeated!</div>
-                <div class="boss-reward-subtitle">Choose ${need} exclusive perks</div>
+                <div class="boss-reward-subtitle">Choose ${need} exclusive augments</div>
                 <div class="boss-reward-picked">Picked: ${picked} / ${need}</div>
-                <div id="boss-reward-grid" class="perk-card-grid boss-perk-grid">
-                    ${perksHtml}
+                <div id="boss-reward-grid" class="augment-card-grid boss-augment-grid">
+                    ${augmentsHtml}
                 </div>
                 <div class="action-buttons">
                     <button class="btn btn-primary" onclick="game.handleConfirmBossReward()">

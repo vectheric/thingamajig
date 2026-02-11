@@ -1,6 +1,6 @@
 /**
- * Name styling for items and perks (stroke, font, color, italic, bold, underline, strikethrough)
- * Used by UI when rendering item names and perk names.
+ * Name styling for items and augments (stroke, font, color, none, bold, underline, strikethrough)
+ * Used by UI when rendering item names and augment names.
  */
 
 const TIER_NAME_STYLES = {
@@ -31,7 +31,7 @@ const TIER_NAME_STYLES = {
     epic: {
         color: '#c4b5fd',
         fontWeight: 'bold',
-        fontStyle: 'italic',
+        fontStyle: 'none',
         textDecoration: 'none',
         textStroke: '1px rgba(0,0,0,0.2)',
         fontFamily: 'inherit',
@@ -39,7 +39,7 @@ const TIER_NAME_STYLES = {
     legendary: {
         color: '#fbbf24',
         fontWeight: 'bold',
-        fontStyle: 'italic',
+        fontStyle: 'none',
         textDecoration: 'none',
         textStroke: '1px rgba(0,0,0,0.4)',
         fontFamily: 'inherit',
@@ -47,7 +47,7 @@ const TIER_NAME_STYLES = {
     mythical: {
         color: '#d946ef',
         fontWeight: 'bold',
-        fontStyle: 'italic',
+        fontStyle: 'none',
         textDecoration: 'none',
         textStroke: '1px rgba(0,0,0,0.4)',
         fontFamily: 'inherit',
@@ -63,7 +63,7 @@ const TIER_NAME_STYLES = {
     master: {
         color: '#c084fc',
         fontWeight: 'bold',
-        fontStyle: 'italic',
+        fontStyle: 'none',
         textDecoration: 'none',
         textStroke: '1px rgba(0,0,0,0.3)',
         fontFamily: 'inherit',
@@ -71,7 +71,7 @@ const TIER_NAME_STYLES = {
     surreal: {
         color: '#2dd4bf',
         fontWeight: 'bold',
-        fontStyle: 'italic',
+        fontStyle: 'none',
         textDecoration: 'none',
         textStroke: '1px rgba(0,0,0,0.3)',
         fontFamily: 'inherit',
@@ -79,7 +79,7 @@ const TIER_NAME_STYLES = {
     mythic: {
         color: '#f472b6',
         fontWeight: 'bold',
-        fontStyle: 'italic',
+        fontStyle: 'none',
         textDecoration: 'none',
         textStroke: '1px rgba(0,0,0,0.4)',
         fontFamily: 'inherit',
@@ -87,7 +87,7 @@ const TIER_NAME_STYLES = {
     exotic: {
         color: '#facc15',
         fontWeight: 'bold',
-        fontStyle: 'italic',
+        fontStyle: 'none',
         textDecoration: 'none',
         textStroke: '1px rgba(0,0,0,0.4)',
         fontFamily: 'inherit',
@@ -95,7 +95,7 @@ const TIER_NAME_STYLES = {
     exquisite: {
         color: '#4ade80',
         fontWeight: 'bold',
-        fontStyle: 'italic',
+        fontStyle: 'none',
         textDecoration: 'none',
         textStroke: '1px rgba(0,0,0,0.4)',
         fontFamily: 'inherit',
@@ -103,7 +103,7 @@ const TIER_NAME_STYLES = {
     transcendent: {
         color: '#60a5fa',
         fontWeight: 'bold',
-        fontStyle: 'italic',
+        fontStyle: 'none',
         textDecoration: 'none',
         textStroke: '1px rgba(0,0,0,0.5)',
         fontFamily: 'inherit',
@@ -111,7 +111,7 @@ const TIER_NAME_STYLES = {
     enigmatic: {
         color: '#a3e635',
         fontWeight: 'bold',
-        fontStyle: 'italic',
+        fontStyle: 'none',
         textDecoration: 'none',
         textStroke: '1px rgba(0,0,0,0.5)',
         fontFamily: 'inherit',
@@ -119,7 +119,7 @@ const TIER_NAME_STYLES = {
     unfathomable: {
         color: '#818cf8',
         fontWeight: 'bold',
-        fontStyle: 'italic',
+        fontStyle: 'none',
         textDecoration: 'none',
         textStroke: '1px rgba(0,0,0,0.5)',
         fontFamily: 'inherit',
@@ -127,7 +127,7 @@ const TIER_NAME_STYLES = {
     otherworldly: {
         color: '#f472b6',
         fontWeight: 'bold',
-        fontStyle: 'italic',
+        fontStyle: 'none',
         textDecoration: 'none',
         textStroke: '1px rgba(0,0,0,0.5)',
         fontFamily: 'inherit',
@@ -135,7 +135,7 @@ const TIER_NAME_STYLES = {
     imaginary: {
         color: '#fef08a',
         fontWeight: 'bold',
-        fontStyle: 'italic',
+        fontStyle: 'none',
         textDecoration: 'none',
         textStroke: '1px rgba(0,0,0,0.5)',
         fontFamily: 'inherit',
@@ -143,15 +143,15 @@ const TIER_NAME_STYLES = {
     zenith: {
         color: '#ffffff',
         fontWeight: 'bold',
-        fontStyle: 'italic',
+        fontStyle: 'none',
         textDecoration: 'none',
         textStroke: '1px rgba(0,0,0,0.6)',
         fontFamily: 'inherit',
     },
 };
 
-/** Perk name styles by rarity (same structure) */
-const PERK_NAME_STYLES = {
+/** AUGMENT name styles by rarity (same structure) */
+const AUGMENT_NAME_STYLES = {
     common: { ...TIER_NAME_STYLES.common },
     uncommon: { ...TIER_NAME_STYLES.uncommon },
     rare: { ...TIER_NAME_STYLES.rare },
@@ -205,18 +205,18 @@ function getItemNameStyle(item) {
 }
 
 /**
- * Get name style for a perk (by rarity)
- * @param {Object} perk - { rarity, nameStyle? }
+ * Get name style for a augment (by rarity)
+ * @param {Object} augment - { rarity, nameStyle? }
  * @returns {Object} style object
  */
-function getPerkNameStyle(perk) {
-    const rarity = (perk && (perk.rarity || perk.tier)) || 'common';
-    const base = PERK_NAME_STYLES[rarity] || PERK_NAME_STYLES.common;
-    return perk && perk.nameStyle ? { ...base, ...perk.nameStyle } : base;
+function getAUGMENTNameStyle(augment) {
+    const rarity = (augment && (augment.rarity || augment.tier)) || 'common';
+    const base = AUGMENT_NAME_STYLES[rarity] || AUGMENT_NAME_STYLES.common;
+    return augment && augment.nameStyle ? { ...base, ...augment.nameStyle } : base;
 }
 
 /**
- * Wrap name HTML with inline style (for items/perks)
+ * Wrap name HTML with inline style (for items/augments)
  * @param {string} name - display name
  * @param {Object} style - style object
  * @param {string} tag - tag name, default 'span'

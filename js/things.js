@@ -39,101 +39,138 @@ const ITEM_TIER = {
 const ITEMS = {
     stone: {
         name: 'Stone',
-        baseValue: 5,
-        rarityMultiplier: 1.0,
+        value: 5,
         tier: ITEM_TIER.COMMON,
         rarity: 5,
-        color: '#9ca3af'
+        color: '#9ca3af',
+        description: 'Just a rock.',
+        properties: []
     },
     copper_rod: {
         name: 'Copper Rod',
-        baseValue: 8,
-        rarityMultiplier: 1.1,
+        value: 8,
         tier: ITEM_TIER.SIGNIFICANT,      
         rarity: 10,
-        color: '#f97316'
+        color: '#f97316',
+        description: 'Conductive and shiny.',
+        properties: [],
+        tags: ['light']
     },
-    silver_ore: {
-        name: 'Silver Ore',
-        baseValue: 10,
-        rarityMultiplier: 1.2,
+    silverfish: {
+        name: 'Silverfish',
+        value: 10,
         tier: ITEM_TIER.SIGNIFICANT,
         rarity: 28,
-        color: '#e5e7eb'
+        color: '#e5e7eb',
+        description: 'Pure silver.',
+        properties: [],
+        tags: ['light']
     },
     gold_nugget: {
         name: 'Gold Nugget',
-        baseValue: 15,
-        rarityMultiplier: 1.4,
+        value: 15,
         tier: ITEM_TIER.RARE,
         rarity: 56,
-        color: '#fbbf24'
+        color: '#fbbf24',
+        description: 'Valuable gold.',
+        properties: [],
+        tags: ['light']
     },
     diamond: {
         name: 'Diamond',
-        baseValue: 25,
-        rarityMultiplier: 1.6,
+        value: 25,
         tier: ITEM_TIER.MASTER,
         rarity: 34,
-        color: '#a5f3fc'
+        color: '#a5f3fc',
+        description: 'Forever.',
+        properties: [],
+        tags: ['light']
     },
     amethyst_geode: {
         name: 'Amethyst Geode',
-        baseValue: 15,
-        rarityMultiplier: 1.5,
+        value: 15,
         tier: ITEM_TIER.RARE,
         rarity: 45,
-        color: '#c200e9ff'
+        color: '#c200e9ff',
+        description: 'Purple crystal.',
+        properties: [],
+        tags: ['dark']
     },
     ancient_relic: {
         name: 'Ancient Relic',
-        baseValue: 25,
-        rarityMultiplier: 2.0,
+        value: 25,
         tier: ITEM_TIER.SURREAL,
         rarity: 83,
-        color: '#a78bfa'
+        color: '#a78bfa',
+        description: 'From a lost civilization.',
+        properties: [],
+        tags: ['dark']
     },
-    blessed_artifact: {
-        name: 'Blessed Artifact',
-        baseValue: 30,
-        rarityMultiplier: 2.2,
+    lost_key: {
+        name: 'Lost key',
+        value: 30,
         tier: ITEM_TIER.SURREAL,
         rarity: 92,
-        color: '#f59e0b'
+        color: '#f59e0b',
+        description: 'Holy power.',
+        properties: [],
+        tags: ['light']
     },
-    void_essence: {
-        name: 'Void Essence',
-        baseValue: 40,
-        rarityMultiplier: 1.8,
+    encregel: {
+        name: 'Encregel',
+        value: 40,
         tier: ITEM_TIER.MYTHIC,
         rarity: 1001,
-        color: '#8b5cf6'
+        color: '#8b5cf6',
+        description: 'Inky gel.',
+        properties: [],
+        tags: ['dark']
     },
     exodal: {
         name: 'Exodal',
-        baseValue: 80,
-        rarityMultiplier: 1.8,
+        value: 80,
         tier: ITEM_TIER.EXOTIC,
         rarity: 5001,
-        color: '#5eff01ff'
+        color: '#5eff01ff',
+        description: 'Forbidden.',
+        properties: []
     },
-    toilet: {
-        name: '🚽',
-        baseValue: 80,
-        rarityMultiplier: 1.8,
+    flying_pig: {
+        name: 'Flying Pig',
+        value: 80,
         tier: ITEM_TIER.EXOTIC,
         rarity: 5001,
-        color: '#5eff01ff'
+        color: '#eb4dfaff)',
+        description: 'Impossible.',
+        properties: []
+    },
+    ice_cream: {
+        name: 'Ice cream',
+        value: 80,
+        tier: ITEM_TIER.TRANSCENDENT,
+        rarity: 5001,
+        color: '#8df0ebff)',
+        description: 'Impossible.',
+        properties: []
     },
     mammoth: {
         name: 'Mammoth',
-        baseValue: 80,
-        rarityMultiplier: 1.8,
+        value: 80,
         tier: ITEM_TIER.ENIGMATIC,
         rarity: 10000,
-        color: '#5eff01ff'
+        color: '#5eff01ff',
+        description: 'Extinct.',
+        properties: []
     },
-
+    death_note: {
+        name: 'Death Note',
+        value: 80,
+        tier: ITEM_TIER.UNFATHOMABLE,
+        rarity: 1000001,
+        color: '#000000ff)',
+        description: 'Die.',
+        properties: []
+    },
 };
 
 // Add ID property to each item to match key
@@ -143,18 +180,83 @@ Object.keys(ITEMS).forEach(key => {
 
 
 /**
+ * Calculate effective rarity based on context (biome, time, events)
+ * @param {Object} item - Item template
+ * @param {Object} context - { biome, time, events }
+ * @returns {number} Effective rarity
+ */
+function getEffectiveRarity(item, context = {}) {
+    let baseRarity = item.rarity || 10;
+    
+    if (!item.properties || item.properties.length === 0) {
+        return baseRarity;
+    }
+
+    const { biome, time, events } = context;
+    const matchingRarities = [];
+
+    // Helper to check time
+    const isTimeMatch = (timeCondition, minutes) => {
+        if (!timeCondition) return true;
+        if (timeCondition === 'night') {
+            // 7PM (19:00 = 1140) to 5AM (05:00 = 300)
+            return minutes >= 1140 || minutes < 300;
+        }
+        if (timeCondition === 'day') {
+            // 5AM to 7PM
+            return minutes >= 300 && minutes < 1140;
+        }
+        return true;
+    };
+
+    for (const prop of item.properties) {
+        let match = true;
+
+        // Check Biome
+        if (prop.biome && prop.biome !== biome) {
+            match = false;
+        }
+
+        // Check Time
+        if (match && prop.time && typeof time === 'number') {
+            if (!isTimeMatch(prop.time, time)) {
+                match = false;
+            }
+        }
+
+        // Check Event
+        if (match && prop.event) {
+            if (!events || !events.includes(prop.event)) {
+                match = false;
+            }
+        }
+
+        if (match && prop.rarity !== undefined && prop.rarity !== null) {
+            matchingRarities.push(prop.rarity);
+        }
+    }
+
+    if (matchingRarities.length > 0) {
+        // Prioritize the most common one (lowest rarity value)
+        return Math.min(...matchingRarities);
+    }
+
+    return baseRarity;
+}
+
+/**
  * Roll a random thing
  * Uses round-based rarity scaling to make early game easier and more rewarding
  * @param {number} round - current round (optional, defaults to 1)
  * @returns {Object} { name, value, rarity }
  */
-function rollThing(round = 1, rng = Math.random, rarityWeightsOverride, worldEffects = null) {
+function rollThing(round = 1, rng = Math.random, rarityWeightsOverride, worldEffects = null, context = {}) {
     // Handle guaranteed item from World Effects
     if (worldEffects && worldEffects.item && worldEffects.item.guaranteed) {
         const guaranteedId = worldEffects.item.guaranteed;
         const template = ITEMS[guaranteedId];
         if (template) {
-             const baseValue = template.baseValue;
+             const baseValue = template.value || template.baseValue;
              const finalValue = Math.round(baseValue);
              return {
                 id: guaranteedId,
@@ -167,31 +269,46 @@ function rollThing(round = 1, rng = Math.random, rarityWeightsOverride, worldEff
         }
     }
 
-    const selection = selectByWeight(getRoundBasedTemplateWeights(round, rarityWeightsOverride, worldEffects), rng);
+    const selection = selectByWeight(getRoundBasedTemplateWeights(round, rarityWeightsOverride, worldEffects, context), rng);
     const template = selection.template;
     const tier = template.tier;
 
-    const baseValue = template.baseValue;
-    const finalValue = Math.round(baseValue);
+    const baseValue = template.value || template.baseValue;
+    let finalValue = Math.round(baseValue);
+
+    // Apply World Effects (Item Value Modifiers)
+    if (worldEffects && worldEffects.itemValue && worldEffects.itemValue.tags) {
+        if (template.tags) {
+            for (const tag of template.tags) {
+                if (worldEffects.itemValue.tags[tag]) {
+                    const mod = worldEffects.itemValue.tags[tag];
+                    if (mod.type === 'multi') {
+                        finalValue = Math.round(finalValue * mod.value);
+                    } else if (mod.type === 'add') {
+                        finalValue += mod.value;
+                    }
+                }
+            }
+        }
+    }
 
     return {
         id: selection.id,
         name: template.name,
         value: finalValue,
         tier: tier,
-        rarity: template.rarity || 1, // Store numeric rarity from template
+        rarity: getEffectiveRarity(template, context), // Return effective rarity
         nameStyle: template.color ? { color: template.color } : undefined
     };
 }
 
-function getRoundBasedTemplateWeights(round, tierRarityOverride, worldEffects = null) {
+function getRoundBasedTemplateWeights(round, tierRarityOverride, worldEffects = null, context = {}) {
     const tierRarity = tierRarityOverride || getRoundBasedRarityWeights(round);
     const weights = [];
 
     for (const template of Object.values(ITEMS)) {
-        // Use template.rarity as the primary rarity score
-        // Default to 10 if missing, but all defined items should have it
-        let itemRarity = template.rarity || 10;
+        // Use effective rarity based on context
+        let itemRarity = getEffectiveRarity(template, context);
         
         // Apply World Effects (Specific Item Rarity)
         if (worldEffects && worldEffects.item && worldEffects.item.specific[template.id]) {

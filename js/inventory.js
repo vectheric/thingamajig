@@ -31,7 +31,6 @@ class Inventory {
             attribute: thing.attribute,
             mods: thing.mods,
             baseValue: thing.baseValue,
-            priceMultiplier: thing.priceMultiplier
         }));
 
         const totalValue = this.gameState.getInventoryValue();
