@@ -15,7 +15,7 @@ class CurrencySystem {
     reset() {
         // PERSISTENT currency - carries between rounds
         this.cash = 4;
-        this.bonusInterestStacks = 0; // Stacks from consumables/bonuses
+
         
         // ROUND-LOCAL currency - resets each round
         this.chips = 0;
@@ -89,16 +89,10 @@ class CurrencySystem {
      */
     getInterestStacks(maxStacks = 5) {
         const cashInterest = Math.floor(this.cash / 5);
-        return Math.min(cashInterest, maxStacks) + this.bonusInterestStacks;
+        return Math.min(cashInterest, maxStacks);
     }
 
-    /**
-     * Add bonus interest stacks (from consumables etc)
-     * @param {number} amount 
-     */
-    addBonusInterestStack(amount) {
-        this.bonusInterestStacks += amount;
-    }
+
 
     /**
      * Calculate and apply round completion rewards

@@ -7,7 +7,6 @@ class Shop {
     constructor(gameState) {
         this.gameState = gameState;
         this.currentShopPerks = [];
-        this.currentShopConsumables = [];
     }
 
     /**
@@ -35,13 +34,7 @@ class Shop {
             luck,
             this.gameState
         );
-        // Generate 3 random consumables for the shop (can have duplicates)
-        this.currentShopConsumables = getRandomShopConsumables(
-            3,
-            rng,
-            luck,
-            this.gameState
-        );
+
         return this.currentShopPerks;
     }
 
@@ -53,6 +46,10 @@ class Shop {
         if (this.currentShopPerks.length === 0) {
             this.generateShopPerks();
         }
+
+        const worldEffects = (this.gameState.worldSystem && this.gameState.worldSystem.getEffectiveWorldEffects) 
+            ? this.gameState.worldSystem.getEffectiveWorldEffects() 
+            : null;
 
         return this.currentShopPerks.map(perk => {
             const ownedCount = this.gameState.perksPurchased[perk.id] || 0;
@@ -75,11 +72,23 @@ class Shop {
                 }
             }
 
+            // Apply Price Effects
+            let finalCost = perk.cost;
+            if (worldEffects && worldEffects.perkPrice) {
+                worldEffects.perkPrice.forEach(effect => {
+                    if (effect.type === 'set') finalCost = effect.value;
+                    else if (effect.type === 'add') finalCost += effect.value;
+                    else if (effect.type === 'multi') finalCost *= effect.value;
+                    else if (effect.type === 'div' && effect.value !== 0) finalCost /= effect.value;
+                });
+                finalCost = Math.max(0, Math.round(finalCost));
+            }
+
             return {
                 id: perk.id,
                 name: perk.name,
                 description: perk.description,
-                cost: perk.cost,
+                cost: finalCost,
                 rarity: perk.rarity || perk.tier, // Fallback to tier if rarity is missing
                 type: perk.type,
                 icon: perk.icon,
@@ -94,45 +103,7 @@ class Shop {
         });
     }
 
-    /**
-     * Get current shop consumables
-     */
-    getShopConsumables() {
-        if (this.currentShopConsumables.length === 0) {
-            this.generateShopPerks();
-        }
-        return this.currentShopConsumables;
-    }
 
-    /**
-     * Purchase a consumable from the shop
-     */
-    purchaseConsumable(index) {
-        const consumables = this.getShopConsumables();
-        if (index < 0 || index >= consumables.length) {
-            return { success: false, message: 'Invalid consumable' };
-        }
-        
-        const consumable = consumables[index];
-        if (this.gameState.cash < consumable.cost) {
-            return { success: false, message: `Not enough cash... Need ${consumable.cost}$` };
-        }
-        
-        // Try to add to inventory
-        const result = this.gameState.addConsumable(consumable);
-        if (!result.success) {
-            return result;
-        }
-        
-        // Spend cash
-        this.gameState.currency.spendCash(consumable.cost);
-        
-        // Remove from shop
-        this.currentShopConsumables.splice(index, 1);
-        
-        const color = consumable.nameStyle?.color || consumable.color || '#fff';
-        return { success: true, message: `Purchased <span style="color:${color}">[${consumable.name}]</span>` };
-    }
 
     /**
      * Try to purchase a perk

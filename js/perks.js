@@ -69,13 +69,37 @@ const PERKS = {
             luck: { type: 'add', value: 1 }
         }
     },
+    'explorers_compass': {
+        name: 'Explorer\'s Compass',
+        description: 'Guides you to interesting places. +20% Event Rate, +10 Luck.',
+        cost: 150,
+        tier: 'rare',
+        icon: '🧭',
+        properties: {
+            stack: 1
+        },
+        stats: {
+            luck: { type: 'add', value: 10 }
+        }
+    },
+    'vip_card': {
+        name: 'VIP Card',
+        description: 'Shop rerolls start at 0$ instead of 5$.',
+        cost: 100,
+        tier: 'epic',
+        icon: '💳',
+        properties: {
+            stack: 1
+        },
+        stats: {}
+    },
     
     // FORGEABLE PERKS
     '57_leaf_clover': {
         name: '57 Leaf Clover',
         description: 'The ultimate symbol of luck. Massive boost to all stats. Can only be forged.',
         cost: 0,
-        tier: 'legendary',
+        tier: 'epic',
         icon: '💠',
         nameStyle: { color: '#06f71aff', textStroke: '1px rgba(0,0,0,0.5)' },
         properties: {
@@ -92,13 +116,34 @@ const PERKS = {
             chipsEndRound: { type: 'add', value: 57 }
         }
     },
+     '64_leaf_clover': {
+        name: '64 le4f Cl0ver',
+        description: 'final? 56 + 63 = 119 btw. Can only be forged.',
+        cost: 0,
+        tier: 'godlike',
+        icon: '💠',
+        nameStyle: { color: '#f70606ff', textStroke: '1px rgba(9, 255, 0, 1)' },
+        properties: {
+            stack: 1
+        },
+        conditions: [
+            { type: 'forging',  cash: 119, recipe: ['car','formula_1','m4Lw4r3_zer01','57_leaf_clover','lucky_clover', 'nazar', 'chip_eater', 'thunder_strike', 'speed_runner','VIRUS','forbidden_one', 'placebo', 'placebo_p', 'placebo_pp','midas_touch', 'left_arm','right_arm','left_leg','right_leg'] }
+        ],
+        stats: {
+            luck: { type: 'add', value: 9223 },
+            rolls: { type: 'add', value: 32 },
+            multiValue: { type: 'multi', value: 2147 },
+            multiChip: { type: 'add', value: 6 },
+            chipsEndRound: { type: 'add', value: 57 }
+        }
+    },
     'lucky_clover': {
         name: 'Lucky Clover',
-        description: '+15% item rarity boost. Can only be forged.',
+        description: '+2 luck. Can only be forged.',
         cost: 0,
-        tier: 'rare',
+        tier: 'uncommon',
         icon: '🍀',
-        nameStyle: { color: '#3b82f6', textStroke: '1px rgba(0,0,0,0.5)' },
+        nameStyle: { color: '#00ff40ff', textStroke: '1px rgba(0,0,0,0.5)' },
         properties: {
             stack: 1
         },
@@ -106,14 +151,31 @@ const PERKS = {
             { type: 'forging', recipe: ['nazar'], cash: 20 }
         ],
         stats: {
-            luck: { type: 'add', value: 3 }
+            luck: { type: 'add', value: 2 }
+        }
+    },
+    'potato_chips': {
+        name: 'Potato chips',
+        description: '"I will take a potato chip... AND EAT IT!". +3 rolls. Can only be forged.',
+        cost: 0,
+        tier: 'rare',
+        icon: '🍟🥔',
+        nameStyle: { color: '#ff9900ff', textStroke: '1px rgba(0,0,0,0.5)' },
+        properties: {
+            stack: 1
+        },
+        conditions: [
+            { type: 'forging', recipe: ['chippy', 'potato'], cash: 20 }
+        ],
+        stats: {
+            luck: { type: 'add', value: 2 }
         }
     },
     'car': {
         name: 'Car',
         description: 'weeeeeeeeeeeee, +4 rolls, Can only be forged.',
         cost: 0,
-        tier: 'uncommon',
+        tier: 'rare',
         icon: '🚗',
         nameStyle: { color: '#ff0000ff', textStroke: '1px rgba(0,0,0,0.5)' },
         properties: {
@@ -126,6 +188,55 @@ const PERKS = {
             rolls: { type: 'add', value: 4 }
         }
     },
+    'placebo': {
+        name: 'Placebo',
+        description: 'Self-explanatory. Add +0.01 luck.',
+        cost: 10,
+        tier: 'common',
+        icon: 'p',
+        nameStyle: { color: '#8d1515ff', textStroke: '1px rgba(0,0,0,0.5)' },
+        properties: {
+            stack: 1
+        },
+        stats: {
+            luck: { type: 'add', value: 0.01 }
+        }
+    },
+    'placebo_p': {
+        name: 'Placebo+',
+        description: 'better. Add +0.1 luck.',
+        cost: 10,
+        tier: 'common',
+        icon: 'p+',
+        nameStyle: { color: '#cc2121ff', textStroke: '1px rgba(0,0,0,0.5)' },
+        conditions: [
+            { type: 'forging', recipe: ['placebo'], cash: 20 }
+        ],
+        properties: {
+            stack: 1
+        },
+        stats: {
+            luck: { type: 'add', value: 0.1 }
+        }
+    },
+    'placebo_pp': {
+        name: 'Placebo++',
+        description: 'Even more etter. Add +1 luck.',
+        cost: 10,
+        tier: 'uncommon',
+        icon: 'p++',
+        nameStyle: { color: '#cc2121ff', textStroke: '1px rgba(0,0,0,0.5)' },
+        conditions: [
+            { type: 'forging', recipe: ['placebo', 'placebo_p'], cash: 20 }
+        ],
+        properties: {
+            stack: 1
+        },
+        stats: {
+            luck: { type: 'add', value: 0.1 }
+        }
+    },
+
     'formula_1': {
         name: 'Formula 1',
         description: 'Fast and Furious, +40 rolls, -100 lucks. Can only be forged.',
@@ -147,7 +258,7 @@ const PERKS = {
     'midas_touch': {
         name: 'Midas Touch',
         description: 'Turn items gold on touch, +10% Item values. Requires finding a Gold nugget',
-        cost: 25,
+        cost: 33,
         tier: 'legendary',
         icon: '🖐️',
         special: {
@@ -180,7 +291,7 @@ const PERKS = {
         tier: 'common',
         icon: '🍟',
         properties: {
-            stack: 50
+            stack: 1
         },
         conditions: [
             {
@@ -294,7 +405,7 @@ const PERKS = {
         tier: 'uncommon',
         icon: '🔮',
         properties: {
-            stack: 50
+            stack: 5
         },
         stats: {
             rolls: { type: 'add', value: 2 },
@@ -447,6 +558,19 @@ const PERKS = {
         }
     },
 
+    'ancient_tablet': {
+        name: 'Ancient Tablet',
+        description: 'An ancient tablet containing the secret of time skipping. Allows you to spam Spacebar to skip rolling animation.',
+        cost: 25,
+        tier: 'epic',
+        icon: '📜',
+        properties: {
+            stack: 1,
+            round: { min: 5 }
+        },
+        stats: {}
+    },
+
     // EPIC PERKS (140-200$ - late game investments)
     'jackpot': {
         name: 'Jackpot',
@@ -522,7 +646,7 @@ const PERKS = {
     },
 
     // SPECIAL PERKS
-    'M4LW4R3_ZER01': {
+    'm4Lw4r3_zer01': {
         name: "m4Lw4r3_zer01",
         description: "A virus generator. Enables VIRUS upgrades. ",
         cost: 101,
@@ -607,18 +731,18 @@ const PERKS = {
             modification_chance: { type: 'add', value: 0.5 }
         }
     },
-    'enchanted_table': {
-        name: 'Enchanted Table',
+    'enchanting_table': {
+        name: 'Enchanting Table',
         description: 'Using a mysterious power to enchant loots.',
         cost: 222,
-        tier: 'Mythical',
+        tier: 'mythical',
         icon: '✨',
         properties: {
             stack: 50
         },
         stats: {
             modify: {
-                'enchanted': { type: 'set', value: 1 }
+                'enchanted': { guaranteed: true }
             }
         }
     },
@@ -899,7 +1023,14 @@ function getRandomShopPerks(round, count = 4, owned = {}, rng = Math.random, luc
         const maxStack = (perk.properties && perk.properties.stack !== undefined && perk.properties.stack !== null) ? perk.properties.stack : 1;
         if (currentStack >= maxStack) return false;
 
-        // 4. Check subperk property (implicit logic: subperks only appear if requirements met, which we checked above)
+        // 4. Check round constraint
+        if (perk.properties && perk.properties.round) {
+            const r = perk.properties.round;
+            if (r.min !== undefined && round < r.min) return false;
+            if (r.max !== undefined && round > r.max) return false;
+        }
+
+        // 5. Check subperk property (implicit logic: subperks only appear if requirements met, which we checked above)
         // But if it's a subperk WITHOUT requirements (weird), maybe hide it?
         // Usually subperks have 'subperk: true' in properties.
         if (perk.properties && perk.properties.subperk && !perk.conditions) {
@@ -978,19 +1109,4 @@ function getRandomShopPerks(round, count = 4, owned = {}, rng = Math.random, luc
     return selected;
 }
 
-/**
- * Get random consumables for shop
- */
-function getRandomShopConsumables(count = 3, rng = Math.random, luck = 0, gameState = null) {
-    // Placeholder, needs actual consumables list if available, or just empty
-    if (typeof CONSUMABLES !== 'undefined') {
-        const list = Object.values(CONSUMABLES);
-        const selected = [];
-        for(let i=0; i<count; i++) {
-            const item = list[Math.floor(rng() * list.length)];
-            selected.push(item);
-        }
-        return selected;
-    }
-    return [];
-}
+

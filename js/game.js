@@ -13,6 +13,8 @@
 class Game {
     constructor(seed) {
         this.gameState = new GameState(seed);
+        this.timeSystem = new TimeSystem(this.gameState);
+        this.worldSystem = new WorldSystem(this.gameState);
         this.inventory = new Inventory(this.gameState);
         this.shop = new Shop(this.gameState);
         this.ui = new UI(this.gameState, this.shop, this.inventory);
@@ -21,7 +23,6 @@ class Game {
         this._animationInProgress = false;
         this.selectedShopPerkId = null;
         this.shopRerollCost = 5; // Starting reroll cost
-        this.selectedConsumableIndex = -1; // -1 means none selected
     }
 
     /**
@@ -94,8 +95,25 @@ class Game {
      * Initialize the game and show start screen
      */
     init() {
+        this.worldSystem.init(); // Initialize world PRNG
         this.particles = new BackgroundParticles();
         this.ui.renderStartScreen();
+        
+        // Start Time Loop
+        this._lastTime = Date.now();
+        this._timeLoop = setInterval(() => {
+            if (this.gameRunning) {
+                const now = Date.now();
+                const delta = (now - this._lastTime) / 1000;
+                this._lastTime = now;
+                
+                this.timeSystem.update(delta);
+                this.worldSystem.tickEvents();
+                this.ui.updateTimeDisplay(); // We need to add this method to UI
+            } else {
+                this._lastTime = Date.now(); // Keep updating last time so we don't jump when unpaused
+            }
+        }, 1000); // Check every second (which is 1 game minute)
     }
 
     /**
@@ -186,24 +204,90 @@ class Game {
      * Start a new round
      */
     handleStartRound() {
-        const targetRound = this.gameState.pendingNextRound;
-        if (targetRound != null) {
-            const entryCost = this.gameState.getRoundEntryCost();
-            if (this.gameState.chips < entryCost) {
-                this.ui.showMessage('Game Over: Insufficient Chips!', 'error');
-                this.ui.renderBreakdownScreen({
-                    type: 'game_over',
-                    reason: `You didn't earn enough Ȼ!<br>` +
-                            `Needed ${entryCost}Ȼ for round ${targetRound}<br>`
-                });
-                return;
+        try {
+            const targetRound = this.gameState.pendingNextRound;
+            if (targetRound != null) {
+                const entryCost = this.gameState.getRoundEntryCost();
+                if (this.gameState.chips < entryCost) {
+                    this.ui.showMessage('Game Over: Insufficient Chips!', 'error');
+                    this.ui.renderBreakdownScreen({
+                        type: 'game_over',
+                        reason: `You didn't earn enough Ȼ!<br>` +
+                                `Needed ${entryCost}Ȼ for round ${targetRound}<br>`
+                    });
+                    return;
+                }
+                this.gameState.round = targetRound;
+                this.gameState.pendingNextRound = null;
             }
-            this.gameState.round = targetRound;
-            this.gameState.pendingNextRound = null;
+            this.gameState.startRound();
+            
+            // Only generate new biome at start of a Route (every 5 rounds)
+            // Round 1, 6, 11, etc.
+            if ((this.gameState.round - 1) % 5 === 0) {
+                this.worldSystem.generateBiome(); 
+            }
+            
+            this.gameState.resetLootPage(); // Reset loot pagination when starting new round
+            this.ui.renderGameScreen();
+
+            // Check if goal is already met (e.g. via perks or carry-over)
+            if (this.gameState.hasReachedRoundGoal()) {
+                this.triggerRoundCompletion();
+            }
+        } catch (error) {
+            console.error('Error in handleStartRound:', error);
+            if (this.ui) this.ui.showMessage('Error starting round: ' + error.message, 'error');
         }
-        this.gameState.startRound();
-        this.gameState.resetLootPage(); // Reset loot pagination when starting new round
-        this.ui.renderGameScreen();
+    }
+
+    /**
+     * Trigger round completion sequence with countdown
+     */
+    triggerRoundCompletion() {
+        // Prevent multiple countdowns
+        if (document.getElementById('goal-countdown-notification')) return;
+
+        const rollBtn = document.querySelector('.roll-button');
+        if (rollBtn) rollBtn.disabled = true;
+
+        // Create countdown notification
+        let secondsLeft = 2;
+        
+        // Use existing notification container
+        let container = document.getElementById('notification-container');
+        if (!container) {
+            container = document.createElement('div');
+            container.id = 'notification-container';
+            container.setAttribute('aria-live', 'polite');
+            document.body.appendChild(container);
+        }
+        
+        const notif = document.createElement('div');
+        notif.id = 'goal-countdown-notification';
+        notif.className = 'notification notification-success';
+        
+        container.appendChild(notif);
+
+        const updateMessage = () => {
+            const textSpan = notif.querySelector('.goal-text');
+            if (textSpan) {
+                textSpan.textContent = `Finished the goal return to the reward screen in ${secondsLeft}s`;
+            }
+        };
+        
+        notif.innerHTML = `<span class="goal-text">Finished the goal return to the reward screen in ${secondsLeft}s</span><div class="notification-progress" style="animation-duration: 2000ms"></div>`;
+
+        const intervalId = setInterval(() => {
+            secondsLeft--;
+            if (secondsLeft <= 0) {
+                clearInterval(intervalId);
+                if (notif && notif.parentNode) notif.remove();
+                if (this.gameRunning) this.handleEndRound();
+            } else {
+                updateMessage();
+            }
+        }, 1000);
     }
 
     /**
@@ -307,122 +391,78 @@ class Game {
                 return;
             }
 
-            // Track stats
-            this.gameState.addStat('totalItemsRolled', 1);
+            let goalReached = false;
+            try {
+                this.gameState.addStat('totalItemsRolled', 1);
+                const streak = this.gameState.updateRareStreak(thing.tier);
+                const streakMessage = this.gameState.getRareStreakMessage();
+                if (thing.tier === 'epic' || thing.tier === 'legendary') {
+                    this.celebrateRareItem(thing);
+                }
+                if (streakMessage) this.ui.showMessage(streakMessage, 'epic');
+                const allMods = typeof getAllModifications === 'function' ? getAllModifications(thing) : [];
+                const modBadges = allMods.length > 0
+                    ? allMods.map(m => typeof getModBadgeHtml === 'function' ? getModBadgeHtml(m) : `<span class="mod-badge" title="${m.description || ''}">${m.name}</span>`).join('')
+                    : '';
+                const nameStyle = typeof getItemNameStyle === 'function' ? getItemNameStyle(thing) : {};
+                const nameCss = typeof nameStyleToCss === 'function' ? nameStyleToCss(nameStyle) : '';
+                let safeName;
+                if (typeof getModifiedItemNameHtml === 'function') {
+                    safeName = getModifiedItemNameHtml(thing);
+                } else {
+                    const displayName = typeof getModifiedItemName === 'function' ? getModifiedItemName(thing) : thing.name;
+                    safeName = typeof escapeHtml === 'function' ? escapeHtml(displayName) : displayName;
+                }
+                const nameHtml = `<span class="rolled-thing-name"${nameCss}>${safeName}</span>`;
+                const wrapClass = thing.tier === 'legendary' ? 'rolled-thing-name-wrap legendary-particle-wrap' : 'rolled-thing-name-wrap';
+                if (lastRolledDiv) {
+                    lastRolledDiv.innerHTML = `
+                        <div class="rolled-thing rolled-thing-holder rarity-${thing.tier} ${thing.tier === 'epic' || thing.tier === 'legendary' ? 'rare-celebration' : ''}">
+                            <div class="${wrapClass}">${nameHtml}</div>
+                            <div class="rolled-thing-rarity">${(thing.tier || 'common').toString().toUpperCase()} </div>
+                            ${modBadges ? `<div class="rolled-thing-mods">${modBadges}</div>` : ''}
+                            <div class="rolled-thing-value"><span style="color: #60a5fa">${thing.value}Ȼ</span></div>
+                            <div class="rolled-thing-rarity"><span style="color: #fafafaff; font-size: 12px;">1/${thing.rarityScore || '?'} </div>
 
-            const streak = this.gameState.updateRareStreak(thing.tier);
-            const streakMessage = this.gameState.getRareStreakMessage();
-            if (thing.tier === 'epic' || thing.tier === 'legendary') {
-                this.celebrateRareItem(thing);
+                        </div>
+                    `;
+                }
+                const rollsDiv = document.querySelector('.rolls-remaining');
+                if (rollsDiv) rollsDiv.textContent = `Rolls: ${this.gameState.getRemainingRolls()}`;
+                const lootList = document.getElementById('loot-list');
+                if (lootList) {
+                    const paginated = this.ui.renderPaginatedLootList();
+                    lootList.innerHTML = paginated.html;
+                }
+                const paginationContainer = document.querySelector('.loot-pagination');
+                if (paginationContainer) {
+                    const paginated = this.ui.renderPaginatedLootList();
+                    paginationContainer.outerHTML = paginated.pagination || '<div class="loot-pagination" style="display:none;"></div>';
+                }
+                const inventory = new Inventory(this.gameState);
+                const invDisplay = inventory.getDisplay();
+                const totalValue = document.querySelector('.total-value');
+                if (totalValue) totalValue.textContent = `${invDisplay.totalValue}Ȼ`;
+                goalReached = this.gameState.hasReachedRoundGoal();
+                if ((this.gameState.getRemainingRolls() <= 0 || goalReached) && rollBtn) {
+                    rollBtn.disabled = true;
+                } else if (rollBtn) {
+                    rollBtn.disabled = false;
+                }
+                this.ui.showMessage(`Rolled [${thing.name}]`, 'success');
+            } catch (e) {
+                console.error('Error in roll result:', e);
+                if (lastRolledDiv) lastRolledDiv.innerHTML = `<div class="rolled-thing"><div class="rolled-thing-name-wrap"><span class="rolled-thing-name">${(thing && thing.name) || 'Item'}</span></div></div>`;
+                const rollsDiv = document.querySelector('.rolls-remaining');
+                if (rollsDiv) rollsDiv.textContent = `Rolls: ${this.gameState.getRemainingRolls()}`;
+                if (rollBtn) rollBtn.disabled = this.gameState.getRemainingRolls() <= 0;
+                this.ui.showMessage('Rolled an extremely rare item', 'success');
             }
-            if (streakMessage) this.ui.showMessage(streakMessage, 'epic');
-
-            const allMods = typeof getAllModifications === 'function' ? getAllModifications(thing) : [];
-            const modBadges = allMods.length > 0
-                ? allMods.map(m => typeof getModBadgeHtml === 'function' ? getModBadgeHtml(m) : `<span class="mod-badge" title="${m.description || ''}">${m.name}</span>`).join('')
-                : '';
-            const nameStyle = typeof getItemNameStyle === 'function' ? getItemNameStyle(thing) : {};
-            const nameCss = typeof nameStyleToCss === 'function' ? nameStyleToCss(nameStyle) : '';
-            
-            let safeName;
-            if (typeof getModifiedItemNameHtml === 'function') {
-                safeName = getModifiedItemNameHtml(thing);
-            } else {
-                const displayName = typeof getModifiedItemName === 'function' ? getModifiedItemName(thing) : thing.name;
-                safeName = typeof escapeHtml === 'function' ? escapeHtml(displayName) : displayName;
-            }
-            const nameHtml = `<span class="rolled-thing-name"${nameCss}>${safeName}</span>`;
-            
-            const wrapClass = thing.tier === 'legendary' ? 'rolled-thing-name-wrap legendary-particle-wrap' : 'rolled-thing-name-wrap';
-            if (lastRolledDiv) {
-                lastRolledDiv.innerHTML = `
-                    <div class="rolled-thing rolled-thing-holder rarity-${thing.tier} ${thing.tier === 'epic' || thing.tier === 'legendary' ? 'rare-celebration' : ''}">
-                        <div class="${wrapClass}">${nameHtml}</div>
-                        <div class="rolled-thing-rarity">${thing.tier.toUpperCase()} (1 in ${thing.rarityScore || '?'})</div>
-                        ${modBadges ? `<div class="rolled-thing-mods">${modBadges}</div>` : ''}
-                        <div class="rolled-thing-value"><span style="color: #60a5fa">+${thing.value}Ȼ</span></div>
-                    </div>
-                `;
-            }
-
-            const rollsDiv = document.querySelector('.rolls-remaining');
-            if (rollsDiv) rollsDiv.textContent = `Rolls: ${this.gameState.getRemainingRolls()}`;
-
-            const lootList = document.getElementById('loot-list');
-            if (lootList) {
-                const paginated = this.ui.renderPaginatedLootList();
-                lootList.innerHTML = paginated.html;
-            }
-            
-            // Update pagination if it exists
-            const paginationContainer = document.querySelector('.loot-pagination');
-            if (paginationContainer) {
-                const paginated = this.ui.renderPaginatedLootList();
-                paginationContainer.outerHTML = paginated.pagination || '<div class="loot-pagination" style="display:none;"></div>';
-            }
-
-            const inventory = new Inventory(this.gameState);
-            const invDisplay = inventory.getDisplay();
-            const totalValue = document.querySelector('.total-value');
-            if (totalValue) totalValue.textContent = `${invDisplay.totalValue}Ȼ`;
-
-            const goalReached = this.gameState.hasReachedRoundGoal();
-            if ((this.gameState.getRemainingRolls() <= 0 || goalReached) && rollBtn) {
-                rollBtn.disabled = true;
-            } else if (rollBtn) {
-                rollBtn.disabled = false;
-            }
-
-            this.ui.showMessage(`Rolled [${thing.name}]`, 'success');
 
             // If player already has enough chips for next round, end the round immediately
             // so remaining rolls can convert to cash and the shop opens automatically.
             if (goalReached) {
-                // Prevent multiple countdowns if triggered rapidly
-                if (document.getElementById('goal-countdown-notification')) return;
-
-                if (rollBtn) rollBtn.disabled = true;
-
-                // Create countdown notification
-                let secondsLeft = 2;
-                
-                // Use existing notification container
-                let container = document.getElementById('notification-container');
-                if (!container) {
-                    container = document.createElement('div');
-                    container.id = 'notification-container';
-                    container.setAttribute('aria-live', 'polite');
-                    document.body.appendChild(container);
-                }
-                
-                const notif = document.createElement('div');
-                notif.id = 'goal-countdown-notification';
-                notif.className = 'notification notification-success';
-                // Add specific styling if needed, but we rely on CSS for the "traditional" look
-                
-                container.appendChild(notif);
-
-                const updateMessage = () => {
-                    const textSpan = notif.querySelector('.goal-text');
-                    if (textSpan) {
-                        textSpan.textContent = `Finished the goal return to the reward screen in ${secondsLeft}s`;
-                    }
-                };
-                
-                notif.innerHTML = `<span class="goal-text">Finished the goal return to the reward screen in ${secondsLeft}s</span><div class="notification-progress" style="animation-duration: 2000ms"></div>`;
-                // updateMessage(); // Initial text is already set
-
-                const intervalId = setInterval(() => {
-                    secondsLeft--;
-                    if (secondsLeft <= 0) {
-                        clearInterval(intervalId);
-                        if (notif && notif.parentNode) notif.remove();
-                        if (this.gameRunning) this.handleEndRound();
-                    } else {
-                        updateMessage();
-                    }
-                }, 1000);
-
+                this.triggerRoundCompletion();
                 return;
             }
 
@@ -465,6 +505,46 @@ class Game {
      */
     celebrateRareItem(thing) {
         const rarity = thing.tier;
+
+        // Spawn Message Logic (Legendary+)
+        // Overrides the event header temporarily
+        const headerEventText = document.querySelector('.header-event-text');
+        if (headerEventText && ( rarity === 'exquisite' || rarity === 'exotic'  || rarity === 'zenith' || rarity === 'unfathomable' || rarity === 'otherworldly' || rarity === 'transcendent' || rarity === 'enigmatic')) {
+            const originalText = headerEventText.textContent;
+            const originalStyle = headerEventText.getAttribute('style');
+            
+            // Set spawn message
+            headerEventText.textContent = `Spawned ${thing.name}!`;
+            
+            // Italic and specific color
+            let color = '#ffd700'; 
+            if (thing.color) color = thing.color;
+            
+            headerEventText.style.fontStyle = 'italic';
+            headerEventText.style.color = color;
+            // Clear text stroke if any from previous event
+            headerEventText.style.webkitTextStroke = '0';
+            
+            // Restart animation (12s, dynamic steps + 10)
+            headerEventText.style.animation = 'none';
+            headerEventText.offsetHeight; /* trigger reflow */
+            const steps = headerEventText.textContent.length + 100000;
+            headerEventText.style.animation = `type-writer 12s steps(${steps}) 1 normal both`;
+
+            // Revert after 12 seconds
+            setTimeout(() => {
+                // Only revert if it hasn't been changed by another event/spawn
+                if (headerEventText.textContent.includes(thing.name)) {
+                    headerEventText.textContent = originalText;
+                    if (originalStyle) {
+                        headerEventText.setAttribute('style', originalStyle);
+                    } else {
+                        headerEventText.removeAttribute('style');
+                    }
+                }
+            }, 12000);
+        }
+
         let message = '';
         let emoji = '';
         
@@ -522,43 +602,59 @@ class Game {
         }
 
         setTimeout(() => {
-            // Complete the round and earn cash rewards + interest
-            const rewards = this.gameState.completeRound();
-            
-            // Check if can afford next round
-            const nextRound = this.gameState.round + 1;
+            try {
+                // Complete the round and earn cash rewards + interest
+                const rewards = this.gameState.completeRound();
+                
+                // Check if can afford next round
+                const nextRound = this.gameState.round + 1;
 
-            const cost = this.gameState.getRoundEntryCost();
-            const canAdvance = this.gameState.chips >= cost;
+                const cost = this.gameState.getRoundEntryCost();
+                const canAdvance = this.gameState.chips >= cost;
 
-            const nextCost = cost;
-            const isBossNext = typeof isBossRound === 'function' && isBossRound(nextRound);
+                const nextCost = cost;
+                const isBossNext = typeof isBossRound === 'function' && isBossRound(nextRound);
 
-            // If player cannot advance, it's game over.
-            const type = canAdvance ? 'round_complete' : 'game_over';
-            const reason = canAdvance ? '' : 
-                `You didn't earn enough Ȼ!<br>` +
-                `Needed ${nextCost}Ȼ for round ${this.gameState.round + 1}<br>` +
-                `Had ${this.gameState.chips}Ȼ (earned ${earnedChips}Ȼ this round)`;
+                // If player cannot advance, it's game over.
+                const type = canAdvance ? 'round_complete' : 'game_over';
+                const reason = canAdvance ? '' : 
+                    `You didn't earn enough Ȼ!<br>` +
+                    `Needed ${nextCost}Ȼ for round ${this.gameState.round + 1}<br>` +
+                    `Had ${this.gameState.chips}Ȼ (earned ${earnedChips}Ȼ this round)`;
 
-            this.ui.renderBreakdownScreen({
-                type,
-                reason,
-                round: this.gameState.round,
-                chipsEarned: earnedChips,
-                rollsRemaining,
-                rollsToCash,
-                baseReward: rewards.baseReward,
-                interestReward: rewards.interestReward,
-                cashBonus: rewards.cashBonus,
-                chipsBonus: rewards.chipsBonus, // Pass chips bonus
-                totalReward: rewards.totalReward + rollsToCash,
-                totalCash: this.gameState.cash,
-                canAdvance,
-                nextCost,
-                isBossNext
-            });
-            
+                this.ui.renderBreakdownScreen({
+                    type,
+                    reason,
+                    round: this.gameState.round,
+                    chipsEarned: earnedChips,
+                    rollsRemaining,
+                    rollsToCash,
+                    baseReward: rewards.baseReward,
+                    interestReward: rewards.interestReward,
+                    cashBonus: rewards.cashBonus,
+                    chipsBonus: rewards.chipsBonus, // Pass chips bonus
+                    totalReward: rewards.totalReward + rollsToCash,
+                    totalCash: this.gameState.cash,
+                    canAdvance,
+                    nextCost,
+                    isBossNext
+                });
+            } catch (error) {
+                console.error('Error in handleEndRound timeout:', error);
+                if (this.ui && this.ui.showMessage) {
+                    this.ui.showMessage('Error ending round: ' + error.message, 'error');
+                }
+                // Attempt to show error screen if UI is available
+                if (this.ui && this.ui.container) {
+                    this.ui.container.innerHTML = `
+                        <div class="screen error-screen">
+                            <h2>Game Error</h2>
+                            <p>${error.message}</p>
+                            <button class="btn btn-primary" onclick="location.reload()">Reload Game</button>
+                        </div>
+                    `;
+                }
+            }
         }, 1200);
     }
 
@@ -669,7 +765,6 @@ class Game {
 9            // Create particles
             this.createSquareBurst(card, 25);
             
-            // Create fire particles if it's Solar Power
 
             // Remove after animation
             setTimeout(() => {
@@ -681,30 +776,7 @@ class Game {
         }
     }
 
-    createFireParticles(element) {
-        const rect = element.getBoundingClientRect();
-        const centerX = rect.left + rect.width / 2;
-        const centerY = rect.top + rect.height / 2;
-        
-        for (let i = 0; i < 20; i++) {
-            const particle = document.createElement('div');
-            particle.className = 'fire-particle';
-            particle.style.left = `${centerX}px`;
-            particle.style.top = `${centerY}px`;
-            
-            // Random direction
-            const angle = Math.random() * Math.PI * 2;
-            const velocity = 2 + Math.random() * 4;
-            const dx = Math.cos(angle) * velocity;
-            const dy = Math.sin(angle) * velocity;
-            
-            particle.style.setProperty('--dx', `${dx}px`);
-            particle.style.setProperty('--dy', `${dy}px`);
-            
-            document.body.appendChild(particle);
-            setTimeout(() => particle.remove(), 800);
-        }
-    }
+
 
     /**
      * Animate perk purchase with visual effects
@@ -980,7 +1052,11 @@ class Game {
      * Reset reroll cost when entering new shop
      */
     resetRerollCost() {
-        this.shopRerollCost = 5;
+        if (this.gameState && this.gameState.perksPurchased && this.gameState.perksPurchased['vip_card']) {
+            this.shopRerollCost = 0;
+        } else {
+            this.shopRerollCost = 5;
+        }
     }
 
     /**
@@ -994,11 +1070,17 @@ class Game {
      * Continue from rewards screen to shop, charging next-round entry cost
      */
     handleContinueFromRewards() {
+        try {
             this.gameState.pendingNextRound = this.gameState.round + 1;
+            this.resetRerollCost();
             this.shop.generateShopPerks();
             this.ui.renderShopScreen();
             // Trigger text rolling for subperks
             this.ui.startTextRollingAnimation();
+        } catch (error) {
+            console.error('Error in handleContinueFromRewards:', error);
+            if (this.ui) this.ui.showMessage('Error continuing: ' + error.message, 'error');
+        }
     }
     
 
@@ -1060,107 +1142,11 @@ class Game {
         element.style.zIndex = '';
     }
 
-    /**
-     * Handle buying a consumable from the shop
-     */
-    handleBuyConsumable(index) {
-        if (!this.ui || this.ui.currentScreen !== 'shop') return;
-        
-        const result = this.shop.purchaseConsumable(index);
-        
-        if (result.success) {
-            this.ui.showMessage(result.message, 'success');
-            
-            // Update cash display
-            const stats = document.querySelector('.game-stats');
-            if (stats) {
-                stats.innerHTML = `
-                    <div class="stat-item">
-                        <span class="stat-label">Round</span>
-                        <span class="stat-value">${this.gameState.round}</span>
-                    </div>
-                    <div class="stat-item cash-with-tooltip">
-                        <span class="stat-label">Cash</span>
-                        <div class="cash-tooltip-wrapper">
-                            <span class="stat-value stat-cash">${this.gameState.cash}$</span>
-                            <div class="interest-tooltip">
-                                <span class="interest-tooltip-text">Interest: ×${this.gameState.interestStacks}</span>
-                            </div>
-                        </div>
-                    </div>
-                `;
-            }
-            
-            // Re-render shop consumables
-            const consumablesGrid = document.querySelector('.shop-consumables-grid');
-            if (consumablesGrid) {
-                consumablesGrid.innerHTML = this.ui.renderShopConsumables();
-            }
-            
-            // Update owned consumables section
-            const consumableSection = document.querySelector('.consumable-section');
-            if (consumableSection) {
-                consumableSection.outerHTML = this.ui.renderConsumablesSection();
-            }
-        } else {
-            this.ui.showMessage(result.message, 'error');
-        }
-    }
 
-    /**
-     * Handle clicking an owned consumable
-     */
-    handleConsumableClick(index) {
-        if (!this.ui) return;
-        
-        // If already selected, use it (confirm action)
-        if (this.selectedConsumableIndex === index) {
-            this.handleUseConsumable(index);
-            this.selectedConsumableIndex = -1;
-        } 
-        // Otherwise select it
-        else {
-            this.selectedConsumableIndex = index;
-            // Update UI to show selection
-            const consumableSection = document.querySelector('.consumable-section');
-            if (consumableSection) {
-                consumableSection.outerHTML = this.ui.renderConsumablesSection();
-            }
-        }
-    }
 
-    /**
-     * Handle using a consumable item
-     */
-    handleUseConsumable(index) {
-        const result = this.gameState.useConsumable(index);
-        if (result.success) {
-            this.ui.showMessage(result.message, 'success');
-            // Refresh shop screen to show updated consumables
-            if (this.ui.currentScreen === 'shop') {
-                const shopGrid = document.getElementById('shop-grid');
-                if (shopGrid) {
-                    shopGrid.innerHTML = this.ui.renderShop();
-                    this.ui.attachPerkTooltips();
-                    this.attachTiltEffect();
-                }
-                // Update consumables section
-                const consumableSection = document.querySelector('.consumable-section');
-                if (consumableSection) {
-                    consumableSection.outerHTML = this.ui.renderConsumablesSection();
-                }
-            }
-        } else {
-            this.ui.showMessage(result.message, 'error');
-        }
-        
-        // Always reset selection after use attempt
-        this.selectedConsumableIndex = -1;
-        const consumableSection = document.querySelector('.consumable-section');
-        if (consumableSection) {
-            consumableSection.outerHTML = this.ui.renderConsumablesSection();
-        }
-    }
+
+
+
 
     /**
      * Handle next inventory page
@@ -1218,9 +1204,15 @@ document.addEventListener('keydown', (e) => {
     if (!game) return;
     if (e.code !== 'Space') return;
     e.preventDefault();
+    
+    // Check for 'Ancient Tablet' perk for space skip
+    const canSkip = game.gameState && game.gameState.perksPurchased && game.gameState.perksPurchased['ancient_tablet'];
+
     // Spam Space to skip roll animation
     if (game._rollTimeoutId) {
-        game.skipRollAnimation();
+        if (canSkip) {
+            game.skipRollAnimation();
+        }
         return;
     }
     if (!game.gameRunning) return;

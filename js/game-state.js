@@ -49,10 +49,9 @@ class GameState {
         this.pendingBossReward = null;
         this.pendingNextRound = null;
         this._badLuckStreak = 0;
-        this.consumables = []; // Array of consumable items (max 9)
+
         this.lootPage = 0; // Current loot page for pagination (formerly inventoryPage)
-        this.itemsPerPage = 10;
-        this.potionsUsed = 0; // Track potions used during run
+        this.itemsPerPage = 999; // Effectively disable pagination as requested50;
 
         // Stats Tracking
         this.stats = {
@@ -483,13 +482,10 @@ class GameState {
 
         this.inventory.push(thing);
         
-        // Add to history for unlock requirements
+        // Add to history for unlock requirements and end-of-run summary
         if (this.itemHistory) {
-            this.itemHistory.push({
-                id: thing.id,
-                attribute: thing.attribute ? thing.attribute.id : 'normal',
-                mods: thing.mods ? thing.mods.map(m => m.id) : []
-            });
+            // Store full item data for the summary screen
+            this.itemHistory.push(thing);
             this.checkUnlockNotifications();
         }
         
@@ -509,25 +505,31 @@ class GameState {
         
         const adjustedWeights = { ...baseWeights };
         
+        // Get World Effects
+        const worldEffects = (this.worldSystem && this.worldSystem.getEffectiveWorldEffects) 
+            ? this.worldSystem.getEffectiveWorldEffects() 
+            : null;
+
         if (effectiveLuck !== 0) {
             // Boost Tiers based on effective luck
             // We DIVIDE the rarity score to make them MORE common (lower score = higher probability)
             // Tiers: significant, rare, master, surreal, mythic, etc.
             
             const tiers = [
-                { id: 'significant', boost: 0.10 },
+                { id: 'significant', boost: 0.1 },
                 { id: 'rare', boost: 0.15 },
-                { id: 'master', boost: 0.20 },
+                { id: 'master', boost: 0.2 },
                 { id: 'surreal', boost: 0.25 },
-                { id: 'mythic', boost: 0.30 },
-                { id: 'exotic', boost: 0.35 },
-                { id: 'exquisite', boost: 0.40 },
-                { id: 'transcendent', boost: 0.45 },
-                { id: 'enigmatic', boost: 0.50 },
-                { id: 'unfathomable', boost: 0.55 },
-                { id: 'otherworldly', boost: 0.60 },
-                { id: 'imaginary', boost: 0.65 },
-                { id: 'zenith', boost: 0.70 }
+                { id: 'mythic', boost: 0.3 },
+                // suppernatural
+                { id: 'exotic', boost: 0.4 },
+                { id: 'exquisite', boost: 0.45 },
+                { id: 'transcendent', boost: 0.5 },
+                { id: 'enigmatic', boost: 0.55 },
+                { id: 'unfathomable', boost: 0.6 },
+                { id: 'otherworldly', boost: 0.65 },
+                { id: 'imaginary', boost: 0.7 },
+                { id: 'zenith', boost: 0.75 }
             ];
 
             tiers.forEach(({ id, boost }) => {
@@ -540,7 +542,7 @@ class GameState {
             });
         }
 
-        let thing = rollThing(this.round, this.rngStreams.loot, adjustedWeights);
+        let thing = rollThing(this.round, this.rngStreams.loot, adjustedWeights, worldEffects);
         
         // Update Bad Luck Streak
         // Reset on Rare or better
@@ -566,14 +568,15 @@ class GameState {
             luck: effectiveLuck,
             rarityMultipliers: rarityMultipliers,
             valueBonus: attrs.valueBonus || 0,
-            ownedPerks: this.perksPurchased
+            ownedPerks: this.perksPurchased,
+            worldEffects: worldEffects
         };
 
         thing = applyModifications(thing, modOptions);
         
         // Luck-based extra roll (chance to reroll entirely if lucky)
         if (this.rngStreams.luck() < (attrs.luck || 0) * 0.05) {
-            let newThing = rollThing(this.round, this.rngStreams.loot, adjustedWeights);
+            let newThing = rollThing(this.round, this.rngStreams.loot, adjustedWeights, worldEffects);
             newThing = applyModifications(newThing, modOptions);
             
             // Keep the one with higher value
@@ -994,10 +997,19 @@ class GameState {
             for (const requiredId of recipe) {
                 // Remove required perk
                 if (this.perksPurchased[requiredId]) {
-                    delete this.perksPurchased[requiredId];
-                    const index = this.perkOrder.indexOf(requiredId);
-                    if (index > -1) {
-                        this.perkOrder.splice(index, 1);
+                    let count = this.perksPurchased[requiredId];
+                    if (count === true) count = 1;
+
+                    if (count > 2) {
+                        this.perksPurchased[requiredId] = count - 1;
+                    } else if (count === 2) {
+                        this.perksPurchased[requiredId] = true;
+                    } else {
+                        delete this.perksPurchased[requiredId];
+                        const index = this.perkOrder.indexOf(requiredId);
+                        if (index > -1) {
+                            this.perkOrder.splice(index, 1);
+                        }
                     }
                 }
             }
@@ -1023,58 +1035,14 @@ class GameState {
     }
 
     /**
-     * Add a consumable item (max 6 slots)
-     */
-    addConsumable(consumable) {
-        if (this.consumables.length >= 9) {
-            return { success: false, message: 'Consumable slots full' };
-        }
-        this.consumables.push({
-            ...consumable,
-            id: Date.now() + Math.random()
-        });
-        
-        // Track stats
-        this.addStat('totalConsumablesBought', 1);
-        
-        return { success: true, message: `Added ${consumable.name}` };
-    }
-
-    /**
-     * Use a consumable by index
-     */
-    useConsumable(index) {
-        if (index < 0 || index >= this.consumables.length) {
-            return { success: false, message: 'Invalid consumable slot' };
-        }
-        const consumable = this.consumables[index];
-        
-        // Apply consumable effect
-        if (consumable.effect === 'rolls') {
-            this.rollsUsed = Math.max(0, this.rollsUsed - (consumable.value || 1));
-        } else if (consumable.effect === 'cash') {
-            this.currency.addCash(consumable.value || 10);
-        } else if (consumable.effect === 'interest') {
-            this.currency.addBonusInterestStack(consumable.value || 1);
-        }
-        
-        // Track potion usage
-        this.potionsUsed++;
-        
-        // Remove the consumable
-        const name = consumable.name;
-        this.consumables.splice(index, 1);
-        return { success: true, message: `Used ${name}`, effect: consumable.effect };
-    }
-
-    /**
      * Check if player has enough chips (potential) to advance
      */
     hasReachedRoundGoal() {
         const value = this.getInventoryValue();
         const earned = this.calculateEarnedChipsForValue(value);
         const cost = this.getRoundEntryCost();
-        return earned >= cost;
+        // Check total potential chips (current + earned) vs cost
+        return (this.chips + earned) >= cost;
     }
 
     /**

@@ -1,4 +1,4 @@
-/**
+ /**
  * UI Renderer
  * Handles all screen rendering and DOM updates
  * 
@@ -76,6 +76,99 @@ class UI {
         }
     }
 
+    renderHeaderWorldInfo() {
+        if (typeof game === 'undefined' || !game.timeSystem || !game.worldSystem) return '';
+        
+        const timeStr = game.timeSystem.getDisplayTime();
+        const dayStr = game.timeSystem.getDisplayDay();
+        const biome = game.worldSystem.getCurrentBiome();
+        const events = game.worldSystem.getActiveEvents();
+        
+        let eventHtml = '';
+        let eventClass = '';
+        if (events.length > 0) {
+            const event = events[0];
+            // Find event definition by ID
+            const eventDef = (typeof EVENTS !== 'undefined') 
+                ? Object.values(EVENTS).find(e => e.id === event.id) 
+                : null;
+
+            // Use flavor text if available, otherwise name
+            const flavor = (eventDef && eventDef.flavorText) 
+                ? eventDef.flavorText 
+                : `Event: ${event.name}`;
+            
+            // Apply custom styles if available
+            let style = '';
+            if (eventDef) {
+                if (eventDef.textStroke) style += `-webkit-text-stroke: ${eventDef.textStroke}; `;
+                if (eventDef.color) style += `color: ${eventDef.color}; `;
+            }
+            // Dynamic animation steps based on character count
+            // Added extra steps (+10) for smoother finish
+            style += `animation: type-writer 12s steps(${flavor.length + 1000}) 1 normal both;`;
+
+            eventHtml = `<div class="header-event-text" style="${style}">${flavor}</div>`;
+            eventClass = 'has-event';
+        }
+
+        return `
+            <div class="header-world-info ${eventClass}">
+                <div class="header-meta">
+                    <span id="header-day">${dayStr}</span>
+                    <span class="separator">•</span>
+                    <span id="header-time">${timeStr}</span>
+                </div>
+                <div class="header-biome-title" style="color: ${biome.color}" id="header-biome">
+                    ${biome.name}
+                </div>
+                ${eventHtml}
+            </div>
+        `;
+    }
+
+    /**
+     * Update time display dynamically
+     */
+    updateTimeDisplay() {
+        if (typeof game === 'undefined' || !game.timeSystem || !game.worldSystem) return;
+        
+        const timeEl = document.getElementById('header-time');
+        const dayEl = document.getElementById('header-day');
+        const biomeEl = document.getElementById('header-biome');
+        const container = document.querySelector('.header-world-info');
+        
+        if (timeEl) timeEl.textContent = game.timeSystem.getDisplayTime();
+        if (dayEl) dayEl.textContent = game.timeSystem.getDisplayDay();
+        
+        // Check for biome/event changes
+        const biome = game.worldSystem.getCurrentBiome();
+        const events = game.worldSystem.getActiveEvents();
+        
+        if (biomeEl) {
+            if (biomeEl.textContent.trim() !== biome.name) {
+                biomeEl.textContent = biome.name;
+                biomeEl.style.color = biome.color;
+            }
+        }
+        
+        // Handle Event Message Updates
+        // If event state changed (added/removed), we might need to re-render the whole info block
+        // or just inject the message.
+        // Simplest approach: Check if container has 'has-event' class vs current state
+        const hasEventClass = container ? container.classList.contains('has-event') : false;
+        const hasActiveEvent = events.length > 0;
+        
+        if (hasEventClass !== hasActiveEvent) {
+            // State changed, easier to re-render the whole header info if possible
+            // But we don't have a direct reference to the parent to set innerHTML easily without an ID.
+            // Let's assume we can update the container's HTML.
+            if (container) {
+                container.outerHTML = this.renderHeaderWorldInfo();
+            }
+        }
+    }
+
     /**
      * Render the main game screen
      */
@@ -85,33 +178,34 @@ class UI {
         const isNextRoundBoss = typeof isBossRound === 'function' && isBossRound(this.gameState.round + 1);
         
         const html = `
-            <div class="perk-topbar">
-
-                <div class="topbar-perks" id="topbar-perks">
-                    ${this.renderTopbarPerks()}
+                <div class="perk-topbar">
+                    
+                    <div class="topbar-perks" id="topbar-perks">
+                        ${this.renderTopbarPerks()}
+                    </div>
+                    <button class="stats-button" onclick="game.toggleStats()">Stats</button>
+                    <button class="index-button" onclick="game.toggleIndex()">Index</button>
                 </div>
-                <button class="stats-button" onclick="game.toggleStats()">Stats</button>
-                <button class="index-button" onclick="game.toggleIndex()">Index</button>
-            </div>
 
-            <div id="stats-modal" class="stats-modal" style="display: none;">
-                <div class="stats-content">
-                    <button class="stats-close" onclick="game.toggleStats()">✕</button>
-                    <div class="stats-title">Your Stats & Attributes</div>
-                    ${this.renderAttributes()}
+                <div id="stats-modal" class="stats-modal" style="display: none;">
+                    <div class="stats-content">
+                        <button class="stats-close" onclick="game.toggleStats()">✕</button>
+                        <div class="stats-title">Your Stats & Attributes</div>
+                        ${this.renderAttributes()}
+                    </div>
                 </div>
-            </div>
-            <div id="index-modal" class="index-modal" style="display: none;">
-                <div class="index-content">
-                    <button class="index-close" onclick="game.toggleIndex()">✕</button>
-                    <div class="index-title">Knowledge Index</div>
-                    ${this.renderIndex()}
+                <div id="index-modal" class="index-modal" style="display: none;">
+                    <div class="index-content">
+                        <button class="index-close" onclick="game.toggleIndex()">✕</button>
+                        <div class="index-title">Knowledge Index</div>
+                        ${this.renderIndex()}
+                    </div>
                 </div>
-            </div>
 
-            <div class="game-header">
-                <div class="game-title">Thingamajig <span class="route-badge">Route ${this.gameState.getRouteIndex() + 1}</span></div>
-                <div class="game-stats">
+                <div class="game-header">
+                    <div class="game-title">Thingamajig <span class="route-badge">Route ${this.gameState.getRouteIndex() + 1}</span></div>
+                    ${this.renderHeaderWorldInfo()}
+                    <div class="game-stats">
                     <div class="stat-item">
                         <span class="stat-label">Round</span>
                         <span class="stat-value">${this.gameState.round}</span>
@@ -133,13 +227,6 @@ class UI {
             </div>
 
             <div class="game-content">
-                <!-- Inventory (Consumables) - Left Side -->
-                <div class="section inventory-section">
-                    <div class="section-title">Inventory</div>
-                    <div class="inventory-list" id="inventory-list">
-                        ${this.renderInventorySlots()}
-                    </div>
-                </div>
 
                 <div class="section roll-section">
                     <div class="section-title">Rolling</div>
@@ -670,85 +757,7 @@ class UI {
         }).join('');
     }
 
-    /**
-     * Render shop consumables section
-     */
-    renderShopConsumables() {
-        if (!this.shop) return '';
-        const consumables = this.shop.getShopConsumables();
-        if (consumables.length === 0) {
-            return '<div class="shop-consumables-empty">No consumables available</div>';
-        }
 
-        return consumables.map((consumable, index) => {
-            const canAfford = this.gameState.cash >= consumable.cost;
-            const nameStyle = typeof getPerkNameStyle === 'function' ? getPerkNameStyle(consumable) : {};
-            const nameCss = typeof nameStyleToCss === 'function' ? nameStyleToCss(nameStyle) : '';
-            const safeName = typeof escapeHtml === 'function' ? escapeHtml(consumable.name) : consumable.name;
-            const safeDesc = typeof escapeHtml === 'function' ? escapeHtml(consumable.description) : consumable.description;
-
-            return `
-                <div class="consumable-card rarity-${consumable.rarity} ${!canAfford ? 'consumable-locked' : ''}" onclick="game.handleBuyConsumable(${index})">
-                    <div class="consumable-card-icon">${consumable.icon}</div>
-                    <div class="consumable-card-name"${nameCss}>${safeName}</div>
-                    <div class="consumable-card-cost">${consumable.cost}$</div>
-                    ${!canAfford ? '<div class="consumable-locked-overlay">🔒 LOCKED</div>' : ''}
-                    <div class="consumable-tooltip">
-                        <div class="ct-name"${nameCss}>${safeName}</div>
-                        <div class="ct-desc">${safeDesc}</div>
-                    </div>
-                </div>
-            `;
-        }).join('');
-    }
-
-    /**
-     * Render consumables section for shop screen
-     */
-    renderConsumablesSection() {
-        const consumables = this.gameState.consumables || [];
-        const slots = [];
-        const selectedIndex = game ? game.selectedConsumableIndex : -1;
-        
-        for (let i = 0; i < 9; i++) {
-            const consumable = consumables[i];
-            if (consumable) {
-                const icon = consumable.icon || '🧪';
-                const isSelected = i === selectedIndex;
-                const nameStyle = typeof getPerkNameStyle === 'function' ? getPerkNameStyle(consumable) : {};
-                const nameCss = typeof nameStyleToCss === 'function' ? nameStyleToCss(nameStyle) : '';
-                const safeName = typeof escapeHtml === 'function' ? escapeHtml(consumable.name) : consumable.name;
-                const safeDesc = typeof escapeHtml === 'function' ? escapeHtml(consumable.description) : consumable.description;
-                
-                slots.push(`
-                    <div class="consumable-slot filled ${isSelected ? 'selected' : ''}" onclick="game.handleConsumableClick(${i})">
-                        <div class="consumable-icon">${icon}</div>
-                        ${isSelected ? '<div class="consumable-confirm-overlay">Tap to Use</div>' : ''}
-                        <div class="consumable-tooltip">
-                            <div class="ct-name"${nameCss}>${safeName}</div>
-                            <div class="ct-desc">${safeDesc}</div>
-                            <div class="ct-click-hint">${isSelected ? 'Click again to USE' : 'Click to SELECT'}</div>
-                        </div>
-                    </div>
-                `);
-            } else {
-                slots.push(`
-                    <div class="consumable-slot empty">
-                        <div class="consumable-icon">+</div>
-                    </div>
-                `);
-            }
-        }
-        
-        return `
-            <div class="consumable-section">
-                <div class="consumable-title">Consumables (Max 9)</div>
-                <div class="consumable-slots">
-                    ${slots.join('')}
-                </div>
-            </div>
-        `;
-    }
 
     /**
      * Render paginated loot list (formerly inventory)
@@ -807,7 +816,7 @@ class UI {
                     </div>
                     <div class="loot-item-tooltip" aria-hidden="true">
                         <div class="tooltip-name"${nameCss}>${fullNameHtml}</div>
-                        <div class="tooltip-rarity rarity-color rarity-${item.tier}">${item.tier.toUpperCase()} (1 in ${item.rarityScore || '?'})</div>
+                        <div class="tooltip-rarity rarity-color rarity-${item.tier}">${item.tier.toUpperCase()}</div>
                         
                         ${allMods.length > 0 ? `
                             <div class="tooltip-mods-list" style="margin-top:4px; font-size:0.85em; text-align:left;">
@@ -817,13 +826,17 @@ class UI {
                             </div>
                         ` : ''}
                         
-                        <div class="tooltip-value" style="margin-top:8px;"><span style="color: #60a5fa">${item.value}Ȼ</span></div>
+                        <div class="tooltip-value" style="margin-top:8px;">
+                            <span style="color: #60a5fa">${item.value}Ȼ</span>
+                            <div style="font-size: 0.85em; color: var(--text-muted); margin-top: 2px;">1/${item.rarityScore || '?'}</div>
+                        </div>
                         ${item.baseValue != null && item.baseValue !== item.value && item.priceMultiplier != null ? `<div class="tooltip-base">Base: ${item.baseValue} (×${item.priceMultiplier.toFixed(2)})</div>` : ''}
                     </div>
                 </div>
             `;
         }).join('');
         
+        /* Pagination removed as requested
         let paginationHtml = '';
         if (paginated.totalItems > this.gameState.itemsPerPage) {
             paginationHtml = `
@@ -834,39 +847,12 @@ class UI {
                 </div>
             `;
         }
+        */
+        const paginationHtml = ''; // Disabled
 
         return { html: itemsHtml, pagination: paginationHtml };
     }
 
-    /**
-     * Render inventory slots for consumables (6 slots)
-     */
-    renderInventorySlots() {
-        const consumables = this.gameState.consumables || [];
-        const slots = [];
-        
-        for (let i = 0; i < 9; i++) {
-            const consumable = consumables[i];
-            if (consumable) {
-                const icon = consumable.icon || '🧪';
-                slots.push(`
-                    <div class="inventory-slot" data-slot-index="${i}" onclick="game.handleUseConsumable(${i})">
-                        <span class="slot-icon">${icon}</span>
-                        <span class="slot-name">${consumable.name}</span>
-                        ${consumable.stack > 1 ? `<span class="slot-stack">${consumable.stack}</span>` : ''}
-                    </div>
-                `);
-            } else {
-                slots.push(`
-                    <div class="inventory-slot empty">
-                        <span class="slot-placeholder">+</span>
-                    </div>
-                `);
-            }
-        }
-        
-        return slots.join('');
-    }
 
     getPerkIcon(perk) {
         if (perk.icon) return perk.icon;
@@ -906,14 +892,7 @@ class UI {
             
             // Dynamic description for Heliosol's Spear
             let descText = item.description;
-            if (item.id === 'heliosol_spear') {
-                const solarCount = this.gameState.perksPurchased['solar_power'] || 0;
-                if (solarCount > 0) {
-                    let max = 50;
-                    if (typeof PERKS !== 'undefined' && PERKS.SOLAR_POWER) max = PERKS.SOLAR_POWER.maxStacks || 50;
-                    descText += ` (Solar Power: ${solarCount}/${max})`;
-                }
-            }
+           
             const safeDesc = typeof escapeHtml === 'function' ? escapeHtml(descText) : descText;
 
             const isSelected = selectedId && (item.instanceId ? selectedId === item.instanceId : selectedId === item.id);
@@ -947,7 +926,7 @@ class UI {
             }
 
             // Check Nullification Lock
-            // If we own Nullification, everything else is locked (except consumables, but this is perks shop)
+            // If we own Nullification, everything else is locked
             let nullificationLocked = false;
             if (this.gameState.perksPurchased['nullificati0n'] && !isOwned && item.id !== 'nullificati0n') {
                 nullificationLocked = true;
@@ -1111,17 +1090,18 @@ class UI {
     }
 
     renderBreakdownScreen(payload) {
-        this.currentScreen = payload.type === 'game_over' ? 'gameover' : 'rewards';
+        try {
+            console.log('renderBreakdownScreen called', payload);
+            this.currentScreen = payload.type === 'game_over' ? 'gameover' : 'rewards';
         
         const QUOTES = [
-            "The house always wins... eventually.",
+            "99% gamblers quit before they win big.",
             "Luck is what happens when preparation meets opportunity.",
             "You win some, you lose some.",
-            "Gambling is not about how well you play the games, it's about how well you handle your money.",
-            "Quit while you're ahead. All the best gamblers do.",
+            "The rule is 80/20, 80% luck & 20% skill.",
             "A dollar won is twice as sweet as a dollar earned.",
             "Fortune favors the bold.",
-            "Sometimes you gotta risk it for the biscuit."
+            "I hate League of Legends."
         ];
         const randomQuote = QUOTES[Math.floor(Math.random() * QUOTES.length)];
 
@@ -1215,7 +1195,116 @@ class UI {
             // Get stats from gameState
             const stats = this.gameState.stats || {};
             const timePlayed = this.gameState.getGameTime();
+            const history = Array.isArray(this.gameState.itemHistory) ? this.gameState.itemHistory : [];
             
+            // Generate Loot Items HTML (Loot Section Style)
+            const lootItemsHtml = history.map((item, index) => {
+                const rarityClass = (this.inventory && typeof this.inventory.getRarityClass === 'function') 
+                    ? this.inventory.getRarityClass(item.tier) 
+                    : `rarity-${item.tier}`;
+
+                const allMods = typeof getAllModifications === 'function' ? getAllModifications(item) : [];
+                const prefixHtml = ''; 
+                
+                const nameStyle = typeof getItemNameStyle === 'function' ? getItemNameStyle(item) : {};
+                const nameCss = typeof nameStyleToCss === 'function' ? nameStyleToCss(nameStyle) : '';
+                
+                let fullNameHtml = '';
+                if (typeof getModifiedItemNameHtml === 'function') {
+                    fullNameHtml += getModifiedItemNameHtml(item);
+                } else {
+                    const displayName = typeof getModifiedItemName === 'function' ? getModifiedItemName(item) : item.name;
+                    const safeName = typeof escapeHtml === 'function' ? escapeHtml(displayName) : displayName;
+                    fullNameHtml += safeName;
+                }
+                
+                let legendWrap = '';
+                if (['transcendent', 'enigmatic', 'unfathomable', 'otherworldly', 'imaginary', 'zenith'].includes(item.tier)) {
+                    legendWrap = ' loot-item-name particle-wrap';
+                } else if (['legendary', 'surreal', 'mythic', 'exotic', 'exquisite'].includes(item.tier)) {
+                    legendWrap = ' loot-item-name high-tier-wrap';
+                }
+
+                // Render Item Card
+                return `
+                    <div class="loot-item loot-item-minimal ${rarityClass}" data-item-index="${index}">
+                        <div class="loot-item-name${legendWrap}"${nameCss}>
+                            ${prefixHtml}
+                            ${fullNameHtml}
+                            ${item.tier === 'zenith' ? '<div class="zenith-question-mark">?</div>' : ''}
+                            ${['transcendent', 'enigmatic', 'unfathomable', 'otherworldly', 'imaginary', 'zenith'].includes(item.tier) ? '<div class="particle-container"></div>' : ''}
+                        </div>
+                        <div class="loot-item-tooltip" aria-hidden="true">
+                            <div class="tooltip-name"${nameCss}>${fullNameHtml}</div>
+                            <div class="tooltip-rarity rarity-color rarity-${item.tier}">${item.tier ? item.tier.toUpperCase() : 'UNKNOWN'} (1 in ${item.rarityScore || '?'})</div>
+                            
+                            ${allMods.length > 0 ? `
+                                <div class="tooltip-mods-list" style="margin-top:4px; font-size:0.85em; text-align:left;">
+                                    ${allMods.map(m => 
+                                        typeof getModBadgeHtml === 'function' ? getModBadgeHtml(m) : `<span class="mod-badge" style="color:${m.color || '#fff'}; border: 1px solid ${m.color || '#fff'}; padding: 3px 8px; border-radius: 12px; margin-right: 4px; margin-bottom: 2px; font-size: 0.85em; font-weight: bold; display: inline-block;">${m.name}</span>`
+                                    ).join(' ')}
+                                </div>
+                            ` : ''}
+                            
+                            <div class="tooltip-value" style="margin-top:8px;"><span style="color: #60a5fa">${item.value}Ȼ</span></div>
+                            ${item.baseValue != null && item.baseValue !== item.value && item.priceMultiplier != null ? `<div class="tooltip-base">Base: ${item.baseValue} (×${item.priceMultiplier.toFixed(2)})</div>` : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            // Container for loot items
+            const lootListContainer = `
+                <div class="rolled-items-container" style="margin-top: 24px; width: 100%;">
+                    <div class="rolled-items-title" style="font-weight: 700; margin-bottom: 12px; text-align: center; font-size: 1.1rem; color: var(--text-muted);">Items Collected (${history.length})</div>
+                    <div class="loot-list" id="loot-list">
+                        ${lootItemsHtml || '<div class="loot-empty-msg">No items collected</div>'}
+                    </div>
+                </div>
+            `;
+
+            // Perks Section (New)
+            const ownedPerks = this.shop.getOwnedPerks();
+            const perksHtml = ownedPerks.map(p => {
+                const full = typeof getBossPerkById === 'function' ? getBossPerkById(p.id) : null;
+                const perk = full || (typeof getPerkById === 'function' ? getPerkById(p.id) : null);
+                if (!perk) return '';
+                
+                const rarity = perk.rarity || 'common';
+                const rarityClass = `rarity-${rarity}`;
+                const nameStyle = typeof getPerkNameStyle === 'function' ? getPerkNameStyle(perk) : {};
+                const nameCss = typeof nameStyleToCss === 'function' ? nameStyleToCss(nameStyle) : '';
+                const icon = perk.icon || '📦';
+                
+                let count = this.gameState.perksPurchased[perk.id];
+                if (count === true) count = 1;
+                const countBadge = count > 1 ? `<div class="item-count-badge" style="position:absolute; bottom:4px; right:4px; background:rgba(0,0,0,0.8); padding:2px 6px; border-radius:10px; font-size:0.7em; color:#fff;">x${count}</div>` : '';
+
+                return `
+                    <div class="loot-item loot-item-minimal ${rarityClass}">
+                        <div class="loot-item-name"${nameCss}>
+                            ${icon} ${perk.name}
+                        </div>
+                        ${countBadge}
+                        <div class="loot-item-tooltip">
+                            <div class="tooltip-name"${nameCss}>${perk.name}</div>
+                            <div class="tooltip-rarity rarity-color rarity-${rarity}">${rarity.toUpperCase()}</div>
+                            <div class="tooltip-desc">${perk.description || ''}</div>
+                            ${perk.special ? `<div class="tooltip-special" style="margin-top:4px; color:#fbbf24; font-size:0.85em;">✨ ${typeof perk.special === 'string' ? perk.special : Object.keys(perk.special).join(', ')}</div>` : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            const perksListContainer = `
+                <div class="rolled-items-container" style="margin-top: 24px; width: 100%;">
+                    <div class="rolled-items-title" style="font-weight: 700; margin-bottom: 12px; text-align: center; font-size: 1.1rem; color: var(--text-muted);">Perks Collected (${ownedPerks.length})</div>
+                    <div class="loot-list" id="perks-list">
+                        ${perksHtml || '<div class="loot-empty-msg">No perks collected</div>'}
+                    </div>
+                </div>
+            `;
+
             contentHtml = `
                 <div class="game-over-quote">"${randomQuote}"</div>
                 
@@ -1254,10 +1343,13 @@ class UI {
                 </div>
             `;
 
+            // Footer: Button FIRST, then Loot List, then Perks List
             footerHtml = `
                 <button class="btn btn-primary btn-restart" onclick="game.handleRestart()">
                     TRY AGAIN
                 </button>
+                ${lootListContainer}
+                ${perksListContainer}
             `;
         }
 
@@ -1270,6 +1362,11 @@ class UI {
             </div>
         `;
         this.container.innerHTML = html;
+
+        if (type === 'game_over') {
+            this.attachLootHoverTooltips();
+            this.attachHoldToSeeTooltips();
+        }
 
         // Add keyboard and click navigation
         if (type === 'round_complete' && canAdvance) {
@@ -1333,6 +1430,18 @@ class UI {
                     }
                 }
             }, 300);
+        }
+        } catch (error) {
+            console.error('Error rendering breakdown screen:', error);
+            if (this.container) {
+                this.container.innerHTML = `
+                    <div class="screen error-screen">
+                        <h2>Display Error</h2>
+                        <p>${error.message}</p>
+                        <button class="btn btn-primary" onclick="game.handleRestart()">Restart</button>
+                    </div>
+                `;
+            }
         }
     }
 
@@ -1447,7 +1556,7 @@ class UI {
      */
     renderAttributes() {
         const attrs = this.gameState.getFormattedAttributes();
-        const potionsUsed = this.gameState.potionsUsed || 0;
+
         const timePlayed = this.gameState.getGameTime();
         return `
             <div class="attributes-display">
@@ -1465,10 +1574,7 @@ class UI {
                             <div class="attribute-value">${value}</div>
                         </div>
                     `).join('')}
-                    <div class="attribute-card">
-                        <div class="attribute-name">Potions Used</div>
-                        <div class="attribute-value">${potionsUsed}</div>
-                    </div>
+
                 </div>
             </div>
         `;
@@ -1508,7 +1614,7 @@ class UI {
 
             const html = `
                 <div class="perk-topbar">
-
+                    
                     <div class="topbar-perks" id="topbar-perks">
                         ${this.renderTopbarPerks()}
                     </div>
@@ -1533,6 +1639,7 @@ class UI {
 
                 <div class="game-header">
                     <div class="game-title">Round ${displayRound} Shop</div>
+                    ${this.renderHeaderWorldInfo()}
                     <div class="game-stats">
                         <div class="stat-item">
                             <span class="stat-label">Round</span>
@@ -1551,20 +1658,7 @@ class UI {
                 </div>
 
                 <div class="game-content">
-                    <!-- Left: Consumables (Inventory) -->
-                    <div class="section inventory-section">
-                        <div class="section-title">Inventory</div>
-                        <div class="shop-consumables-area">
-                            ${this.renderConsumablesSection()}
-                        </div>
-                        
-                        <div class="shop-consumables-area" style="margin-top: 30px; border-top: 1px solid var(--border); padding-top: 20px;">
-                            <div class="shop-section-title" style="margin-bottom: 10px; font-weight: 700;">Buy Consumables</div>
-                            <div class="shop-consumables-grid">
-                                ${this.renderShopConsumables ? this.renderShopConsumables() : ''}
-                            </div>
-                        </div>
-                    </div>
+
 
                     <!-- Center: Shop Perks -->
                     <div class="section roll-section" style="overflow-y: auto;">
@@ -1635,11 +1729,14 @@ class UI {
         if (!this.forgePan) {
             this.forgePan = { x: 0, y: 0, isDragging: false, startX: 0, startY: 0 };
         }
+        if (this.forgeZoom == null) {
+            this.forgeZoom = 1;
+        }
 
         const forgeable = this.gameState.getForgeableOptions ? this.gameState.getForgeableOptions() : [];
         
         // Sort recipes: Tier (Ascending) -> Name (Ascending)
-        const tierWeight = {'special': 0, 'common': 1, 'uncommon': 2, 'rare': 3, 'legendary': 4, 'mythical':5, 'godlike': 6, 'ultimate':7 };
+        const tierWeight = {'special': 0, 'common': 1, 'uncommon': 2, 'rare': 3, 'epic':4, 'legendary': 5, 'mythical':6, 'godlike': 7, 'ultimate':8 };
         forgeable.sort((a, b) => {
             const ta = tierWeight[a.tier] || 0;
             const tb = tierWeight[b.tier] || 0;
@@ -1793,7 +1890,7 @@ class UI {
                         </div>
                     </div>
 
-                    <div class="forge-content-layer" id="forge-content" style="transform: translate(${this.forgePan.x}px, ${this.forgePan.y}px);">
+                    <div class="forge-content-layer" id="forge-content" style="transform: translate(${this.forgePan.x}px, ${this.forgePan.y}px) scale(${this.forgeZoom});">
                         ${mainContentHtml}
                     </div>
                 </div>
@@ -1812,16 +1909,47 @@ class UI {
         const resetBtn = document.getElementById('btn-reset-view');
         
         if (!viewport || !content) return;
+        
+        const computeCenterPan = () => {
+            const container = document.getElementById('forge-graph-container');
+            const vRect = viewport.getBoundingClientRect();
+            const cRect = container ? container.getBoundingClientRect() : { width: vRect.width, height: vRect.height };
+            const x = Math.round((vRect.width - cRect.width) / 2);
+            const y = Math.round((vRect.height - cRect.height) / 2);
+            return { x, y };
+        };
+        
+        if (!this._forgeInitialized) {
+            const center = computeCenterPan();
+            this.forgePan.x = center.x;
+            this.forgePan.y = center.y;
+            content.style.transform = `translate(${this.forgePan.x}px, ${this.forgePan.y}px) scale(${this.forgeZoom || 1})`;
+            this._forgeInitialized = true;
+        }
 
         // Reset Handler
         if (resetBtn) {
             resetBtn.onclick = (e) => {
                 e.stopPropagation();
-                this.forgePan.x = 0;
-                this.forgePan.y = 0;
+                const center = computeCenterPan();
+                this.forgePan.x = center.x;
+                this.forgePan.y = center.y;
+                this.forgeZoom = 1;
                 // Add transition class for smooth reset
                 content.classList.add('animate-reset');
-                content.style.transform = `translate(0px, 0px)`;
+                content.style.transform = `translate(${this.forgePan.x}px, ${this.forgePan.y}px) scale(${this.forgeZoom})`;
+                
+                if (this.currentGraphData && this.currentGraphData.nodes) {
+                    this.currentGraphData.nodes.forEach(n => {
+                        n.x = undefined;
+                        n.y = undefined;
+                        n.vx = 0;
+                        n.vy = 0;
+                        n.isDragging = false;
+                    });
+                    this.stopForceLayout();
+                    this.initForceLayout();
+                }
                 
                 // Remove class after animation
                 setTimeout(() => {
@@ -1829,6 +1957,15 @@ class UI {
                 }, 300);
             };
         }
+
+        viewport.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            const factor = e.deltaY < 0 ? 1.1 : 0.9;
+            const min = 0.5;
+            const max = 2.5;
+            this.forgeZoom = Math.max(min, Math.min(max, this.forgeZoom * factor));
+            content.style.transform = `translate(${this.forgePan.x}px, ${this.forgePan.y}px) scale(${this.forgeZoom})`;
+        });
 
         // Drag Handlers
         viewport.addEventListener('mousedown', (e) => {
@@ -1990,7 +2127,7 @@ class UI {
                 // We need to re-query content because it might have been re-rendered
                 const currentContent = document.getElementById('forge-content');
                 if (currentContent) {
-                    currentContent.style.transform = `translate(${this.forgePan.x}px, ${this.forgePan.y}px)`;
+                    currentContent.style.transform = `translate(${this.forgePan.x}px, ${this.forgePan.y}px) scale(${this.forgeZoom})`;
                 }
             });
 
@@ -2242,7 +2379,7 @@ class UI {
         setTimeout(() => this.initForceLayout(), 0);
 
         return `
-            <div class="forge-graph-container" id="forge-graph-container" style="position: relative; width: 100%; height: 100%;">
+            <div class="forge-graph-container" id="forge-graph-container" style="position: relative; width: clamp(15000px, 500vw, 120000px); height: clamp(15000px, 500vh, 120000px);">
                 <svg class="forge-connections-svg" id="forge-graph-svg" style="position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1;"></svg>
                 ${nodesHtml}
                 <div id="forge-floating-tooltip" class="ingredient-tooltip" style="position: fixed; pointer-events: none; opacity: 0; z-index: 9999; transform: translate(15px, 15px); transition: opacity 0.1s; max-width: 250px;"></div>
@@ -2255,23 +2392,50 @@ class UI {
         this.isSimulating = true;
         
         const { nodes, links } = this.currentGraphData;
-        const width = 800; 
-        const height = 600; 
+        const containerEl = document.getElementById('forge-graph-container');
+        const rect = containerEl ? containerEl.getBoundingClientRect() : { width: 1000, height: 700 };
+        const width = rect.width; 
+        const height = rect.height; 
         
         // Initial positions
         nodes.forEach((node, i) => {
             if (!node.x) {
-                const angle = i * 0.5;
-                const radius = 50 * i + 10;
+                const angle = i * 0.6;
+                const base = Math.min(width, height) * 0.35;
+                const radius = base + 45 * i;
                 node.x = width/2 + Math.cos(angle) * radius;
                 node.y = height/2 + Math.sin(angle) * radius;
                 node.vx = 0; node.vy = 0;
             }
         });
+        const rootId = this.selectedForgePerk;
+        const root = nodes.find(n => n.id === rootId);
+        if (root) {
+            root.x = width / 2;
+            root.y = height / 2;
+            root.vx = 0;
+            root.vy = 0;
+        }
+        
+        // Center initial camera on the crafting card
+        if (!this._centeredOnRoot) {
+            const viewport = document.getElementById('forge-viewport');
+            const content = document.getElementById('forge-content');
+            if (viewport && content) {
+                const vRect = viewport.getBoundingClientRect();
+                const targetX = Math.round((vRect.width / 2) - (root ? root.x : width / 2));
+                const targetY = Math.round((vRect.height / 2) - (root ? root.y : height / 2));
+                this.forgePan.x = targetX;
+                this.forgePan.y = targetY;
+                this.forgeZoom = this.forgeZoom || 1;
+                content.style.transform = `translate(${this.forgePan.x}px, ${this.forgePan.y}px) scale(${this.forgeZoom})`;
+                this._centeredOnRoot = true;
+            }
+        }
 
         // Tuned for MAX SPREAD and FLOATINESS
-        const repulsion = 40000;      // Very strong push
-        const springLength = 400;     // Long connections
+        const repulsion = 44000;      // Very strong push
+        const springLength = 560;     // Longer connections to extend line reach
         const springStrength = 0.03;  // Loose springs
         const centerGravity = 0.0005; // Almost zero gravity
         const damping = 0.92;         // High damping for drift
@@ -2353,6 +2517,7 @@ class UI {
                 n.vy *= damping;
                 n.x += n.vx;
                 n.y += n.vy;
+                
             });
             
             this.updateGraphDOM();
@@ -2363,7 +2528,8 @@ class UI {
     }
 
     updateGraphDOM() {
-        const { nodes, links } = this.currentGraphData;
+        const { nodes, links } = this.currentGraphData
+
         const svg = document.getElementById('forge-graph-svg');
         if (!svg) return;
         
@@ -2373,7 +2539,7 @@ class UI {
                 const s = nodes.find(n => n.id === link.source);
                 const t = nodes.find(n => n.id === link.target);
                 if (s && t) {
-                    linesHtml += `<line class="forge-link" data-source="${s.id}" data-target="${t.id}" x1="${s.x}" y1="${s.y}" x2="${t.x}" y2="${t.y}" stroke="rgba(255,255,255,0.2)" stroke-width="4" />`;
+                    linesHtml += `<line class="forge-link" data-source="${s.id}" data-target="${t.id}" x1="${s.x}" y1="${s.y}" x2="${t.x}" y2="${t.y}" stroke="rgba(255,255,255,0.25)" stroke-width="4" stroke-linecap="round" />`;
                 }
             });
             svg.innerHTML = linesHtml;
@@ -2448,6 +2614,7 @@ class UI {
                 display: flex;
                 flex-direction: column;
                 cursor: grab; /* Pan cursor */
+                min-height: calc(210vh); /* Larger viewport for graph */
             }
             .forge-main-section:active {
                 cursor: grabbing;
@@ -2628,12 +2795,12 @@ class UI {
             
             /* Link Highlight */
             .forge-link {
-                transition: stroke 0.2s, stroke-width 0.2s, opacity 0.2s;
+                transition: stroke 0.15s, stroke-width 0.15s, opacity 0.15s;
             }
             .highlight-link {
                 stroke: rgba(255, 255, 255, 1) !important;
-                filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.8));
-                stroke-width: 6px !important;
+                filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.95));
+                stroke-width: 8px !important;
                 z-index: 5;
             }
             .dimmed-link {

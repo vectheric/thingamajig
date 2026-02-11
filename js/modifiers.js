@@ -230,15 +230,36 @@ function getRandomMods(options = {}) {
         };
     }
 
-    const { modChanceBoost = 1.0, rng = Math.random, guaranteedMods = [], luck = 0, rarityMultipliers = {}, ownedPerks = {} } = options;
+    const { 
+        modChanceBoost = 1.0, 
+        rng = Math.random, 
+        guaranteedMods = [], 
+        luck = 0, 
+        rarityMultipliers = {}, 
+        ownedPerks = {},
+        worldEffects = null
+    } = options;
+
     const modArray = Object.values(MODS);
     const selectedMods = [];
-    
-    // Add guaranteed mods first
+
+    // Pre-select guaranteed modifiers from Perks
     if (guaranteedMods && guaranteedMods.length > 0) {
         guaranteedMods.forEach(modId => {
             const mod = MODS[modId] || modArray.find(m => m.id === modId);
             if (mod) selectedMods.push({ ...mod });
+        });
+    }
+
+    // Pre-select guaranteed modifiers from World Effects
+    if (worldEffects && worldEffects.modifier && worldEffects.modifier.specific) {
+        Object.entries(worldEffects.modifier.specific).forEach(([modId, effect]) => {
+            if (effect.guaranteed) {
+                 const mod = MODS[modId] || modArray.find(m => m.id === modId);
+                 if (mod && !selectedMods.some(sm => sm.id === mod.id)) {
+                     selectedMods.push({ ...mod });
+                 }
+            }
         });
     }
 
@@ -269,6 +290,25 @@ function getRandomMods(options = {}) {
         const weightedMods = availableMods.map(mod => {
             let rarity = mod.rarity || 10;
             
+            // Apply World Effects (Universal)
+            if (worldEffects && worldEffects.modifier && worldEffects.modifier.universal) {
+                worldEffects.modifier.universal.forEach(effect => {
+                     // "reduce" chance means make it common -> lower rarity number
+                     // "increase" chance means make it rare -> higher rarity number
+                     // Wait, user said: "reduce ALL modifier chance by 2 - make it less rarer"
+                     // If rarity is 10, reduce by 2 = 5 (more common). Correct.
+                     if (effect.type === 'reduce') rarity /= effect.value; 
+                     else if (effect.type === 'increase') rarity *= effect.value;
+                });
+            }
+            
+            // Apply World Effects (Specific)
+            if (worldEffects && worldEffects.modifier && worldEffects.modifier.specific[mod.id]) {
+                 const effect = worldEffects.modifier.specific[mod.id];
+                 if (effect.type === 'reduce') rarity /= effect.value;
+                 else if (effect.type === 'increase') rarity *= effect.value;
+            }
+
             // Apply rarity multipliers from perks (e.g. Hex Breaker increases rarity of Cursed items)
             if (rarityMultipliers[mod.id]) {
                 rarity *= rarityMultipliers[mod.id];

@@ -1,0 +1,86 @@
+/* World Info - Header Integration */
+
+.header-world-info {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    flex: 1; /* Take up available space between title and stats */
+    margin: 0 20px;
+    padding: 0 10px;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    line-height: 1.2;
+    min-width: 200px;
+}
+
+.header-meta {
+    font-size: 0.85rem;
+    color: #aaa;
+    display: flex;
+    gap: 8px;
+    font-weight: 500;
+}
+
+.header-biome-title {
+    font-size: 1.1rem;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.8);
+    transition: color 0.5s ease;
+}
+
+/* Active Event Styling */
+.header-event-text {
+    font-size: 0.9rem;
+    color: #ffd700;
+    margin-top: 4px;
+    text-align: center;
+    /* Limitless length support: remove constraints */
+    /* max-width: 400px;  Removed */
+    white-space: normal; /* Allow wrapping */
+    /* overflow: hidden; Removed to ensure full visibility, though animation might need it. 
+       Actually, keep overflow:hidden for animation if possible, but if wrapping, height changes.
+       Let's assume user wants to SEE the text over animation quality. */
+    /* text-overflow: ellipsis; Removed */
+    font-weight: bold;
+    /* Animation needs to handle multi-line or just be removed/simplified if wrapping */
+    animation: type-writer 5s steps(40) 1 normal both;
+}
+
+@keyframes type-writer {
+    from { width: 0; white-space: nowrap; overflow: hidden; }
+    to { width: 100%; white-space: normal; overflow: visible; }
+}
+
+/* Ensure Game Header accommodates the new center element properly */
+/* Note: The original .game-header in style.css might need adjustment if it wasn't flex */
+.game-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 20px;
+    background: linear-gradient(to bottom, rgba(20, 20, 25, 0.95), rgba(10, 10, 15, 0.95));
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    min-height: 80px; /* Allow expansion for long text */
+    height: auto;
+}
+
+/* Mobile Responsiveness */
+@media (max-width: 768px) {
+    .game-header {
+        flex-direction: column;
+        height: auto;
+        gap: 10px;
+        padding-bottom: 15px;
+    }
+    
+    .header-world-info {
+        order: 2; /* Move below title on mobile */
+        margin: 5px 0;
+    }
+    
+    .header-event-text {
+        white-space: normal;
+    }
+}

@@ -148,8 +148,26 @@ Object.keys(ITEMS).forEach(key => {
  * @param {number} round - current round (optional, defaults to 1)
  * @returns {Object} { name, value, rarity }
  */
-function rollThing(round = 1, rng = Math.random, rarityWeightsOverride) {
-    const selection = selectByWeight(getRoundBasedTemplateWeights(round, rarityWeightsOverride), rng);
+function rollThing(round = 1, rng = Math.random, rarityWeightsOverride, worldEffects = null) {
+    // Handle guaranteed item from World Effects
+    if (worldEffects && worldEffects.item && worldEffects.item.guaranteed) {
+        const guaranteedId = worldEffects.item.guaranteed;
+        const template = ITEMS[guaranteedId];
+        if (template) {
+             const baseValue = template.baseValue;
+             const finalValue = Math.round(baseValue);
+             return {
+                id: guaranteedId,
+                name: template.name,
+                value: finalValue,
+                tier: template.tier,
+                rarity: template.rarity || 1,
+                nameStyle: template.color ? { color: template.color } : undefined
+            };
+        }
+    }
+
+    const selection = selectByWeight(getRoundBasedTemplateWeights(round, rarityWeightsOverride, worldEffects), rng);
     const template = selection.template;
     const tier = template.tier;
 
@@ -166,15 +184,26 @@ function rollThing(round = 1, rng = Math.random, rarityWeightsOverride) {
     };
 }
 
-function getRoundBasedTemplateWeights(round, tierRarityOverride) {
+function getRoundBasedTemplateWeights(round, tierRarityOverride, worldEffects = null) {
     const tierRarity = tierRarityOverride || getRoundBasedRarityWeights(round);
     const weights = [];
 
     for (const template of Object.values(ITEMS)) {
         // Use template.rarity as the primary rarity score
         // Default to 10 if missing, but all defined items should have it
-        const itemRarity = template.rarity || 10;
+        let itemRarity = template.rarity || 10;
         
+        // Apply World Effects (Specific Item Rarity)
+        if (worldEffects && worldEffects.item && worldEffects.item.specific[template.id]) {
+            const effect = worldEffects.item.specific[template.id];
+            // Note: Rarity logic here is 1,000,000 / rarity.
+            // Higher rarity = Rarer.
+            // User: "set rarity to 2" -> set value
+            // User: "add rarity 2" -> increase value (make rarer)
+            if (effect.type === 'set') itemRarity = effect.value;
+            else if (effect.type === 'add') itemRarity += effect.value;
+        }
+
         // Calculate probability weight
         // Formula: 1,000,000 / itemRarity
         // Higher rarity number = Lower probability

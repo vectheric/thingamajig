@@ -21,9 +21,35 @@ function checkPerkConditions(perk, gameState, ownedPerks) {
                     if (statVal < threshold) return false;
                 }
             } else if (cond.type === 'item_collected') {
-                // Check if item has been collected in this run
-                const hasItem = gameState.itemHistory && gameState.itemHistory.some(i => i.id === cond.itemId);
-                if (!hasItem) return false;
+                // Extended: itemId + optional modifiers/attributes filtering
+                const wantedItemId = cond.itemId;
+                const wantedMods = Array.isArray(cond.modifier) ? cond.modifier
+                                  : (cond.modifier ? [cond.modifier] : (cond.modifiers ? (Array.isArray(cond.modifiers) ? cond.modifiers : [cond.modifiers]) : []));
+                const wantedAttr = cond.attribute || cond.attributeId;
+                
+                const match = (entry) => {
+                    // Base id match if provided
+                    if (wantedItemId && entry.id !== wantedItemId) return false;
+                    // Modifiers match: all required mods must be present
+                    if (wantedMods && wantedMods.length > 0) {
+                        const have = entry.mods || [];
+                        for (const m of wantedMods) {
+                            if (!have.includes(m)) return false;
+                        }
+                    }
+                    // Attribute match
+                    if (wantedAttr && entry.attribute !== wantedAttr) return false;
+                    return true;
+                };
+                
+                const hasMatch = Array.isArray(gameState.itemHistory) && gameState.itemHistory.some(match);
+                if (!hasMatch) return false;
+            } else if (cond.type === 'modifier_collected') {
+                // Check if any collected item had the given modifier
+                const modId = cond.modID || cond.modId || cond.modifier;
+                if (!modId) continue;
+                const hasMod = Array.isArray(gameState.itemHistory) && gameState.itemHistory.some(entry => (entry.mods || []).includes(modId));
+                if (!hasMod) return false;
             }
         } 
         // Requirement Conditions (other perks)
