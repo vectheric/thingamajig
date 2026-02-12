@@ -203,7 +203,7 @@ const AUGMENTS = {
     'placebo': {
         name: 'Placebo',
         description: 'Self-explanatory. Add +0.01 luck.',
-        cost: 10,
+        cost: 2,
         tier: 'common',
         icon: 'p',
         nameStyle: { color: '#8d1515ff', textStroke: '1px rgba(0,0,0,0.5)' },
@@ -217,12 +217,12 @@ const AUGMENTS = {
     'placebo_p': {
         name: 'Placebo+',
         description: 'better. Add +0.1 luck.',
-        cost: 10,
+        cost: 0,
         tier: 'common',
         icon: 'p+',
         nameStyle: { color: '#cc2121ff', textStroke: '1px rgba(0,0,0,0.5)' },
         conditions: [
-            { type: 'forging', recipe: ['placebo'], cash: 20 }
+            { type: 'forging', recipe: ['placebo'], cash: 2 }
         ],
         properties: {
             stack: 1
@@ -239,7 +239,7 @@ const AUGMENTS = {
         icon: 'p++',
         nameStyle: { color: '#cc2121ff', textStroke: '1px rgba(0,0,0,0.5)' },
         conditions: [
-            { type: 'forging', recipe: ['placebo', 'placebo_p'], cash: 20 }
+            { type: 'forging', recipe: ['placebo', 'placebo_p'], cash: 10 }
         ],
         properties: {
             stack: 1
@@ -335,7 +335,7 @@ const AUGMENTS = {
         tier: 'common',
         icon: '⚡',
         properties: {
-            stack: 50
+            stack: 2
         },
         conditions: [
             {
