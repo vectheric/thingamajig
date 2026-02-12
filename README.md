@@ -1,4 +1,4 @@
-> i'll make this game better
+> I'll make this game better
 
 
 # Thingamajig - Roguelike gambling game
@@ -7,8 +7,9 @@ Want Cloverpit, Balatro? don't worry son we have them at home! Completely web-ba
 just a hobby project.
 
 
-
 # Installation
 1. Install the .zip file and unzip it
 2. Launch the game by clicking `index.html` file to play on your favorite browser
-- **Tip:** Fullscreen the browser for best experience
+3. Enjoy!
+
+- **Tip:** Set fullscreen enabled in the browser for best experience.
