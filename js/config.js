@@ -13,7 +13,7 @@ const CONFIG = {
         // Normal Rounds
         NORMAL_BASE: 10,          // Starting cost for Round 1
         NORMAL_GROWTH: 5,         // Linear increase per round (easy early game)
-        NORMAL_EXPONENT: 1.5,    // 15% compounding growth per round after threshold
+        NORMAL_EXPONENT: 1.15,    // 15% compounding growth per round after threshold
         EXPONENTIAL_START_ROUND: 20, // Exponential growth kicks in after Route 3 (Round 15)
         
         // Boss Rounds
