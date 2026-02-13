@@ -544,7 +544,7 @@ const AUGMENTS = {
     'mega_roller': {
         name: 'Mega Roller',
         description: '+2 Rolls, +2 Value for items',
-        cost: 110,
+        cost: 7,
         tier: 'rare',
         icon: '🎲',
         properties: {
@@ -558,7 +558,7 @@ const AUGMENTS = {
     'revenue_stream': {
         name: 'Revenue Stream',
         description: '+50% round reward cash, +1Ȼ',
-        cost: 40,
+        cost: 9,
         tier: 'rare',
         icon: '💸',
         properties: {
@@ -591,7 +591,7 @@ const AUGMENTS = {
         tier: 'epic',
         icon: '🎰',
         properties: {
-            stack: 50
+            stack: 7
         },
         stats: {
             chipBonus: { type: 'add', value: 77 },
@@ -787,7 +787,7 @@ const AUGMENTS = {
     'prisma': {
         name: 'prisma',
         description: '+200% mod chance, +3 Rolls, +4 Value, +2 Luck, +3Ȼ - Guaranteed special items. Prismatic items common',
-        cost: 777,
+        cost: 444,
         tier: 'legendary',
         icon: '🔺',
         special: {
@@ -818,7 +818,7 @@ const AUGMENTS = {
         nameStyle: { color: '#fbbf24', textStroke: '1px rgba(255,255,255,0.5)' },
         properties: {
             overwrite: ['trial_of_twilight'],
-            stack: 50
+            stack: 1
         },
         stats: {
             luck: { type: 'add', value: 3 },
@@ -848,7 +848,7 @@ const AUGMENTS = {
         nameStyle: { color: '#7c3aed', textStroke: '1px rgba(0,0,0,0.5)' },
         properties: {
             overwrite: ['daybreaker'],
-            stack: 50
+            stack: 1
         },
         stats: {
             valueBonus: { type: 'add', value: 0.5 },
