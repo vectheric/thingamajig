@@ -484,8 +484,8 @@ const AUGMENTS = {
     'hex_breaker': {
         name: 'Hex Breaker',
         description: 'Makes Cursed, Corrupted, and Shadowy items much rarer',
-        cost: 90,
-        tier: 'rare',
+        cost: 70,
+        tier: 'epic',
         icon: '🛡️',
         properties: {
             stack: 50
@@ -529,7 +529,7 @@ const AUGMENTS = {
     'golden_fortune': {
         name: 'Golden Fortune',
         description: '+2 Value, +1Ȼ mult, +1 Luck',
-        cost: 105,
+        cost: 30,
         tier: 'rare',
         icon: '🪙',
         properties: {
@@ -683,7 +683,7 @@ const AUGMENTS = {
         stats: {} // Handled specially in game-state.js
     },
     'm4Lw4r3_zer01': {
-        name: "m4Lw4r3_zer01",
+        name: "M4Lw4r3_zer01",
         description: "A virus generator. Enables VIRUS upgrades. ",
         cost: 101,
         tier: 'mythical',
@@ -713,10 +713,10 @@ const AUGMENTS = {
             stack: 50
         },
         conditions: [
-            { type: 'requireAugment', augmentId: ['M4LW4R3_ZER01'] }
+            { type: 'requireAugment', augmentId: ['m4lw4r3_zer01'] }
         ],
         stats: {
-            luck: { type: 'add', value: 0.66 }
+            luck: { type: 'add', value: 6.66 }
         }
     },
     'auto_roll_common': {
@@ -787,7 +787,7 @@ const AUGMENTS = {
     'prisma': {
         name: 'prisma',
         description: '+200% mod chance, +3 Rolls, +4 Value, +2 Luck, +3Ȼ - Guaranteed special items. Prismatic items common',
-        cost: 444,
+        cost: 433,
         tier: 'legendary',
         icon: '🔺',
         special: {
@@ -812,8 +812,8 @@ const AUGMENTS = {
     'daybreaker': {
         name: 'Daybreaker',
         description: '+3 Luck, +1 Value to every items. Overwrites Trial of Twilight.',
-        cost: 60,
-        tier: 'rare',
+        cost: 30,
+        tier: 'epic',
         icon: '🌅',
         nameStyle: { color: '#fbbf24', textStroke: '1px rgba(255,255,255,0.5)' },
         properties: {
@@ -842,8 +842,8 @@ const AUGMENTS = {
     'trial_of_twilight': {
         name: 'Trial of Twilight',
         description: '+3 Value Multiplier, +1 Luck. Overwrite Daybreaker.',
-        cost: 60,
-        tier: 'rare',
+        cost: 30,
+        tier: 'epic',
         icon: '🌑',
         nameStyle: { color: '#7c3aed', textStroke: '1px rgba(0,0,0,0.5)' },
         properties: {
