@@ -47,7 +47,7 @@ const AUGMENTS = {
         description: "Sadly, it's too old to be used again, +1 Roll",
         cost: 2,
         tier: 'common',
-        icon: '',
+        icon: '🛞',
         properties: {
             stack: 50
         },
