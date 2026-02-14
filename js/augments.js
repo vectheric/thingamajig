@@ -260,7 +260,7 @@ const AUGMENTS = {
             stack: 1
         },
         conditions: [
-            { type: 'forging', recipe: ['car', 'thunder_strike', 'electrolyte', 'old_tire', 'chip_vision', 'fire_affinity'], cash: 120 }
+            { type: 'forging', recipe: ['car', 'thunder_strike', 'electrolyte', 'old_tire', 'chip_vision'], cash: 120 }
         ],
         stats: {
             rolls: { type: 'add', value: 40 },
